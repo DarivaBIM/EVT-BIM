@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Autodesk.Revit.DB;
 
 namespace FamiliesImporterHub.UI
 {
@@ -26,7 +28,7 @@ namespace FamiliesImporterHub.UI
             {
                 if (SetField(ref _selectedPipeType, value))
                 {
-                    PipeTypeChanged?.Invoke();
+                    RefreshDiameters();
                 }
             }
         }
@@ -69,8 +71,6 @@ namespace FamiliesImporterHub.UI
             ? "Desativar inserção de tubos"
             : "Ativar inserção de tubos";
 
-        public event System.Action? PipeTypeChanged;
-
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
@@ -89,17 +89,48 @@ namespace FamiliesImporterHub.UI
             OnPropertyChanged(name);
             return true;
         }
+
+        private void RefreshDiameters()
+        {
+            double? previous = SelectedDiameterMm;
+
+            Diameters.Clear();
+
+            if (SelectedPipeType == null)
+            {
+                SelectedDiameterMm = null;
+                return;
+            }
+
+            foreach (double d in SelectedPipeType.AvailableDiametersMm)
+            {
+                Diameters.Add(d);
+            }
+
+            if (previous.HasValue && Diameters.Contains(previous.Value))
+            {
+                SelectedDiameterMm = previous;
+            }
+            else if (Diameters.Count > 0)
+            {
+                SelectedDiameterMm = Diameters[0];
+            }
+            else
+            {
+                SelectedDiameterMm = null;
+            }
+        }
     }
 
     public class PipingSystemOption
     {
-        public PipingSystemOption(int id, string name)
+        public PipingSystemOption(ElementId id, string name)
         {
             Id = id;
             Name = name;
         }
 
-        public int Id { get; }
+        public ElementId Id { get; }
         public string Name { get; }
 
         public override string ToString() => Name;
@@ -107,28 +138,30 @@ namespace FamiliesImporterHub.UI
 
     public class PipeTypeOption
     {
-        public PipeTypeOption(int id, string name)
+        public PipeTypeOption(ElementId id, string name, IReadOnlyList<double> availableDiametersMm)
         {
             Id = id;
             Name = name;
+            AvailableDiametersMm = availableDiametersMm;
         }
 
-        public int Id { get; }
+        public ElementId Id { get; }
         public string Name { get; }
+        public IReadOnlyList<double> AvailableDiametersMm { get; }
 
         public override string ToString() => Name;
     }
 
     public class LevelOption
     {
-        public LevelOption(int id, string name, double elevationFeet)
+        public LevelOption(ElementId id, string name, double elevationFeet)
         {
             Id = id;
             Name = name;
             ElevationFeet = elevationFeet;
         }
 
-        public int Id { get; }
+        public ElementId Id { get; }
         public string Name { get; }
         public double ElevationFeet { get; }
 
