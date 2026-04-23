@@ -67,6 +67,13 @@ namespace FamiliesImporterHub.UI
             }
         }
 
+        private string _statusMessage = "Ferramenta desativada.";
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            set => SetField(ref _statusMessage, value);
+        }
+
         public string ToggleButtonText => IsActive
             ? "Desativar inserção de tubos"
             : "Ativar inserção de tubos";
