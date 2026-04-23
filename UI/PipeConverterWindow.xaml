@@ -11,6 +11,7 @@
         Background="#F4F7FB"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
+        Loaded="OnWindowLoaded"
         Closing="OnWindowClosing">
 
     <Window.Resources>
