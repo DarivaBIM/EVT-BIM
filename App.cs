@@ -14,6 +14,8 @@ namespace FamiliesImporterHub
         private const string ButtonName = "FamiliesImporterHub";
         private const string ButtonText = "Families\nImporter Hub";
         private const string PaneTitle = "Importar Famílias";
+        private const string PipeConverterButtonName = "PipeConverter";
+        private const string PipeConverterButtonText = "Converter\nCAD → Tubos";
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -37,6 +39,22 @@ namespace FamiliesImporterHub
                 {
                     button.ToolTip = "Abre o painel de importação de famílias da Tigre.";
                     button.LongDescription = "Abre um painel lateral no Revit para listar e importar famílias.";
+                }
+
+                PushButtonData pipeConverterButtonData = new PushButtonData(
+                    PipeConverterButtonName,
+                    PipeConverterButtonText,
+                    assemblyPath,
+                    typeof(ShowPipeConverterCommand).FullName!);
+
+                PushButton? pipeConverterButton = panel.AddItem(pipeConverterButtonData) as PushButton;
+
+                if (pipeConverterButton != null)
+                {
+                    pipeConverterButton.ToolTip = "Converte linhas de vínculo CAD em tubos Revit.";
+                    pipeConverterButton.LongDescription =
+                        "Abre uma janela para configurar sistema, tipo e diâmetro, " +
+                        "e ativa um modo de seleção que converte linhas de vínculos CAD em tubos.";
                 }
 
                 FamiliesPage familiesPage = new FamiliesPage();
