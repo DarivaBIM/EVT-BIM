@@ -52,6 +52,18 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Margin" Value="0,6,0,0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource ActiveBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="StatusTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,10,0,0" />
         </Style>
     </Window.Resources>
 
@@ -99,6 +111,10 @@
                     Style="{StaticResource ToggleButtonStyle}"
                     Content="{Binding ToggleButtonText}"
                     Click="OnToggleClicked" />
+
+            <TextBlock x:Name="StatusTextBlock"
+                       Style="{StaticResource StatusTextStyle}"
+                       Text="{Binding StatusMessage}" />
         </StackPanel>
     </Border>
 </Window>
