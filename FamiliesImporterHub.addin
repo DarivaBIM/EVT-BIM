@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>FamiliesImporterHub</Name>
+		<Assembly>C:\ProgramData\Autodesk\Revit\Addins\2026\FamiliesImporterHub\FamiliesImporterHub.dll</Assembly>
+		<AddInId>85D71C18-7B8D-4567-A14A-C4F5CB801513</AddInId>
+		<FullClassName>FamiliesImporterHub.App</FullClassName>
+		<VendorId>DarivaTigre</VendorId>
+		<VendorDescription>DarivaTigre</VendorDescription>
+	</AddIn>
+</RevitAddIns>
