@@ -62,12 +62,30 @@ namespace FamiliesImporterHub.Infrastructure
                         continue;
                     }
 
-                    string curveKind = DescribeReference(doc, reference);
+                    PipeConversionConfig config = new PipeConversionConfig(
+                        system.Id,
+                        pipeType.Id,
+                        level.Id,
+                        diameter.Value,
+                        level.ElevationFeet,
+                        offsetMm);
 
-                    // Passo 4: criar o tubo real aqui com Pipe.Create.
-                    vm.StatusMessage =
-                        $"Selecionado: {curveKind} | {system.Name} | {pipeType.Name} | " +
-                        $"Ø{diameter}mm | {level.Name} + {offsetMm}mm";
+                    PipeCreationResult result = PipeCreator.CreateFromReference(doc, reference, config);
+
+                    if (result.Success)
+                    {
+                        string skippedNote = result.SkippedCount > 0
+                            ? $" (ignorado(s) {result.SkippedCount} segmento(s) curto(s))"
+                            : string.Empty;
+
+                        vm.StatusMessage =
+                            $"Criado(s) {result.CreatedCount} tubo(s){skippedNote} | {pipeType.Name} " +
+                            $"Ø{diameter}mm | {level.Name} + {offsetMm}mm";
+                    }
+                    else
+                    {
+                        vm.StatusMessage = $"Não foi possível criar o tubo: {result.ErrorMessage}";
+                    }
                 }
             }
             catch (Exception ex)
@@ -77,8 +95,7 @@ namespace FamiliesImporterHub.Infrastructure
             finally
             {
                 vm.IsActive = false;
-                if (string.IsNullOrEmpty(vm.StatusMessage) ||
-                    vm.StatusMessage.StartsWith("Selecionado:"))
+                if (string.IsNullOrEmpty(vm.StatusMessage))
                 {
                     vm.StatusMessage = "Ferramenta desativada.";
                 }
@@ -86,26 +103,5 @@ namespace FamiliesImporterHub.Infrastructure
         }
 
         public string GetName() => "TigreBIM.PipeInsertionHandler";
-
-        private static string DescribeReference(Document doc, Reference reference)
-        {
-            try
-            {
-                Element element = doc.GetElement(reference);
-                GeometryObject? geom = element?.GetGeometryObjectFromReference(reference);
-
-                return geom switch
-                {
-                    Line _ => "Linha",
-                    Arc _ => "Arco",
-                    PolyLine _ => "Polyline",
-                    _ => geom?.GetType().Name ?? "Geometria"
-                };
-            }
-            catch
-            {
-                return "Geometria";
-            }
-        }
     }
 }
