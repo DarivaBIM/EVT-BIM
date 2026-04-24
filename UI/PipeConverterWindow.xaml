@@ -105,7 +105,7 @@
 
             <TextBlock Text="Cota em relação ao nível (mm)" Style="{StaticResource FieldLabelStyle}" />
             <TextBox x:Name="OffsetTextBox"
-                     Text="{Binding OffsetMm, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.##}}" />
+                     Text="{Binding OffsetMm, StringFormat={}{0:0.##}}" />
 
             <Button x:Name="ToggleButton"
                     Style="{StaticResource ToggleButtonStyle}"
