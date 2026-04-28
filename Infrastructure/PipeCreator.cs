@@ -56,6 +56,11 @@ namespace FamiliesImporterHub.Infrastructure
             int skipped = 0;
 
             using Transaction tx = new(doc, "PipeCADMapper — converter linha CAD em tubo");
+            FailureHandlingOptions failureOptions = tx.GetFailureHandlingOptions();
+            failureOptions.SetFailuresPreprocessor(new PipeCreationFailurePreprocessor());
+            failureOptions.SetClearAfterRollback(true);
+            failureOptions.SetForcedModalHandling(false);
+            tx.SetFailureHandlingOptions(failureOptions);
             tx.Start();
 
             // 1) Cria placeholders na cota de destino e armazena para conexão posterior.

@@ -16,6 +16,13 @@ namespace FamiliesImporterHub.Infrastructure
     {
         public PipeConverterViewModel? ViewModel { get; set; }
 
+        /// <summary>
+        /// Configurações persistidas a aplicar nas seleções (definidas pela
+        /// UI ao abrir a janela). Limpadas após o primeiro uso para que
+        /// recarregamentos posteriores não sobrescrevam o estado do usuário.
+        /// </summary>
+        public PipeCadMapperSettings? PendingSettings { get; set; }
+
         public void Execute(UIApplication app)
         {
             PipeConverterViewModel? vm = ViewModel;
@@ -58,6 +65,8 @@ namespace FamiliesImporterHub.Infrastructure
 
                 PopulateViewModel(vm, systems, pipeTypes, levels);
 
+                ApplyPendingSettings(vm);
+
                 if (vm.Systems.Count == 0 || vm.PipeTypes.Count == 0 || vm.Levels.Count == 0)
                 {
                     vm.StatusMessage = "Projeto sem sistemas/tipos/níveis suficientes para criar tubos.";
@@ -75,6 +84,68 @@ namespace FamiliesImporterHub.Infrastructure
         }
 
         public string GetName() => "TigreBIM.PipeConverterDataLoadHandler";
+
+        private void ApplyPendingSettings(PipeConverterViewModel vm)
+        {
+            PipeCadMapperSettings? settings = PendingSettings;
+            if (settings == null)
+                return;
+
+            // Consome o pedido — recarregamentos seguintes (ex.: troca de
+            // projeto) não devem reaplicar o snapshot inicial por cima do que
+            // o usuário tiver mexido.
+            PendingSettings = null;
+
+            if (!string.IsNullOrEmpty(settings.SystemName))
+            {
+                foreach (PipingSystemOption option in vm.Systems)
+                {
+                    if (string.Equals(option.Name, settings.SystemName, StringComparison.Ordinal))
+                    {
+                        vm.SelectedSystem = option;
+                        break;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(settings.PipeTypeName))
+            {
+                foreach (PipeTypeOption option in vm.PipeTypes)
+                {
+                    if (string.Equals(option.Name, settings.PipeTypeName, StringComparison.Ordinal))
+                    {
+                        vm.SelectedPipeType = option;
+                        break;
+                    }
+                }
+            }
+
+            if (settings.DiameterMm.HasValue)
+            {
+                foreach (double d in vm.Diameters)
+                {
+                    if (Math.Abs(d - settings.DiameterMm.Value) < 0.001)
+                    {
+                        vm.SelectedDiameterMm = d;
+                        break;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(settings.LevelName))
+            {
+                foreach (LevelOption option in vm.Levels)
+                {
+                    if (string.Equals(option.Name, settings.LevelName, StringComparison.Ordinal))
+                    {
+                        vm.SelectedLevel = option;
+                        break;
+                    }
+                }
+            }
+
+            vm.OffsetMm = settings.OffsetMm;
+        }
 
         private static void PopulateViewModel(
             PipeConverterViewModel vm,

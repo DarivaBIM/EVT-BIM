@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using FamiliesImporterHub.Infrastructure;
@@ -12,6 +13,9 @@ namespace FamiliesImporterHub.UI
 
         private readonly PipeConverterDataLoadExternalEvent _dataLoadEvent = new();
         private readonly PipeInsertionExternalEvent _pipeInsertionEvent = new();
+
+        private PipeCadMapperSettings _initialSettings = new();
+        private bool _initialLoadDone;
 
         public PipeConverterViewModel ViewModel { get; }
 
@@ -42,7 +46,13 @@ namespace FamiliesImporterHub.UI
 
         private void OnWindowLoaded(object sender, RoutedEventArgs e)
         {
-            _dataLoadEvent.Raise(ViewModel);
+            // Carrega as preferências persistidas e pede para o handler
+            // aplicá-las na primeira passagem de carga de dados.
+            _initialSettings = PipeCadMapperSettings.Load();
+            ViewModel.OffsetMm = _initialSettings.OffsetMm;
+            _initialLoadDone = true;
+
+            _dataLoadEvent.RaiseWithSettings(ViewModel, _initialSettings);
         }
 
         private void OnToggleClicked(object sender, RoutedEventArgs e)
@@ -51,6 +61,7 @@ namespace FamiliesImporterHub.UI
             {
                 ViewModel.IsActive = false;
                 ViewModel.StatusMessage = "Ferramenta desativada.";
+                _pipeInsertionEvent.MarkNextCancelAsInternal();
                 SendEscapeToRevit();
                 return;
             }
@@ -71,10 +82,34 @@ namespace FamiliesImporterHub.UI
         {
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
 
+            // Persiste o último estado da configuração para a próxima sessão.
+            SaveCurrentSettings();
+
             if (ViewModel.IsActive)
             {
                 ViewModel.IsActive = false;
+                _pipeInsertionEvent.MarkNextCancelAsInternal();
                 SendEscapeToRevit();
+            }
+        }
+
+        private void SaveCurrentSettings()
+        {
+            try
+            {
+                PipeCadMapperSettings settings = new()
+                {
+                    SystemName = ViewModel.SelectedSystem?.Name,
+                    PipeTypeName = ViewModel.SelectedPipeType?.Name,
+                    DiameterMm = ViewModel.SelectedDiameterMm,
+                    LevelName = ViewModel.SelectedLevel?.Name,
+                    OffsetMm = ViewModel.OffsetMm,
+                };
+                settings.Save();
+            }
+            catch
+            {
+                // Persistência best-effort — falhas não devem impedir o fechamento.
             }
         }
 
@@ -90,10 +125,10 @@ namespace FamiliesImporterHub.UI
             if (!IsInsertionParameter(e.PropertyName))
                 return;
 
-            // Cancela o pick atual em andamento; o handler vai cair no catch
-            // de OperationCanceled, e o re-arm automático (no finally) já
-            // agenda o próximo pick. Como reforço, chamamos RaiseIfActive
-            // para garantir que a fila não fique vazia.
+            // Marca esse cancel como interno antes de enviar o ESC, caso
+            // contrário o handler interpretaria como ESC do usuário e
+            // desativaria a ferramenta.
+            _pipeInsertionEvent.MarkNextCancelAsInternal();
             SendEscapeToRevit();
             _pipeInsertionEvent.RaiseIfActive(ViewModel);
         }
@@ -125,7 +160,22 @@ namespace FamiliesImporterHub.UI
                 if (_instance != null && !_instance.ViewModel.IsActive)
                 {
                     _instance.ViewModel.StatusMessage = "Recarregando dados do projeto…";
-                    _instance._dataLoadEvent.Raise(_instance.ViewModel);
+
+                    // Em recargas (troca de projeto), não reaplicamos o
+                    // snapshot inicial: usamos o estado corrente do VM como
+                    // alvo das seleções por nome.
+                    PipeCadMapperSettings reloadHints = _instance._initialLoadDone
+                        ? new PipeCadMapperSettings
+                        {
+                            SystemName = _instance.ViewModel.SelectedSystem?.Name,
+                            PipeTypeName = _instance.ViewModel.SelectedPipeType?.Name,
+                            DiameterMm = _instance.ViewModel.SelectedDiameterMm,
+                            LevelName = _instance.ViewModel.SelectedLevel?.Name,
+                            OffsetMm = _instance.ViewModel.OffsetMm,
+                        }
+                        : _instance._initialSettings;
+
+                    _instance._dataLoadEvent.RaiseWithSettings(_instance.ViewModel, reloadHints);
                 }
             }));
         }
@@ -144,10 +194,22 @@ namespace FamiliesImporterHub.UI
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
         private static void SendEscapeToRevit()
         {
             try
             {
+                // Sem dar foco a Revit, o ESC pode ser consumido pela própria
+                // janela WPF (Topmost) e o PickObject continua travado.
+                IntPtr revitHandle = Process.GetCurrentProcess().MainWindowHandle;
+                if (revitHandle != IntPtr.Zero)
+                {
+                    SetForegroundWindow(revitHandle);
+                }
+
                 keybd_event(VK_ESCAPE, 0, 0, UIntPtr.Zero);
                 keybd_event(VK_ESCAPE, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
             }

@@ -23,5 +23,15 @@ namespace FamiliesImporterHub.Infrastructure
             _handler.ViewModel = viewModel;
             _externalEvent.Raise();
         }
+
+        public void RaiseWithSettings(PipeConverterViewModel viewModel, PipeCadMapperSettings settings)
+        {
+            if (viewModel == null)
+                throw new ArgumentNullException(nameof(viewModel));
+
+            _handler.ViewModel = viewModel;
+            _handler.PendingSettings = settings;
+            _externalEvent.Raise();
+        }
     }
 }
