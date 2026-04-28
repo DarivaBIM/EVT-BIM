@@ -1,121 +1,135 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 
 namespace FamiliesImporterHub.Infrastructure
 {
-    /// <summary>
-    /// Catálogo Tigre (descrição/diâmetro/código) usado para preencher o
-    /// parâmetro <c>Tigre: Código</c> dos tubos. Reproduz a lógica do script
-    /// Dynamo: matching por tokens da descrição + diâmetro arredondado em mm.
-    /// </summary>
     internal sealed class TigreCatalogEntry
     {
-        public TigreCatalogEntry(string description, int diameterMm, int code)
+        public TigreCatalogEntry(string description, int diameterMm, int code, IReadOnlySet<string> ignoreTokens)
         {
             DescriptionRaw = description;
-            DescriptionNormalized = TigreTextUtils.Normalize(description);
             Tokens = TigreTextUtils.Tokenize(description);
+            CoreTokens = TigreTextUtils.CoreTokens(description, ignoreTokens);
+            if (CoreTokens.Count == 0)
+                CoreTokens = Tokens;
+
             DiameterMm = diameterMm;
             Code = code;
         }
 
         public string DescriptionRaw { get; }
-        public string DescriptionNormalized { get; }
         public IReadOnlyList<string> Tokens { get; }
+        public IReadOnlyList<string> CoreTokens { get; private set; }
         public int DiameterMm { get; }
         public int Code { get; }
+    }
+
+    internal sealed class TigreRawCatalogRow
+    {
+        public string Description { get; set; } = string.Empty;
+        public int DiameterMm { get; set; }
+        public int Code { get; set; }
     }
 
     internal static class TigreCodeCatalog
     {
         public const double DiameterToleranceMm = 0.5;
 
-        // Linhas no formato (Descrição, Diâmetro nominal, Código).
-        // Diâmetros em string aceitam mm (ex.: "40") ou polegadas em fração
-        // (ex.: "3/4", "1.1/4"); a conversão para mm acontece no parse.
-        private static readonly (string Description, string Diameter, int Code)[] RawRows = new[]
+        private static readonly string CatalogJsonPath =
+            Path.Combine(AppContext.BaseDirectory, "Data", "tigre_codes.json");
+
+        private static readonly HashSet<string> IgnoreTokens = new(StringComparer.Ordinal)
         {
-            ("Série Reforçada", "40", 11054323),
-            ("Série Reforçada", "50", 11054420),
-            ("Série Reforçada", "75", 11054528),
-            ("Série Reforçada", "100", 11055010),
-            ("Série Reforçada", "150", 11051600),
+            "tubo", "tubos", "pipe", "pipes", "pvc", "material", "materiais",
+            "marrom", "laranja", "branco", "branca", "azul", "verde", "cinza",
+            "preto", "preta", "linha", "sistema",
+        };
 
-            ("Série Normal", "40", 11111700),
-            ("Série Normal", "50", 11030602),
-            ("Série Normal", "75", 11030904),
-            ("Série Normal", "100", 11031030),
-            ("Série Normal", "150", 11031501),
-            ("Série Normal", "200", 11032036),
+        private static readonly (string Description, int DiameterMm, int Code)[] EmbeddedFallbackRows =
+        {
+            ("Série Reforçada", 40, 11054323),
+            ("Série Reforçada", 50, 11054420),
+            ("Série Reforçada", 75, 11054528),
+            ("Série Reforçada", 100, 11055010),
+            ("Série Reforçada", 150, 11051600),
 
-            ("Redux", "40", 100002786),
-            ("Redux", "50", 100002787),
-            ("Redux", "75", 100002788),
-            ("Redux", "100", 100002789),
-            ("Redux", "150", 100002790),
+            ("Série Normal", 40, 11111700),
+            ("Série Normal", 50, 11030602),
+            ("Série Normal", 75, 11030904),
+            ("Série Normal", 100, 11031030),
+            ("Série Normal", 150, 11031501),
+            ("Série Normal", 200, 11032036),
 
-            ("Soldável", "20", 10120209),
-            ("Soldável", "25", 10120250),
-            ("Soldável", "32", 10120322),
-            ("Soldável", "40", 10120403),
-            ("Soldável", "50", 10120500),
-            ("Soldável", "60", 10120608),
-            ("Soldável", "75", 10120756),
-            ("Soldável", "85", 10120853),
-            ("Soldável", "110", 10121035),
+            ("Redux Laranja", 40, 100002786),
+            ("Redux Laranja", 50, 100002787),
+            ("Redux Laranja", 75, 100002788),
+            ("Redux Laranja", 100, 100002789),
+            ("Redux Laranja", 150, 100002790),
 
-            ("ClicPEX Monocamada", "16", 300000774),
-            ("ClicPEX Monocamada", "20", 300000775),
-            ("ClicPEX Monocamada", "25", 300000776),
-            ("ClicPEX Monocamada", "32", 300000777),
+            ("Soldável Marrom", 20, 10120209),
+            ("Soldável Marrom", 25, 10120250),
+            ("Soldável Marrom", 32, 10120322),
+            ("Soldável Marrom", 40, 10120403),
+            ("Soldável Marrom", 50, 10120500),
+            ("Soldável Marrom", 60, 10120608),
+            ("Soldável Marrom", 75, 10120756),
+            ("Soldável Marrom", 85, 10120853),
+            ("Soldável Marrom", 110, 10121035),
 
-            ("Aquatherm", "15", 17000152),
-            ("Aquatherm", "22", 17000225),
-            ("Aquatherm", "28", 17000284),
-            ("Aquatherm", "35", 17001086),
-            ("Aquatherm", "42", 17001108),
-            ("Aquatherm", "54", 17001132),
-            ("Aquatherm", "73", 17001515),
-            ("Aquatherm", "89", 17001531),
-            ("Aquatherm", "114", 17001558),
+            ("ClicPEX Monocamada", 16, 300000774),
+            ("ClicPEX Monocamada", 20, 300000775),
+            ("ClicPEX Monocamada", 25, 300000776),
+            ("ClicPEX Monocamada", 32, 300000777),
 
-            ("CPVC TIGREFire", "3/4", 17020056),
-            ("CPVC TIGREFire", "1", 17020080),
-            ("CPVC TIGREFire", "1.1/4", 17020110),
-            ("CPVC TIGREFire", "1.1/2", 17020153),
-            ("CPVC TIGREFire", "2", 17020188),
-            ("CPVC TIGREFire", "2.1/2", 17020226),
-            ("CPVC TIGREFire", "3", 17020250),
+            ("Aquatherm", 15, 17000152),
+            ("Aquatherm", 22, 17000225),
+            ("Aquatherm", 28, 17000284),
+            ("Aquatherm", 35, 17001086),
+            ("Aquatherm", 42, 17001108),
+            ("Aquatherm", 54, 17001132),
+            ("Aquatherm", 73, 17001515),
+            ("Aquatherm", 89, 17001531),
+            ("Aquatherm", 114, 17001558),
 
-            ("PPR PN12.5", "32", 17010565),
-            ("PPR PN12.5", "40", 17010581),
-            ("PPR PN12.5", "50", 17010603),
-            ("PPR PN12.5", "63", 17020620),
-            ("PPR PN12.5", "75", 17010646),
-            ("PPR PN12.5", "90", 17010670),
-            ("PPR PN12.5", "110", 17010689),
+            ("CPVC TIGREFire", 25, 17020056),
+            ("CPVC TIGREFire", 32, 17020080),
+            ("CPVC TIGREFire", 40, 17020110),
+            ("CPVC TIGREFire", 50, 17020153),
+            ("CPVC TIGREFire", 60, 17020188),
+            ("CPVC TIGREFire", 75, 17020226),
+            ("CPVC TIGREFire", 85, 17020250),
 
-            ("PPR PN20", "20", 17010026),
-            ("PPR PN20", "25", 17010042),
-            ("PPR PN20", "32", 17010069),
-            ("PPR PN20", "40", 17010085),
-            ("PPR PN20", "50", 17010107),
-            ("PPR PN20", "63", 17010123),
-            ("PPR PN20", "75", 17010140),
-            ("PPR PN20", "90", 17010174),
-            ("PPR PN20", "110", 17010182),
+            ("PPR PN12", 32, 17010565),
+            ("PPR PN12", 40, 17010581),
+            ("PPR PN12", 50, 17010603),
+            ("PPR PN12", 63, 17020620),
+            ("PPR PN12", 75, 17010646),
+            ("PPR PN12", 90, 17010670),
+            ("PPR PN12", 110, 17010689),
 
-            ("PPR PN25", "20", 17010328),
-            ("PPR PN25", "25", 17010344),
-            ("PPR PN25", "32", 17010360),
-            ("PPR PN25", "40", 17010387),
-            ("PPR PN25", "50", 17010409),
-            ("PPR PN25", "63", 17010425),
-            ("PPR PN25", "75", 17010441),
-            ("PPR PN25", "90", 17010476),
+            ("PPR PN20", 20, 17010026),
+            ("PPR PN20", 25, 17010042),
+            ("PPR PN20", 32, 17010069),
+            ("PPR PN20", 40, 17010085),
+            ("PPR PN20", 50, 17010107),
+            ("PPR PN20", 63, 17010123),
+            ("PPR PN20", 75, 17010140),
+            ("PPR PN20", 90, 17010174),
+            ("PPR PN20", 110, 17010182),
+
+            ("PPR PN25", 20, 17010328),
+            ("PPR PN25", 25, 17010344),
+            ("PPR PN25", 32, 17010360),
+            ("PPR PN25", 40, 17010387),
+            ("PPR PN25", 50, 17010409),
+            ("PPR PN25", 63, 17010425),
+            ("PPR PN25", 75, 17010441),
+            ("PPR PN25", 90, 17010476),
         };
 
         private static IReadOnlyList<TigreCatalogEntry>? _entries;
@@ -126,114 +140,94 @@ namespace FamiliesImporterHub.Infrastructure
             {
                 if (_entries == null)
                 {
-                    List<TigreCatalogEntry> built = new();
+                    IEnumerable<TigreRawCatalogRow> rows = LoadRowsFromJson(CatalogJsonPath) ?? BuildFallbackRows();
 
-                    foreach ((string desc, string dia, int code) in RawRows)
-                    {
-                        if (!TryParseDiameterMm(dia, out int diaMm))
-                            continue;
-
-                        built.Add(new TigreCatalogEntry(desc, diaMm, code));
-                    }
-
-                    // Tokens mais específicos primeiro (ex.: "PPR PN12.5" antes de "PPR")
-                    // para que o match não pare em uma descrição mais genérica.
-                    _entries = built
-                        .OrderByDescending(e => e.Tokens.Count)
+                    List<TigreCatalogEntry> built = rows
+                        .Where(r => !string.IsNullOrWhiteSpace(r.Description) && r.DiameterMm > 0 && r.Code > 0)
+                        .Select(r => new TigreCatalogEntry(r.Description, r.DiameterMm, r.Code, IgnoreTokens))
+                        .OrderByDescending(e => e.CoreTokens.Count)
+                        .ThenByDescending(e => e.Tokens.Count)
                         .ToList();
+
+                    _entries = built;
                 }
 
                 return _entries;
             }
         }
 
-        public static TigreCatalogEntry? FindMatch(string combinedNormalizedText, int diameterMmRound)
+        public static TigreCatalogEntry? FindMatch(
+            string descriptionText,
+            string segmentText,
+            string typeNameText,
+            string combinedText,
+            int diameterMmRound)
         {
-            foreach (TigreCatalogEntry entry in Entries)
+            List<TigreCatalogEntry> sameDiameter = Entries
+                .Where(e => Math.Abs(e.DiameterMm - diameterMmRound) <= DiameterToleranceMm)
+                .ToList();
+
+            if (sameDiameter.Count == 0)
+                return null;
+
+            return
+                MatchByTokens(descriptionText, sameDiameter, core: false) ??
+                MatchByTokens(descriptionText, sameDiameter, core: true) ??
+                MatchByTokens(typeNameText, sameDiameter, core: false) ??
+                MatchByTokens(typeNameText, sameDiameter, core: true) ??
+                MatchByTokens(segmentText, sameDiameter, core: false) ??
+                MatchByTokens(segmentText, sameDiameter, core: true) ??
+                MatchByTokens(combinedText, sameDiameter, core: false) ??
+                MatchByTokens(combinedText, sameDiameter, core: true);
+        }
+
+        private static TigreCatalogEntry? MatchByTokens(string text, List<TigreCatalogEntry> candidates, bool core)
+        {
+            foreach (TigreCatalogEntry entry in candidates)
             {
-                if (Math.Abs(entry.DiameterMm - diameterMmRound) > DiameterToleranceMm)
+                IReadOnlyList<string> tokens = core ? entry.CoreTokens : entry.Tokens;
+                if (tokens.Count == 0)
                     continue;
 
-                bool ok = true;
-                foreach (string token in entry.Tokens)
+                if (core)
                 {
-                    if (combinedNormalizedText.IndexOf(token, StringComparison.Ordinal) < 0)
-                    {
-                        ok = false;
-                        break;
-                    }
+                    if (TigreTextUtils.ContainsAllCoreTokens(text, tokens, IgnoreTokens))
+                        return entry;
                 }
-
-                if (ok)
-                    return entry;
+                else
+                {
+                    if (TigreTextUtils.ContainsAllTokens(text, tokens))
+                        return entry;
+                }
             }
 
             return null;
         }
 
-        private static bool TryParseDiameterMm(string value, out int diameterMm)
+        private static IEnumerable<TigreRawCatalogRow>? LoadRowsFromJson(string jsonPath)
         {
-            diameterMm = 0;
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            string text = value.Trim().Replace(",", ".");
-
-            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int asInt))
+            try
             {
-                diameterMm = asInt;
-                return true;
-            }
+                if (!File.Exists(jsonPath))
+                    return null;
 
-            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double asDouble))
+                string json = File.ReadAllText(jsonPath, Encoding.UTF8);
+                List<TigreRawCatalogRow>? rows = JsonSerializer.Deserialize<List<TigreRawCatalogRow>>(json);
+                return rows;
+            }
+            catch
             {
-                diameterMm = (int)Math.Round(asDouble);
-                return true;
+                return null;
             }
-
-            // Polegadas em fração (ex.: "3/4", "1.1/4", "2.1/2") — converte para mm.
-            if (TryParseInchFraction(text, out double inches))
-            {
-                diameterMm = (int)Math.Round(inches * 25.4);
-                return true;
-            }
-
-            return false;
         }
 
-        private static bool TryParseInchFraction(string text, out double inches)
-        {
-            inches = 0;
-
-            int slash = text.IndexOf('/');
-            if (slash < 0)
-                return false;
-
-            string left = text.Substring(0, slash);
-            string right = text.Substring(slash + 1);
-
-            // "3/4" → 3/4; "1.1/4" → 1 + 1/4 (o ponto separa inteiro e fração).
-            int dot = left.LastIndexOf('.');
-            double whole = 0;
-            string numeratorText = left;
-
-            if (dot >= 0)
+        private static IEnumerable<TigreRawCatalogRow> BuildFallbackRows() =>
+            EmbeddedFallbackRows.Select(r => new TigreRawCatalogRow
             {
-                if (!double.TryParse(left.Substring(0, dot), NumberStyles.Float, CultureInfo.InvariantCulture, out whole))
-                    return false;
-
-                numeratorText = left.Substring(dot + 1);
-            }
-
-            if (!double.TryParse(numeratorText, NumberStyles.Float, CultureInfo.InvariantCulture, out double numerator))
-                return false;
-
-            if (!double.TryParse(right, NumberStyles.Float, CultureInfo.InvariantCulture, out double denominator) || denominator == 0)
-                return false;
-
-            inches = whole + numerator / denominator;
-            return true;
-        }
+                Description = r.Description,
+                DiameterMm = r.DiameterMm,
+                Code = r.Code,
+            });
     }
 
     internal static class TigreTextUtils
@@ -269,7 +263,7 @@ namespace FamiliesImporterHub.Infrastructure
             return s.Trim();
         }
 
-        public static IReadOnlyList<string> Tokenize(string text)
+        public static IReadOnlyList<string> Tokenize(string? text)
         {
             string norm = Normalize(text);
             if (norm.Length == 0)
@@ -278,6 +272,28 @@ namespace FamiliesImporterHub.Infrastructure
             return norm
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .ToList();
+        }
+
+        public static IReadOnlyList<string> CoreTokens(string? text, IReadOnlySet<string> ignored)
+        {
+            return Tokenize(text)
+                .Where(t => !ignored.Contains(t))
+                .ToList();
+        }
+
+        public static bool ContainsAllTokens(string? text, IReadOnlyList<string> tokens)
+        {
+            HashSet<string> source = Tokenize(text).ToHashSet(StringComparer.Ordinal);
+            return tokens.All(source.Contains);
+        }
+
+        public static bool ContainsAllCoreTokens(string? text, IReadOnlyList<string> coreTokens, IReadOnlySet<string> ignored)
+        {
+            if (coreTokens.Count == 0)
+                return false;
+
+            HashSet<string> source = CoreTokens(text, ignored).ToHashSet(StringComparer.Ordinal);
+            return coreTokens.All(source.Contains);
         }
     }
 }

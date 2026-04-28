@@ -5,16 +5,13 @@ using Autodesk.Revit.DB.Plumbing;
 
 namespace FamiliesImporterHub.Infrastructure
 {
-    /// <summary>
-    /// Percorre os tubos do projeto e preenche o parâmetro <c>Tigre: Código</c>
-    /// com base no <see cref="TigreCodeCatalog"/> (descrição+segmento × diâmetro).
-    /// </summary>
     public sealed class TigreCodeApplyResult
     {
         public int CatalogCount { get; set; }
         public int PipesTotal { get; set; }
         public int PipesUpdated { get; set; }
         public int PipesAlreadyOk { get; set; }
+        public int PipesOverwritten { get; set; }
         public int PipesNoMatch { get; set; }
         public int PipesParameterIssue { get; set; }
         public string ParameterAction { get; set; } = string.Empty;
@@ -28,6 +25,7 @@ namespace FamiliesImporterHub.Infrastructure
         public int? DiameterMm { get; set; }
         public string? Description { get; set; }
         public string? Segment { get; set; }
+        public string? TypeName { get; set; }
     }
 
     internal static class TigreCodeApplier
@@ -41,72 +39,66 @@ namespace FamiliesImporterHub.Infrastructure
             if (catalog.Count == 0)
                 throw new InvalidOperationException("Catálogo Tigre vazio.");
 
-            // 1) Garante o parâmetro shared como instância em PipeCurves.
-            using (Transaction tx1 = new(doc, "Tigre — Garantir parâmetro 'Tigre: Código'"))
+            ExecuteInWriteTransaction(doc, "Tigre — Aplicar códigos nos tubos", () =>
             {
-                tx1.Start();
                 TigreSharedParameter.EnsureResult ensure = TigreSharedParameter.Ensure(doc);
                 report.ParameterAction = ensure.Action;
                 report.Warnings.AddRange(ensure.Warnings);
-                tx1.Commit();
-            }
 
-            doc.Regenerate();
+                doc.Regenerate();
 
-            // 2) Atualiza os tubos.
-            IList<Element> pipes = new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_PipeCurves)
-                .WhereElementIsNotElementType()
-                .ToElements();
+                IList<Element> pipes = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_PipeCurves)
+                    .WhereElementIsNotElementType()
+                    .ToElements();
 
-            report.PipesTotal = pipes.Count;
+                report.PipesTotal = pipes.Count;
 
-            using Transaction tx2 = new(doc, "Tigre — Aplicar códigos nos tubos");
-            tx2.Start();
+                foreach (Element elem in pipes)
+                {
+                    if (elem is Pipe pipe)
+                        ProcessPipe(doc, pipe, report);
+                }
+            });
 
-            foreach (Element elem in pipes)
-            {
-                if (elem is not Pipe pipe)
-                    continue;
-
-                ProcessPipe(doc, pipe, report);
-            }
-
-            tx2.Commit();
             return report;
+        }
+
+        private static void ExecuteInWriteTransaction(Document doc, string transactionName, Action action)
+        {
+            if (doc.IsModifiable)
+            {
+                action();
+                return;
+            }
+
+            using Transaction tx = new(doc, transactionName);
+            TransactionStatus status = tx.Start();
+            if (status != TransactionStatus.Started)
+                throw new InvalidOperationException("Não foi possível abrir transação para aplicar os códigos Tigre.");
+
+            action();
+            tx.Commit();
         }
 
         private static void ProcessPipe(Document doc, Pipe pipe, TigreCodeApplyResult report)
         {
-            string descText = ParamToText(doc, pipe.get_Parameter(BuiltInParameter.ALL_MODEL_DESCRIPTION));
-            string segText = ParamToText(doc, pipe.get_Parameter(BuiltInParameter.RBS_PIPE_SEGMENT_PARAM));
-            string combined = TigreTextUtils.Normalize(descText + " " + segText);
+            (string description, _) = GetPipeDescriptionText(doc, pipe);
+            string segment = ParamToText(doc, pipe.get_Parameter(BuiltInParameter.RBS_PIPE_SEGMENT_PARAM));
+            string typeName = GetPipeTypeName(doc, pipe);
+            string combined = TigreTextUtils.Normalize($"{description} {segment} {typeName}");
 
             int? diaMm = GetPipeDiameterMm(pipe);
             if (!diaMm.HasValue)
             {
-                report.PipesNoMatch++;
-                report.Unmatched.Add(new UnmatchedPipe
-                {
-                    ElementId = pipe.Id.Value,
-                    DiameterMm = null,
-                    Description = descText,
-                    Segment = segText,
-                });
+                RegisterNoMatch(report, pipe, null, description, segment, typeName);
                 return;
             }
 
-            TigreCatalogEntry? match = TigreCodeCatalog.FindMatch(combined, diaMm.Value);
+            TigreCatalogEntry? match = TigreCodeCatalog.FindMatch(description, segment, typeName, combined, diaMm.Value);
             if (match == null)
             {
-                report.PipesNoMatch++;
-                report.Unmatched.Add(new UnmatchedPipe
-                {
-                    ElementId = pipe.Id.Value,
-                    DiameterMm = diaMm,
-                    Description = descText,
-                    Segment = segText,
-                });
+                RegisterNoMatch(report, pipe, diaMm, description, segment, typeName);
                 return;
             }
 
@@ -118,7 +110,6 @@ namespace FamiliesImporterHub.Infrastructure
             }
 
             int code = match.Code;
-
             try
             {
                 switch (target.StorageType)
@@ -126,37 +117,30 @@ namespace FamiliesImporterHub.Infrastructure
                     case StorageType.Integer:
                     {
                         int current = target.AsInteger();
-                        if (current != code)
-                        {
-                            target.Set(code);
-                            report.PipesUpdated++;
-                        }
-                        else
-                        {
+                        target.Set(code);
+                        if (current == code)
                             report.PipesAlreadyOk++;
-                        }
+                        else
+                            report.PipesOverwritten++;
+                        report.PipesUpdated++;
                         break;
                     }
-
                     case StorageType.String:
                     {
                         string current = target.AsString() ?? string.Empty;
                         string codeStr = code.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                        if (current != codeStr)
-                        {
-                            target.Set(codeStr);
-                            report.PipesUpdated++;
-                        }
-                        else
-                        {
+                        target.Set(codeStr);
+                        if (current == codeStr)
                             report.PipesAlreadyOk++;
-                        }
+                        else
+                            report.PipesOverwritten++;
+                        report.PipesUpdated++;
                         break;
                     }
-
                     default:
                         target.Set(code.ToString(System.Globalization.CultureInfo.InvariantCulture));
                         report.PipesUpdated++;
+                        report.PipesOverwritten++;
                         break;
                 }
             }
@@ -164,6 +148,75 @@ namespace FamiliesImporterHub.Infrastructure
             {
                 report.PipesParameterIssue++;
             }
+        }
+
+        private static void RegisterNoMatch(TigreCodeApplyResult report, Pipe pipe, int? diaMm, string description, string segment, string typeName)
+        {
+            report.PipesNoMatch++;
+            report.Unmatched.Add(new UnmatchedPipe
+            {
+                ElementId = pipe.Id.Value,
+                DiameterMm = diaMm,
+                Description = description,
+                Segment = segment,
+                TypeName = typeName,
+            });
+        }
+
+        private static (string Text, string Source) GetPipeDescriptionText(Document doc, Pipe pipe)
+        {
+            string[] names = { "Descrição", "Description", "Descriçao", "Descricao" };
+
+            string txt = GetParamTextByName(doc, pipe, names);
+            if (!string.IsNullOrWhiteSpace(txt))
+                return (txt, "instance_name");
+
+            txt = ParamToText(doc, pipe.get_Parameter(BuiltInParameter.ALL_MODEL_DESCRIPTION));
+            if (!string.IsNullOrWhiteSpace(txt))
+                return (txt, "instance_builtin");
+
+            Element? pipeType = doc.GetElement(pipe.GetTypeId());
+            txt = GetParamTextByName(doc, pipeType, names);
+            if (!string.IsNullOrWhiteSpace(txt))
+                return (txt, "type_name");
+
+            txt = ParamToText(doc, pipeType?.get_Parameter(BuiltInParameter.ALL_MODEL_DESCRIPTION));
+            if (!string.IsNullOrWhiteSpace(txt))
+                return (txt, "type_builtin");
+
+            return (pipeType?.Name ?? string.Empty, "type_name_fallback");
+        }
+
+        private static string GetParamTextByName(Document doc, Element? element, IEnumerable<string> names)
+        {
+            if (element == null)
+                return string.Empty;
+
+            foreach (string name in names)
+            {
+                try
+                {
+                    string txt = ParamToText(doc, element.LookupParameter(name));
+                    if (!string.IsNullOrWhiteSpace(txt))
+                        return txt;
+                }
+                catch
+                {
+                    // continua
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static string GetPipeTypeName(Document doc, Pipe pipe)
+        {
+            ElementId typeId = pipe.GetTypeId();
+            if (typeId == null || typeId.Value <= 0)
+                return string.Empty;
+
+            Element? pipeType = doc.GetElement(typeId);
+            return pipeType?.Name ?? string.Empty;
         }
 
         private static int? GetPipeDiameterMm(Pipe pipe)
@@ -195,16 +248,11 @@ namespace FamiliesImporterHub.Infrastructure
                 {
                     case StorageType.String:
                         return p.AsString() ?? string.Empty;
-
                     case StorageType.ElementId:
                     {
                         ElementId id = p.AsElementId();
                         if (id != null && id.Value > 0)
-                        {
-                            Element? el = doc.GetElement(id);
-                            if (el != null)
-                                return el.Name ?? string.Empty;
-                        }
+                            return doc.GetElement(id)?.Name ?? string.Empty;
                         break;
                     }
                 }
@@ -240,7 +288,7 @@ namespace FamiliesImporterHub.Infrastructure
                 for (int i = 0; i < show; i++)
                 {
                     UnmatchedPipe u = r.Unmatched[i];
-                    lines.Add($" - ID {u.ElementId} | Ø{u.DiameterMm}mm | {u.Description} / {u.Segment}");
+                    lines.Add($" - ID {u.ElementId} | Ø{u.DiameterMm}mm | {u.Description} / {u.Segment} / {u.TypeName}");
                 }
                 if (r.Unmatched.Count > show)
                     lines.Add($" - … e mais {r.Unmatched.Count - show} tubo(s).");
@@ -251,8 +299,9 @@ namespace FamiliesImporterHub.Infrastructure
             return
                 $"Catálogo: {r.CatalogCount} itens\n" +
                 $"Tubos: {r.PipesTotal}\n" +
-                $"Atualizados: {r.PipesUpdated}\n" +
+                $"Atualizados (regravados): {r.PipesUpdated}\n" +
                 $"Já estavam corretos: {r.PipesAlreadyOk}\n" +
+                $"Sobrescritos: {r.PipesOverwritten}\n" +
                 $"Sem correspondência: {r.PipesNoMatch}\n" +
                 $"Sem parâmetro acessível: {r.PipesParameterIssue}\n\n" +
                 $"Parâmetro: {r.ParameterAction}" +

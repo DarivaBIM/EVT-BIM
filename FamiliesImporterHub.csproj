@@ -25,6 +25,10 @@
 		<None Update="FamiliesImporterHub.addin">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+
+		<None Include="Data\tigre_codes.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
 		<None Include="build\deploy_revit_2026.cmd">
 			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</None>
