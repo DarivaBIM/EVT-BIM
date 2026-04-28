@@ -8,6 +8,10 @@ using FamiliesImporterHub.UI;
 
 namespace FamiliesImporterHub.Infrastructure
 {
+    /// <summary>
+    /// Carrega sistemas, tipos de tubo, diâmetros e níveis disponíveis no
+    /// documento ativo e popula o <see cref="PipeConverterViewModel"/>.
+    /// </summary>
     public class PipeConverterDataLoadHandler : IExternalEventHandler
     {
         public PipeConverterViewModel? ViewModel { get; set; }
@@ -25,6 +29,7 @@ namespace FamiliesImporterHub.Infrastructure
                 UIDocument? uiDoc = app.ActiveUIDocument;
                 if (uiDoc == null || uiDoc.Document.IsFamilyDocument)
                 {
+                    vm.StatusMessage = "Abra um projeto Revit (não-família) para carregar os dados.";
                     return;
                 }
 
@@ -52,12 +57,20 @@ namespace FamiliesImporterHub.Infrastructure
                     .ToList();
 
                 PopulateViewModel(vm, systems, pipeTypes, levels);
+
+                if (vm.Systems.Count == 0 || vm.PipeTypes.Count == 0 || vm.Levels.Count == 0)
+                {
+                    vm.StatusMessage = "Projeto sem sistemas/tipos/níveis suficientes para criar tubos.";
+                }
+                else if (string.IsNullOrEmpty(vm.StatusMessage)
+                         || vm.StatusMessage.StartsWith("Recarregando"))
+                {
+                    vm.StatusMessage = "Pronto. Configure os parâmetros e ative a ferramenta.";
+                }
             }
             catch (Exception ex)
             {
-                TaskDialog.Show(
-                    "TigreBIM",
-                    $"Não foi possível carregar os dados do projeto para o conversor de tubos.\n\n{ex.Message}");
+                vm.StatusMessage = $"Falha ao carregar dados do projeto: {ex.Message}";
             }
         }
 
