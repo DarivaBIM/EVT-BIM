@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
@@ -25,10 +27,14 @@ namespace FamiliesImporterHub.Infrastructure
             _externalEvent = ExternalEvent.Create(_handler);
         }
 
-        public void Raise(ParameterEditorWindow window, IReadOnlyList<Discipline> disciplines)
+        public void Raise(
+            ParameterEditorWindow window,
+            IReadOnlyList<Discipline> disciplines,
+            IReadOnlyList<ElementId> previousSelection)
         {
             _handler.Window = window;
             _handler.Disciplines = disciplines.ToList();
+            _handler.PreviousSelection = previousSelection.ToList();
             _externalEvent.Raise();
         }
     }
@@ -37,6 +43,7 @@ namespace FamiliesImporterHub.Infrastructure
     {
         public ParameterEditorWindow? Window { get; set; }
         public List<Discipline> Disciplines { get; set; } = new();
+        public List<ElementId> PreviousSelection { get; set; } = new();
 
         public string GetName() => "TigreBIM.ParameterEditorSelectionHandler";
 
@@ -69,28 +76,66 @@ namespace FamiliesImporterHub.Infrastructure
                         filter = new DisciplineSelectionFilter(allowed);
                 }
 
+                // Reconstrói References dos elementos previamente selecionados
+                // que ainda existem e satisfazem o filtro. Isso permite ao
+                // usuário continuar adicionando/removendo elementos via
+                // Ctrl/Shift+clique sem perder o que já estava selecionado.
+                List<Reference> preselected = new();
+                foreach (ElementId id in PreviousSelection)
+                {
+                    Element? el = doc.GetElement(id);
+                    if (el == null)
+                        continue;
+
+                    if (filter != null && !filter.AllowElement(el))
+                        continue;
+
+                    try
+                    {
+                        preselected.Add(new Reference(el));
+                    }
+                    catch
+                    {
+                        // Se o elemento não suporta criação de Reference (raro
+                        // para FamilyInstance/Pipe/etc.), ignora silenciosamente.
+                    }
+                }
+
+                const string prompt =
+                    "Selecione os elementos. Ctrl+clique adiciona, Shift+clique remove. " +
+                    "Clique em Concluir na ribbon para finalizar.";
+
+                // Garante que a janela do Revit fique em primeiro plano antes
+                // do PickObjects. Sem isso, a janela WPF Topmost do editor
+                // pode reter o foco do teclado e capturar ENTER/ESC, fazendo
+                // com que o usuário precise clicar no Concluir manualmente.
+                EnsureRevitForeground();
+
                 IList<Reference> refs;
                 try
                 {
-                    refs = filter != null
-                        ? uiDoc.Selection.PickObjects(
-                            ObjectType.Element,
-                            filter,
-                            "Selecione os elementos. ENTER ou ESC para finalizar.")
-                        : uiDoc.Selection.PickObjects(
-                            ObjectType.Element,
-                            "Selecione os elementos. ENTER ou ESC para finalizar.");
+                    refs = PickObjectsCompat(uiDoc, filter, prompt, preselected);
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                 {
-                    win.SetStatus("Seleção cancelada.");
+                    // ESC cancela todo o pick. Mantemos a seleção anterior
+                    // intacta para não punir o usuário por um cancelamento
+                    // acidental.
                     win.SetSelectionActive(false);
+                    if (PreviousSelection.Count > 0)
+                        win.SetStatus(
+                            $"Seleção cancelada. {PreviousSelection.Count} elemento(s) ainda selecionado(s).");
+                    else
+                        win.SetStatus("Seleção cancelada.");
                     return;
                 }
 
                 if (refs == null || refs.Count == 0)
                 {
-                    win.SetSelection(Array.Empty<ElementId>(), Array.Empty<CommonParameterOption>());
+                    win.SetSelection(
+                        Array.Empty<ElementId>(),
+                        Array.Empty<CommonParameterOption>(),
+                        string.Empty);
                     return;
                 }
 
@@ -109,7 +154,21 @@ namespace FamiliesImporterHub.Infrastructure
                 IReadOnlyList<CommonParameterOption> common =
                     ParameterEditorService.ComputeCommonParameters(elements);
 
-                win.SetSelection(ids, common);
+                string categoriesSummary = BuildCategoriesSummary(elements);
+
+                // Persiste a seleção como seleção corrente do Revit, dando
+                // feedback visual ao usuário (elementos ficam destacados na
+                // viewport).
+                try
+                {
+                    uiDoc.Selection.SetElementIds(ids);
+                }
+                catch
+                {
+                    // Falha ao alterar a seleção do Revit não é fatal.
+                }
+
+                win.SetSelection(ids, common, categoriesSummary);
             }
             catch (Exception ex)
             {
@@ -117,6 +176,91 @@ namespace FamiliesImporterHub.Infrastructure
                 win.SetSelectionActive(false);
             }
         }
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        private static void EnsureRevitForeground()
+        {
+            try
+            {
+                IntPtr handle = Process.GetCurrentProcess().MainWindowHandle;
+                if (handle != IntPtr.Zero)
+                    SetForegroundWindow(handle);
+            }
+            catch
+            {
+                // Falha em mover o foco não é fatal — o usuário ainda pode
+                // clicar em Concluir.
+            }
+        }
+
+        // Encapsula os overloads de PickObjects. Quando não há filtro específico
+        // (todas as disciplinas marcadas), usamos um filtro pass-through para
+        // poder utilizar o overload com pPreSelected — esse overload só existe
+        // na API com ISelectionFilter, então um filtro nulo não cobriria o
+        // caminho de seleção incremental.
+        private static IList<Reference> PickObjectsCompat(
+            UIDocument uiDoc,
+            ISelectionFilter? filter,
+            string prompt,
+            IList<Reference> preselected)
+        {
+            ISelectionFilter effectiveFilter = filter ?? AcceptAllSelectionFilter.Instance;
+
+            if (preselected.Count == 0)
+                return uiDoc.Selection.PickObjects(ObjectType.Element, effectiveFilter, prompt);
+
+            return uiDoc.Selection.PickObjects(ObjectType.Element, effectiveFilter, prompt, preselected);
+        }
+
+        private static string BuildCategoriesSummary(IReadOnlyList<Element> elements)
+        {
+            if (elements.Count == 0)
+                return string.Empty;
+
+            Dictionary<string, int> counts = new();
+            foreach (Element el in elements)
+            {
+                string name = el.Category?.Name ?? "Sem categoria";
+                counts[name] = counts.TryGetValue(name, out int n) ? n + 1 : 1;
+            }
+
+            // Top 4 categorias para evitar mensagens longas demais; o resto
+            // entra como "+N outras".
+            const int maxShown = 4;
+            var ordered = counts
+                .OrderByDescending(kv => kv.Value)
+                .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            IEnumerable<string> shown = ordered
+                .Take(maxShown)
+                .Select(kv => $"{kv.Key} ({kv.Value})");
+
+            string result = string.Join(", ", shown);
+
+            int remaining = ordered.Count - maxShown;
+            if (remaining > 0)
+                result += $" +{remaining} outra(s)";
+
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Filtro de seleção que aceita qualquer elemento. Usado quando o usuário
+    /// não quer restringir por disciplina, mas o overload de
+    /// <c>PickObjects</c> com pré-seleção exige um <see cref="ISelectionFilter"/>.
+    /// </summary>
+    internal class AcceptAllSelectionFilter : ISelectionFilter
+    {
+        public static readonly AcceptAllSelectionFilter Instance = new();
+
+        public bool AllowElement(Element elem) => elem != null;
+
+        public bool AllowReference(Reference reference, XYZ position) => false;
     }
 
     /// <summary>
@@ -142,6 +286,24 @@ namespace FamiliesImporterHub.Infrastructure
         }
 
         public bool AllowReference(Reference reference, XYZ position) => false;
+    }
+
+    /// <summary>
+    /// Resultado consolidado da aplicação do parâmetro, usado para montar o
+    /// TaskDialog final mostrado ao usuário.
+    /// </summary>
+    public class ParameterApplyResult
+    {
+        public bool Success { get; init; }
+        public string ParameterName { get; init; } = string.Empty;
+        public string Value { get; init; } = string.Empty;
+        public int TopLevelCount { get; init; }
+        public int Updated { get; init; }
+        public int UpdatedNested { get; init; }
+        public int SkippedReadOnly { get; init; }
+        public int SkippedMissing { get; init; }
+        public int Failed { get; init; }
+        public string? ErrorMessage { get; init; }
     }
 
     public class ParameterEditorApplyExternalEvent
@@ -185,12 +347,22 @@ namespace FamiliesImporterHub.Infrastructure
             if (win == null || Parameter == null)
                 return;
 
+            string parameterName = Parameter.Name;
+            string value = Value;
+
             try
             {
                 UIDocument? uiDoc = app.ActiveUIDocument;
                 if (uiDoc == null)
                 {
-                    win.SetStatus("Abra um projeto Revit antes de aplicar.");
+                    ParameterApplyResult missingDoc = new()
+                    {
+                        Success = false,
+                        ParameterName = parameterName,
+                        Value = value,
+                        ErrorMessage = "Nenhum projeto Revit ativo.",
+                    };
+                    win.NotifyApplyCompleted(missingDoc);
                     return;
                 }
 
@@ -214,12 +386,16 @@ namespace FamiliesImporterHub.Infrastructure
                         roots.Add(top);
                 }
 
+                int topLevelCount = roots.Count;
+
                 List<Element> targets = ParameterEditorService
                     .ExpandWithNested(doc, roots)
                     .ToList();
 
-                int updated = 0;
-                int skipped = 0;
+                int updatedTopLevel = 0;
+                int updatedNested = 0;
+                int skippedReadOnly = 0;
+                int skippedMissing = 0;
                 int failed = 0;
 
                 using Transaction tx = new(doc, $"TigreBIM — Atribuir '{Parameter.Name}'");
@@ -227,31 +403,65 @@ namespace FamiliesImporterHub.Infrastructure
 
                 foreach (Element elem in targets)
                 {
+                    bool isTopLevel = rootIds.Contains(elem.Id.Value);
+
                     Parameter? param = ParameterEditorService.FindParameter(elem, Parameter);
-                    if (param == null || param.IsReadOnly)
+                    if (param == null)
                     {
-                        skipped++;
+                        // Para os elementos top-level isso seria estranho (já
+                        // que o parâmetro foi escolhido entre os comuns), mas
+                        // é esperado em famílias aninhadas que não têm o
+                        // parâmetro.
+                        skippedMissing++;
                         continue;
                     }
 
-                    if (TrySetValue(param, Value))
-                        updated++;
+                    if (param.IsReadOnly)
+                    {
+                        skippedReadOnly++;
+                        continue;
+                    }
+
+                    if (TrySetValue(param, value))
+                    {
+                        if (isTopLevel)
+                            updatedTopLevel++;
+                        else
+                            updatedNested++;
+                    }
                     else
+                    {
                         failed++;
+                    }
                 }
 
                 tx.Commit();
 
-                string status =
-                    $"Aplicado em {updated} elemento(s) (incluindo aninhados). " +
-                    $"Pulado(s): {skipped}. Falhou: {failed}.";
+                ParameterApplyResult result = new()
+                {
+                    Success = failed == 0,
+                    ParameterName = parameterName,
+                    Value = value,
+                    TopLevelCount = topLevelCount,
+                    Updated = updatedTopLevel,
+                    UpdatedNested = updatedNested,
+                    SkippedReadOnly = skippedReadOnly,
+                    SkippedMissing = skippedMissing,
+                    Failed = failed,
+                };
 
-                win.SetStatus(status);
+                win.NotifyApplyCompleted(result);
             }
             catch (Exception ex)
             {
-                win.SetStatus($"Erro ao aplicar: {ex.Message}");
-                TaskDialog.Show("TigreBIM", $"Erro ao aplicar parâmetro:\n{ex.Message}");
+                ParameterApplyResult errorResult = new()
+                {
+                    Success = false,
+                    ParameterName = parameterName,
+                    Value = value,
+                    ErrorMessage = ex.Message,
+                };
+                win.NotifyApplyCompleted(errorResult);
             }
         }
 
@@ -430,7 +640,7 @@ namespace FamiliesImporterHub.Infrastructure
             if (option.IsInstance)
             {
                 Parameter? p = element.LookupParameter(option.Name);
-                if (p != null && !p.IsReadOnly && p.StorageType == option.StorageType)
+                if (p != null && p.StorageType == option.StorageType)
                     return p;
             }
             else
@@ -442,7 +652,7 @@ namespace FamiliesImporterHub.Infrastructure
                     if (type != null)
                     {
                         Parameter? tp = type.LookupParameter(option.Name);
-                        if (tp != null && !tp.IsReadOnly && tp.StorageType == option.StorageType)
+                        if (tp != null && tp.StorageType == option.StorageType)
                             return tp;
                     }
                 }

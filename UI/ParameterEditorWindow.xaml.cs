@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
 using FamiliesImporterHub.Infrastructure;
 
 namespace FamiliesImporterHub.UI
@@ -45,7 +47,10 @@ namespace FamiliesImporterHub.UI
 
         public IReadOnlyList<ElementId> SelectedIds => _selectedIds;
 
-        public void SetSelection(IReadOnlyList<ElementId> ids, IReadOnlyList<CommonParameterOption> commonParams)
+        public void SetSelection(
+            IReadOnlyList<ElementId> ids,
+            IReadOnlyList<CommonParameterOption> commonParams,
+            string categoriesSummary)
         {
             // Sempre marshalar para o thread de UI; usar Invoke (sincrono) ao
             // invés de BeginInvoke evita corridas onde o usuário consegue
@@ -55,6 +60,7 @@ namespace FamiliesImporterHub.UI
                 _selectedIds.Clear();
                 _selectedIds.AddRange(ids);
                 ViewModel.SelectedCount = ids.Count;
+                ViewModel.SelectionCategoriesSummary = categoriesSummary ?? string.Empty;
 
                 CommonParameterOption? previous = ViewModel.SelectedParameter;
                 ViewModel.Parameters.Clear();
@@ -83,12 +89,13 @@ namespace FamiliesImporterHub.UI
                 {
                     ViewModel.NoCommonParametersMessage =
                         "Os elementos selecionados não compartilham nenhum parâmetro editável em comum.";
-                    ViewModel.StatusMessage = $"{ids.Count} elemento(s) selecionado(s).";
+                    ViewModel.StatusMessage = $"{ids.Count} elemento(s) selecionado(s), mas sem parâmetros em comum.";
                 }
                 else
                 {
                     ViewModel.NoCommonParametersMessage = string.Empty;
-                    ViewModel.StatusMessage = $"{ids.Count} elemento(s) prontos para edição.";
+                    ViewModel.StatusMessage =
+                        $"{ids.Count} elemento(s) prontos. Escolha o parâmetro e o valor.";
                 }
 
                 ViewModel.IsSelectionActive = false;
@@ -116,14 +123,43 @@ namespace FamiliesImporterHub.UI
                 Dispatcher.Invoke(() => ViewModel.IsSelectionActive = active);
         }
 
+        public void NotifyApplyCompleted(ParameterApplyResult result)
+        {
+            Action update = () =>
+            {
+                ViewModel.StatusMessage = BuildShortStatus(result);
+                ShowResultDialog(result);
+            };
+
+            if (Dispatcher.CheckAccess())
+                update();
+            else
+                Dispatcher.Invoke(update);
+        }
+
         private void OnSelectClicked(object sender, RoutedEventArgs e)
         {
             ViewModel.IsSelectionActive = true;
-            ViewModel.StatusMessage = "Selecione elementos no Revit. ENTER ou ESC para finalizar.";
+            ViewModel.StatusMessage =
+                "Selecione no Revit. Ctrl+clique adiciona, Shift+clique remove. Clique em Concluir na ribbon para finalizar.";
 
-            // Snapshot das disciplinas marcadas no momento do clique.
+            // Snapshot das disciplinas marcadas no momento do clique e dos IDs
+            // já selecionados; o handler vai usar esses IDs como pré-seleção
+            // do PickObjects, permitindo seleção incremental entre cliques.
             IReadOnlyList<Discipline> disciplines = ViewModel.SelectedDisciplines;
-            _selectionEvent.Raise(this, disciplines);
+            List<ElementId> previous = _selectedIds.ToList();
+            _selectionEvent.Raise(this, disciplines, previous);
+        }
+
+        private void OnClearSelectionClicked(object sender, RoutedEventArgs e)
+        {
+            _selectedIds.Clear();
+            ViewModel.SelectedCount = 0;
+            ViewModel.SelectionCategoriesSummary = string.Empty;
+            ViewModel.NoCommonParametersMessage = string.Empty;
+            ViewModel.Parameters.Clear();
+            ViewModel.SelectedParameter = null;
+            ViewModel.StatusMessage = "Seleção limpa.";
         }
 
         private void OnApplyClicked(object sender, RoutedEventArgs e)
@@ -160,6 +196,98 @@ namespace FamiliesImporterHub.UI
         private void OnWindowClosed(object? sender, EventArgs e)
         {
             _selectedIds.Clear();
+        }
+
+        private static string BuildShortStatus(ParameterApplyResult result)
+        {
+            if (!string.IsNullOrEmpty(result.ErrorMessage))
+                return $"Erro: {result.ErrorMessage}";
+
+            int total = result.Updated + result.UpdatedNested;
+            if (total == 0 && result.Failed == 0)
+                return $"Nenhum elemento foi alterado para '{result.ParameterName}'.";
+
+            return result.Failed > 0
+                ? $"'{result.ParameterName}' atualizado em {total} elemento(s); {result.Failed} falha(s)."
+                : $"'{result.ParameterName}' atualizado em {total} elemento(s).";
+        }
+
+        private static void ShowResultDialog(ParameterApplyResult result)
+        {
+            TaskDialog dlg = new("TigreBIM — Editor de parâmetros");
+
+            if (!string.IsNullOrEmpty(result.ErrorMessage))
+            {
+                dlg.MainIcon = TaskDialogIcon.TaskDialogIconError;
+                dlg.MainInstruction = "Não foi possível aplicar o parâmetro.";
+                dlg.MainContent = result.ErrorMessage;
+                dlg.CommonButtons = TaskDialogCommonButtons.Close;
+                dlg.Show();
+                return;
+            }
+
+            int total = result.Updated + result.UpdatedNested;
+
+            if (total == 0 && result.Failed == 0)
+            {
+                dlg.MainIcon = TaskDialogIcon.TaskDialogIconWarning;
+                dlg.MainInstruction = "Nenhum elemento foi alterado.";
+                dlg.MainContent =
+                    $"O parâmetro \"{result.ParameterName}\" não foi atualizado em nenhum dos " +
+                    $"{result.TopLevelCount} elemento(s) selecionado(s) nem nas famílias aninhadas.";
+                dlg.ExpandedContent = BuildExpandedContent(result);
+                dlg.CommonButtons = TaskDialogCommonButtons.Close;
+                dlg.Show();
+                return;
+            }
+
+            dlg.MainIcon = result.Failed > 0
+                ? TaskDialogIcon.TaskDialogIconWarning
+                : TaskDialogIcon.TaskDialogIconInformation;
+
+            dlg.MainInstruction = result.Failed > 0
+                ? $"Parâmetro aplicado com {result.Failed} falha(s)."
+                : "Parâmetro aplicado com sucesso.";
+
+            StringBuilder content = new();
+            content.AppendLine($"Parâmetro: \"{result.ParameterName}\"");
+            content.AppendLine($"Valor: \"{result.Value}\"");
+            content.AppendLine();
+            content.AppendLine(
+                $"Elementos selecionados atualizados: {result.Updated} de {result.TopLevelCount}");
+            if (result.UpdatedNested > 0)
+                content.AppendLine($"Famílias aninhadas atualizadas: {result.UpdatedNested}");
+            if (result.Failed > 0)
+                content.AppendLine($"Falhas ao aplicar o valor: {result.Failed}");
+            dlg.MainContent = content.ToString().TrimEnd();
+            dlg.ExpandedContent = BuildExpandedContent(result);
+            dlg.CommonButtons = TaskDialogCommonButtons.Close;
+            dlg.Show();
+        }
+
+        private static string BuildExpandedContent(ParameterApplyResult result)
+        {
+            StringBuilder sb = new();
+            sb.AppendLine("Detalhes:");
+            sb.AppendLine($"• {result.TopLevelCount} elemento(s) selecionado(s) (raiz).");
+            sb.AppendLine($"• {result.Updated} alterado(s) na seleção principal.");
+            sb.AppendLine($"• {result.UpdatedNested} alterado(s) em famílias aninhadas.");
+
+            if (result.SkippedMissing > 0)
+                sb.AppendLine(
+                    $"• {result.SkippedMissing} família(s) aninhada(s) ignorada(s) " +
+                    "(não possuem o parâmetro — comportamento esperado).");
+
+            if (result.SkippedReadOnly > 0)
+                sb.AppendLine(
+                    $"• {result.SkippedReadOnly} parâmetro(s) ignorado(s) por estarem " +
+                    "marcados como somente-leitura.");
+
+            if (result.Failed > 0)
+                sb.AppendLine(
+                    $"• {result.Failed} falha(s) — o Revit recusou o valor (verifique a unidade ou o tipo).");
+
+            return sb.ToString().TrimEnd();
         }
     }
 }

@@ -115,12 +115,16 @@ namespace FamiliesImporterHub
 
                 if (parameterEditorButton != null)
                 {
-                    parameterEditorButton.ToolTip = "Atribui um valor a um parâmetro comum a vários elementos.";
+                    parameterEditorButton.ToolTip =
+                        "Atribui um valor a um parâmetro comum a vários elementos (incluindo famílias aninhadas).";
                     parameterEditorButton.LongDescription =
-                        "Abre uma janela onde o usuário seleciona elementos do projeto, escolhe " +
-                        "um parâmetro comum a todos eles em um dropdown e informa o valor a ser " +
-                        "atribuído. A janela mostra o tipo do parâmetro selecionado (texto, " +
-                        "número inteiro, decimal etc.) para evitar valores incompatíveis.";
+                        "Abre uma janela onde o usuário seleciona elementos do projeto (com " +
+                        "seleção incremental — Ctrl/Shift+clique e múltiplas rodadas de seleção), " +
+                        "escolhe um parâmetro comum a todos em um dropdown e informa o valor a " +
+                        "ser atribuído. O valor é propagado para o elemento selecionado e para " +
+                        "as famílias aninhadas que tiverem o mesmo parâmetro. A janela mostra o " +
+                        "tipo do parâmetro (texto, número inteiro, decimal etc.) para evitar " +
+                        "valores incompatíveis e exibe um resumo de sucesso/falhas ao final.";
                 }
 
                 FamiliesPage familiesPage = new FamiliesPage();
