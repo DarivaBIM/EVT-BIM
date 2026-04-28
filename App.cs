@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Reflection;
-using Autodesk.Revit.DB.Events;
+using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Events;
 using FamiliesImporterHub.Commands;
 using FamiliesImporterHub.Infrastructure;
 using FamiliesImporterHub.UI;
@@ -18,11 +19,13 @@ namespace FamiliesImporterHub
         private const string PipeConverterButtonName = "PipeConverter";
         private const string PipeConverterButtonText = "PipeCADMapper";
 
+        private Document? _lastActiveDocument;
+
         public Result OnStartup(UIControlledApplication application)
         {
             try
             {
-                application.ControlledApplication.DocumentActivated += OnDocumentActivated;
+                application.ViewActivated += OnViewActivated;
 
                 TryCreateRibbonTab(application, TabName);
 
@@ -80,12 +83,21 @@ namespace FamiliesImporterHub
 
         public Result OnShutdown(UIControlledApplication application)
         {
-            application.ControlledApplication.DocumentActivated -= OnDocumentActivated;
+            application.ViewActivated -= OnViewActivated;
             return Result.Succeeded;
         }
 
-        private static void OnDocumentActivated(object sender, DocumentActivatedEventArgs e)
+        private void OnViewActivated(object sender, ViewActivatedEventArgs e)
         {
+            // ViewActivated dispara em qualquer troca de view; só recarrega
+            // quando o documento ativo muda de fato.
+            Document? newDocument = e.Document;
+            if (ReferenceEquals(newDocument, _lastActiveDocument))
+            {
+                return;
+            }
+
+            _lastActiveDocument = newDocument;
             PipeConverterWindow.RequestDataReload();
         }
 
