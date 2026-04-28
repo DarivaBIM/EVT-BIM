@@ -1,7 +1,7 @@
 <Window x:Class="FamiliesImporterHub.UI.PipeConverterWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Converter CAD → Tubos"
+        Title="PipeCADMapper"
         Width="340"
         SizeToContent="Height"
         ResizeMode="CanMinimize"
@@ -74,7 +74,7 @@
             Margin="12"
             Padding="16">
         <StackPanel>
-            <TextBlock Text="Configuração da tubulação"
+            <TextBlock Text="PipeCADMapper — Configuração"
                        FontSize="14"
                        FontWeight="Bold"
                        Foreground="{StaticResource TextPrimaryBrush}"

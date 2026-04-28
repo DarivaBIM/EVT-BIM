@@ -15,7 +15,7 @@ namespace FamiliesImporterHub
         private const string ButtonText = "Families\nImporter Hub";
         private const string PaneTitle = "Importar Famílias";
         private const string PipeConverterButtonName = "PipeConverter";
-        private const string PipeConverterButtonText = "Converter\nCAD → Tubos";
+        private const string PipeConverterButtonText = "PipeCADMapper";
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -51,10 +51,11 @@ namespace FamiliesImporterHub
 
                 if (pipeConverterButton != null)
                 {
-                    pipeConverterButton.ToolTip = "Converte linhas de vínculo CAD em tubos Revit.";
+                    pipeConverterButton.ToolTip = "PipeCADMapper — converte linhas de vínculo CAD em tubos Revit com conexões automáticas.";
                     pipeConverterButton.LongDescription =
-                        "Abre uma janela para configurar sistema, tipo e diâmetro, " +
-                        "e ativa um modo de seleção que converte linhas de vínculos CAD em tubos.";
+                        "Abre a janela PipeCADMapper para configurar sistema, tipo e diâmetro. " +
+                        "O modo de seleção converte linhas de vínculos CAD em tubos e conecta " +
+                        "automaticamente segmentos adjacentes e tubos existentes.";
                 }
 
                 FamiliesPage familiesPage = new FamiliesPage();

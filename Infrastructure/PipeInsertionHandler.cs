@@ -42,7 +42,12 @@ namespace FamiliesImporterHub.Infrastructure
                     }
                     catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                     {
-                        break;
+                        // Sair do loop somente se o usuário desativou explicitamente a ferramenta
+                        // (botão toggle define IsActive = false antes de enviar ESC).
+                        // Se IsActive ainda for true, o cancelamento veio de interação com a UI
+                        // (ex.: abertura de ComboBox) — reinicia o PickObject sem desativar.
+                        if (!vm.IsActive)
+                            break;
                     }
 
                     if (reference == null || !vm.IsActive)
