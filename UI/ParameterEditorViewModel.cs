@@ -1,13 +1,94 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Autodesk.Revit.DB;
+using FamiliesImporterHub.Infrastructure;
 
 namespace FamiliesImporterHub.UI
 {
     public class ParameterEditorViewModel : INotifyPropertyChanged
     {
         public ObservableCollection<CommonParameterOption> Parameters { get; } = new();
+
+        public ObservableCollection<DisciplineFilterItem> DisciplineFilters { get; } = new();
+
+        public ParameterEditorViewModel()
+        {
+            // Ordem dos checkboxes na UI.
+            Discipline[] order =
+            {
+                Discipline.Hidraulica,
+                Discipline.Eletrica,
+                Discipline.Mecanica,
+                Discipline.CombateIncendio,
+                Discipline.Estrutura,
+                Discipline.Arquitetura,
+                Discipline.ModelosGenericos,
+            };
+
+            foreach (Discipline d in order)
+            {
+                DisciplineFilterItem item = new(d, DisplayName(d), isChecked: true);
+                item.PropertyChanged += OnDisciplineItemChanged;
+                DisciplineFilters.Add(item);
+            }
+        }
+
+        private bool _suppressDisciplineSync;
+
+        private bool _isAllDisciplinesSelected = true;
+        public bool IsAllDisciplinesSelected
+        {
+            get => _isAllDisciplinesSelected;
+            set
+            {
+                if (SetField(ref _isAllDisciplinesSelected, value))
+                {
+                    if (_suppressDisciplineSync)
+                        return;
+
+                    _suppressDisciplineSync = true;
+                    try
+                    {
+                        foreach (DisciplineFilterItem d in DisciplineFilters)
+                            d.IsChecked = value;
+                    }
+                    finally
+                    {
+                        _suppressDisciplineSync = false;
+                    }
+                }
+            }
+        }
+
+        private void OnDisciplineItemChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(DisciplineFilterItem.IsChecked))
+                return;
+
+            if (_suppressDisciplineSync)
+                return;
+
+            _suppressDisciplineSync = true;
+            try
+            {
+                bool allChecked = DisciplineFilters.All(d => d.IsChecked);
+                if (_isAllDisciplinesSelected != allChecked)
+                {
+                    _isAllDisciplinesSelected = allChecked;
+                    OnPropertyChanged(nameof(IsAllDisciplinesSelected));
+                }
+            }
+            finally
+            {
+                _suppressDisciplineSync = false;
+            }
+        }
+
+        public IReadOnlyList<Discipline> SelectedDisciplines =>
+            DisciplineFilters.Where(d => d.IsChecked).Select(d => d.Discipline).ToList();
 
         private int _selectedCount;
         public int SelectedCount
@@ -98,6 +179,21 @@ namespace FamiliesImporterHub.UI
             set => SetField(ref _isSelectionActive, value);
         }
 
+        // Mensagem destacada em vermelho quando os elementos selecionados não
+        // compartilham nenhum parâmetro editável em comum.
+        private string _noCommonParametersMessage = string.Empty;
+        public string NoCommonParametersMessage
+        {
+            get => _noCommonParametersMessage;
+            set
+            {
+                if (SetField(ref _noCommonParametersMessage, value))
+                    OnPropertyChanged(nameof(HasNoCommonParametersMessage));
+            }
+        }
+
+        public bool HasNoCommonParametersMessage => !string.IsNullOrEmpty(_noCommonParametersMessage);
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
@@ -123,6 +219,46 @@ namespace FamiliesImporterHub.UI
             StorageType.ElementId => "Referência (ElementId)",
             _ => "Outro",
         };
+
+        private static string DisplayName(Discipline d) => d switch
+        {
+            Discipline.Hidraulica => "Hidráulica",
+            Discipline.Eletrica => "Elétrica",
+            Discipline.Mecanica => "Mecânica",
+            Discipline.CombateIncendio => "Combate a incêndio",
+            Discipline.Estrutura => "Estrutura",
+            Discipline.Arquitetura => "Arquitetura",
+            Discipline.ModelosGenericos => "Modelos genéricos",
+            _ => d.ToString(),
+        };
+    }
+
+    public class DisciplineFilterItem : INotifyPropertyChanged
+    {
+        public DisciplineFilterItem(Discipline discipline, string displayName, bool isChecked)
+        {
+            Discipline = discipline;
+            DisplayName = displayName;
+            _isChecked = isChecked;
+        }
+
+        public Discipline Discipline { get; }
+        public string DisplayName { get; }
+
+        private bool _isChecked;
+        public bool IsChecked
+        {
+            get => _isChecked;
+            set
+            {
+                if (_isChecked == value)
+                    return;
+                _isChecked = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChecked)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 
     public class CommonParameterOption
