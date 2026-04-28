@@ -97,16 +97,43 @@ namespace FamiliesImporterHub.UI
             set
             {
                 if (SetField(ref _selectedCount, value))
+                {
                     OnPropertyChanged(nameof(SelectionSummary));
+                    OnPropertyChanged(nameof(HasSelection));
+                    OnPropertyChanged(nameof(HasNoSelection));
+                    OnPropertyChanged(nameof(SelectButtonText));
+                    OnPropertyChanged(nameof(CanApply));
+                }
             }
         }
+
+        public bool HasSelection => _selectedCount > 0;
+
+        public bool HasNoSelection => _selectedCount == 0;
 
         public string SelectionSummary => SelectedCount switch
         {
             0 => "Nenhum elemento selecionado.",
-            1 => "1 elemento selecionado.",
-            _ => $"{SelectedCount} elementos selecionados.",
+            1 => "1 elemento selecionado e pronto para edição.",
+            _ => $"{SelectedCount} elementos selecionados e prontos para edição.",
         };
+
+        public string SelectButtonText => HasSelection
+            ? "Selecionar elementos (ajustar)"
+            : "Selecionar elementos";
+
+        private string _selectionCategoriesSummary = string.Empty;
+        public string SelectionCategoriesSummary
+        {
+            get => _selectionCategoriesSummary;
+            set
+            {
+                if (SetField(ref _selectionCategoriesSummary, value))
+                    OnPropertyChanged(nameof(HasSelectionCategoriesSummary));
+            }
+        }
+
+        public bool HasSelectionCategoriesSummary => !string.IsNullOrEmpty(_selectionCategoriesSummary);
 
         private CommonParameterOption? _selectedParameter;
         public CommonParameterOption? SelectedParameter
@@ -119,6 +146,7 @@ namespace FamiliesImporterHub.UI
                     OnPropertyChanged(nameof(ValueTypeHint));
                     OnPropertyChanged(nameof(IsParameterSelected));
                     OnPropertyChanged(nameof(ValidationMessage));
+                    OnPropertyChanged(nameof(CanApply));
                 }
             }
         }
@@ -136,7 +164,10 @@ namespace FamiliesImporterHub.UI
             set
             {
                 if (SetField(ref _value, value))
+                {
                     OnPropertyChanged(nameof(ValidationMessage));
+                    OnPropertyChanged(nameof(CanApply));
+                }
             }
         }
 
@@ -165,6 +196,12 @@ namespace FamiliesImporterHub.UI
             }
         }
 
+        public bool CanApply =>
+            HasSelection
+            && _selectedParameter != null
+            && string.IsNullOrEmpty(ValidationMessage)
+            && !_isSelectionActive;
+
         private string _statusMessage = "Clique em \"Selecionar elementos\" para começar.";
         public string StatusMessage
         {
@@ -176,7 +213,11 @@ namespace FamiliesImporterHub.UI
         public bool IsSelectionActive
         {
             get => _isSelectionActive;
-            set => SetField(ref _isSelectionActive, value);
+            set
+            {
+                if (SetField(ref _isSelectionActive, value))
+                    OnPropertyChanged(nameof(CanApply));
+            }
         }
 
         // Mensagem destacada em vermelho quando os elementos selecionados não
