@@ -14,9 +14,7 @@ namespace FamiliesImporterHub.Infrastructure
         {
             PipeConverterViewModel? vm = ViewModel;
             if (vm == null)
-            {
                 return;
-            }
 
             try
             {
@@ -38,22 +36,21 @@ namespace FamiliesImporterHub.Infrastructure
                         reference = uiDoc.Selection.PickObject(
                             ObjectType.PointOnElement,
                             filter,
-                            "Selecione uma linha do CAD para converter em tubo (ESC para sair).");
+                            "PipeCADMapper — clique em uma linha do CAD. Use o painel para desativar.");
                     }
                     catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                     {
-                        // Sair do loop somente se o usuário desativou explicitamente a ferramenta
-                        // (botão toggle define IsActive = false antes de enviar ESC).
-                        // Se IsActive ainda for true, o cancelamento veio de interação com a UI
-                        // (ex.: abertura de ComboBox) — reinicia o PickObject sem desativar.
+                        // Sair somente se o usuário desativou explicitamente (toggle → IsActive = false + ESC).
+                        // Se IsActive ainda é true, o cancelamento veio de interação com a UI
+                        // (ex.: abrir ComboBox de diâmetro) — reinicia o PickObject sem desativar.
                         if (!vm.IsActive)
                             break;
+
+                        continue; // reinicia o PickObject mantendo a ferramenta ativa
                     }
 
-                    if (reference == null || !vm.IsActive)
-                    {
+                    if (!vm.IsActive)
                         break;
-                    }
 
                     PipingSystemOption? system = vm.SelectedSystem;
                     PipeTypeOption? pipeType = vm.SelectedPipeType;
@@ -80,12 +77,16 @@ namespace FamiliesImporterHub.Infrastructure
                     if (result.Success)
                     {
                         string skippedNote = result.SkippedCount > 0
-                            ? $" (ignorado(s) {result.SkippedCount} segmento(s) curto(s))"
+                            ? $" ({result.SkippedCount} segmento(s) curto(s) ignorado(s))"
+                            : string.Empty;
+
+                        string arcNote = result.ArcsAsChordCount > 0
+                            ? $" [{result.ArcsAsChordCount} arco(s) convertido(s) como corda reta]"
                             : string.Empty;
 
                         vm.StatusMessage =
-                            $"Criado(s) {result.CreatedCount} tubo(s){skippedNote} | {pipeType.Name} " +
-                            $"Ø{diameter}mm | {level.Name} + {offsetMm}mm";
+                            $"Criado(s) {result.CreatedCount} tubo(s){skippedNote}{arcNote} | " +
+                            $"{pipeType.Name} Ø{diameter}mm | {level.Name} + {offsetMm}mm";
                     }
                     else
                     {
@@ -101,9 +102,7 @@ namespace FamiliesImporterHub.Infrastructure
             {
                 vm.IsActive = false;
                 if (string.IsNullOrEmpty(vm.StatusMessage))
-                {
                     vm.StatusMessage = "Ferramenta desativada.";
-                }
             }
         }
 

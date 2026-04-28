@@ -30,7 +30,7 @@ namespace FamiliesImporterHub.Infrastructure
                 return PipeCreationResult.Failed("Geometria não disponível na referência selecionada.");
 
             Transform transform = GetTransformForElement(element);
-            List<(XYZ Start, XYZ End)> segments = ExtractSegments(geom, transform);
+            List<(XYZ Start, XYZ End)> segments = ExtractSegments(geom, transform, out int arcChordCount);
 
             if (segments.Count == 0)
                 return PipeCreationResult.Failed("Geometria não suportada (apenas linhas e polylines por enquanto).");
@@ -91,7 +91,7 @@ namespace FamiliesImporterHub.Infrastructure
                 tx.Commit();
             }
 
-            return PipeCreationResult.Ok(created, skipped);
+            return PipeCreationResult.Ok(created, skipped, arcChordCount);
         }
 
         // Conecta o conector de saída do segmento i ao conector de entrada do segmento i+1.
@@ -207,8 +207,12 @@ namespace FamiliesImporterHub.Infrastructure
             return Transform.Identity;
         }
 
-        private static List<(XYZ Start, XYZ End)> ExtractSegments(GeometryObject geom, Transform transform)
+        private static List<(XYZ Start, XYZ End)> ExtractSegments(
+            GeometryObject geom,
+            Transform transform,
+            out int arcChordCount)
         {
+            arcChordCount = 0;
             List<(XYZ, XYZ)> segments = new();
 
             switch (geom)
@@ -230,7 +234,8 @@ namespace FamiliesImporterHub.Infrastructure
                     break;
 
                 case Arc arc:
-                    // Arcos não viram tubos curvos (Pipe.Create só aceita reta).
+                    // Pipe.Create só aceita linhas retas; arcos viram corda (linha entre os dois extremos).
+                    arcChordCount = 1;
                     segments.Add((
                         transform.OfPoint(arc.GetEndPoint(0)),
                         transform.OfPoint(arc.GetEndPoint(1))));
@@ -243,23 +248,30 @@ namespace FamiliesImporterHub.Infrastructure
 
     public class PipeCreationResult
     {
-        private PipeCreationResult(bool success, int createdCount, int skippedCount, string? errorMessage)
+        private PipeCreationResult(
+            bool success,
+            int createdCount,
+            int skippedCount,
+            int arcsAsChordCount,
+            string? errorMessage)
         {
             Success = success;
             CreatedCount = createdCount;
             SkippedCount = skippedCount;
+            ArcsAsChordCount = arcsAsChordCount;
             ErrorMessage = errorMessage;
         }
 
         public bool Success { get; }
         public int CreatedCount { get; }
         public int SkippedCount { get; }
+        public int ArcsAsChordCount { get; }
         public string? ErrorMessage { get; }
 
-        public static PipeCreationResult Ok(int created, int skipped)
-            => new PipeCreationResult(true, created, skipped, null);
+        public static PipeCreationResult Ok(int created, int skipped, int arcsAsChord = 0)
+            => new PipeCreationResult(true, created, skipped, arcsAsChord, null);
 
         public static PipeCreationResult Failed(string message)
-            => new PipeCreationResult(false, 0, 0, message);
+            => new PipeCreationResult(false, 0, 0, 0, message);
     }
 }

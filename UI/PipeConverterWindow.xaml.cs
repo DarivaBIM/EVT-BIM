@@ -75,6 +75,25 @@ namespace FamiliesImporterHub.UI
             }
         }
 
+        // Chamado pelo App quando o documento ativo do Revit muda.
+        // Recarrega sistemas/tipos/níveis para refletir o novo projeto, mas não
+        // interrompe uma sessão de inserção em andamento.
+        internal static void RequestDataReload()
+        {
+            PipeConverterWindow? w = _instance;
+            if (w == null || w.ViewModel.IsActive)
+                return;
+
+            w.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_instance != null && !_instance.ViewModel.IsActive)
+                {
+                    _instance.ViewModel.StatusMessage = "Recarregando dados do projeto…";
+                    _instance._dataLoadEvent.Raise(_instance.ViewModel);
+                }
+            }));
+        }
+
         private bool HasMinimumConfiguration()
         {
             return ViewModel.SelectedSystem != null
