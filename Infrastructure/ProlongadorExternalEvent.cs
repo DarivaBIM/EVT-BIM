@@ -126,11 +126,11 @@ namespace FamiliesImporterHub.Infrastructure
             if (cat == null)
                 return false;
 
-            int id = cat.Id.IntegerValue;
-            return id == (int)BuiltInCategory.OST_PlumbingFixtures
-                || id == (int)BuiltInCategory.OST_PipeAccessory
-                || id == (int)BuiltInCategory.OST_GenericModel
-                || id == (int)BuiltInCategory.OST_MechanicalEquipment;
+            long id = cat.Id.Value;
+            return id == (long)BuiltInCategory.OST_PlumbingFixtures
+                || id == (long)BuiltInCategory.OST_PipeAccessory
+                || id == (long)BuiltInCategory.OST_GenericModel
+                || id == (long)BuiltInCategory.OST_MechanicalEquipment;
         }
 
         public bool AllowReference(Reference reference, XYZ position) => false;

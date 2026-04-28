@@ -24,7 +24,7 @@ namespace FamiliesImporterHub.Infrastructure
 
     public sealed class UnmatchedPipe
     {
-        public int ElementId { get; set; }
+        public long ElementId { get; set; }
         public int? DiameterMm { get; set; }
         public string? Description { get; set; }
         public string? Segment { get; set; }
@@ -88,7 +88,7 @@ namespace FamiliesImporterHub.Infrastructure
                 report.PipesNoMatch++;
                 report.Unmatched.Add(new UnmatchedPipe
                 {
-                    ElementId = pipe.Id.IntegerValue,
+                    ElementId = pipe.Id.Value,
                     DiameterMm = null,
                     Description = descText,
                     Segment = segText,
@@ -102,7 +102,7 @@ namespace FamiliesImporterHub.Infrastructure
                 report.PipesNoMatch++;
                 report.Unmatched.Add(new UnmatchedPipe
                 {
-                    ElementId = pipe.Id.IntegerValue,
+                    ElementId = pipe.Id.Value,
                     DiameterMm = diaMm,
                     Description = descText,
                     Segment = segText,
@@ -199,7 +199,7 @@ namespace FamiliesImporterHub.Infrastructure
                     case StorageType.ElementId:
                     {
                         ElementId id = p.AsElementId();
-                        if (id != null && id.IntegerValue > 0)
+                        if (id != null && id.Value > 0)
                         {
                             Element? el = doc.GetElement(id);
                             if (el != null)
