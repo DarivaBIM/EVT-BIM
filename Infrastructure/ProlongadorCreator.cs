@@ -56,7 +56,7 @@ namespace FamiliesImporterHub.Infrastructure
                 FamilyInstance fi = caixas[i];
                 List<string> logs = new();
                 logs.Add(new string('=', 60));
-                logs.Add($"CAIXA #{i} - ID: {fi.Id.IntegerValue}");
+                logs.Add($"CAIXA #{i} - ID: {fi.Id.Value}");
 
                 try
                 {
@@ -127,7 +127,7 @@ namespace FamiliesImporterHub.Infrastructure
                         logs.Add("  -> Aviso: pipe criado, mas não conectou automaticamente.");
                     }
 
-                    logs.Add($"  -> SUCESSO: Pipe ID {novo.Id.IntegerValue}");
+                    logs.Add($"  -> SUCESSO: Pipe ID {novo.Id.Value}");
                     result.Created++;
                 }
                 catch (Exception ex)

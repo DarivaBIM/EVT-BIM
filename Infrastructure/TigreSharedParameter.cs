@@ -238,7 +238,7 @@ namespace FamiliesImporterHub.Infrastructure
                     foreach (Category c in existingBinding.Categories)
                     {
                         catSet.Insert(c);
-                        if (c.Id.IntegerValue == targetCat.Id.IntegerValue)
+                        if (c.Id.Value == targetCat.Id.Value)
                             hasTarget = true;
                     }
                 }
