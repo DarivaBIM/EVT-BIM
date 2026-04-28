@@ -25,6 +25,20 @@ namespace FamiliesImporterHub.Infrastructure
         /// </summary>
         public Action? RearmRequested { get; set; }
 
+        /// <summary>
+        /// Sinaliza que o próximo cancelamento de <c>PickObject</c> foi
+        /// originado internamente (ex.: WPF capturou foco para troca de
+        /// parâmetro) e portanto NÃO deve desativar a ferramenta. Cancelamentos
+        /// que cheguem com esta flag em <c>false</c> são entendidos como ESC do
+        /// usuário e desativam a ferramenta.
+        /// </summary>
+        private int _internalCancelPending;
+
+        public void RequestInternalCancel()
+        {
+            System.Threading.Interlocked.Exchange(ref _internalCancelPending, 1);
+        }
+
         public void Execute(UIApplication app)
         {
             PipeConverterViewModel? vm = ViewModel;
@@ -55,10 +69,21 @@ namespace FamiliesImporterHub.Infrastructure
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                 {
                     // Cancelamento pode vir de:
-                    //  - usuário pressionou ESC para desativar
                     //  - WPF capturou foco para alteração de parâmetros (re-armar)
+                    //  - usuário pressionou ESC para desativar
                     //  - troca de view, etc.
-                    // Em qualquer caso: se a ferramenta segue ativa, agenda novo pick.
+                    // Se o cancel foi pedido internamente (flag setada antes do
+                    // SendEscapeToRevit), apenas re-arma. Caso contrário,
+                    // tratamos como ESC do usuário e desativamos a ferramenta.
+                    bool internalCancel =
+                        System.Threading.Interlocked.Exchange(ref _internalCancelPending, 0) == 1;
+
+                    if (!internalCancel)
+                    {
+                        vm.IsActive = false;
+                        vm.StatusMessage = "Ferramenta desativada.";
+                    }
+
                     return;
                 }
 

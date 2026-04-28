@@ -47,5 +47,14 @@ namespace FamiliesImporterHub.Infrastructure
             _handler.ViewModel = viewModel;
             _externalEvent.Raise();
         }
+
+        /// <summary>
+        /// Sinaliza que o próximo cancel do <c>PickObject</c> é interno
+        /// (originado pelo WPF) e portanto não deve desativar a ferramenta.
+        /// </summary>
+        public void MarkNextCancelAsInternal()
+        {
+            _handler.RequestInternalCancel();
+        }
     }
 }
