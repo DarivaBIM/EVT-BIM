@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using Autodesk.Revit.DB;
 using FamiliesImporterHub.Infrastructure;
@@ -46,7 +47,10 @@ namespace FamiliesImporterHub.UI
 
         public void SetSelection(IReadOnlyList<ElementId> ids, IReadOnlyList<CommonParameterOption> commonParams)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            // Sempre marshalar para o thread de UI; usar Invoke (sincrono) ao
+            // invés de BeginInvoke evita corridas onde o usuário consegue
+            // disparar "Aplicar" antes do dispatcher ter atualizado os IDs.
+            Action update = () =>
             {
                 _selectedIds.Clear();
                 _selectedIds.AddRange(ids);
@@ -72,41 +76,65 @@ namespace FamiliesImporterHub.UI
 
                 if (ids.Count == 0)
                 {
+                    ViewModel.NoCommonParametersMessage = string.Empty;
                     ViewModel.StatusMessage = "Nenhum elemento selecionado.";
                 }
                 else if (commonParams.Count == 0)
                 {
-                    ViewModel.StatusMessage = "Os elementos não compartilham nenhum parâmetro editável em comum.";
+                    ViewModel.NoCommonParametersMessage =
+                        "Os elementos selecionados não compartilham nenhum parâmetro editável em comum.";
+                    ViewModel.StatusMessage = $"{ids.Count} elemento(s) selecionado(s).";
                 }
                 else
                 {
+                    ViewModel.NoCommonParametersMessage = string.Empty;
                     ViewModel.StatusMessage = $"{ids.Count} elemento(s) prontos para edição.";
                 }
 
                 ViewModel.IsSelectionActive = false;
-            }));
+            };
+
+            if (Dispatcher.CheckAccess())
+                update();
+            else
+                Dispatcher.Invoke(update);
         }
 
         public void SetStatus(string text)
         {
-            Dispatcher.BeginInvoke(new Action(() => ViewModel.StatusMessage = text));
+            if (Dispatcher.CheckAccess())
+                ViewModel.StatusMessage = text;
+            else
+                Dispatcher.Invoke(() => ViewModel.StatusMessage = text);
         }
 
         public void SetSelectionActive(bool active)
         {
-            Dispatcher.BeginInvoke(new Action(() => ViewModel.IsSelectionActive = active));
+            if (Dispatcher.CheckAccess())
+                ViewModel.IsSelectionActive = active;
+            else
+                Dispatcher.Invoke(() => ViewModel.IsSelectionActive = active);
         }
 
         private void OnSelectClicked(object sender, RoutedEventArgs e)
         {
             ViewModel.IsSelectionActive = true;
             ViewModel.StatusMessage = "Selecione elementos no Revit. ENTER ou ESC para finalizar.";
-            _selectionEvent.Raise(this);
+
+            // Snapshot das disciplinas marcadas no momento do clique.
+            IReadOnlyList<Discipline> disciplines = ViewModel.SelectedDisciplines;
+            _selectionEvent.Raise(this, disciplines);
         }
 
         private void OnApplyClicked(object sender, RoutedEventArgs e)
         {
-            if (_selectedIds.Count == 0)
+            // Snapshot dos IDs selecionados no exato momento do clique, no
+            // thread de UI. Isso garante que cada clique aplica nos elementos
+            // que estavam selecionados naquele instante, mesmo que a janela
+            // permaneça aberta entre múltiplas seleções.
+            List<ElementId> snapshot = _selectedIds.ToList();
+
+            if (snapshot.Count == 0)
             {
                 ViewModel.StatusMessage = "Selecione pelo menos um elemento antes de aplicar.";
                 return;
@@ -126,7 +154,7 @@ namespace FamiliesImporterHub.UI
             }
 
             ViewModel.StatusMessage = "Aplicando…";
-            _applyEvent.Raise(this, _selectedIds, param, ViewModel.Value ?? string.Empty);
+            _applyEvent.Raise(this, snapshot, param, ViewModel.Value ?? string.Empty);
         }
 
         private void OnWindowClosed(object? sender, EventArgs e)

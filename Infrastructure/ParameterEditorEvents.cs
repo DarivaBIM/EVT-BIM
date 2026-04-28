@@ -25,9 +25,10 @@ namespace FamiliesImporterHub.Infrastructure
             _externalEvent = ExternalEvent.Create(_handler);
         }
 
-        public void Raise(ParameterEditorWindow window)
+        public void Raise(ParameterEditorWindow window, IReadOnlyList<Discipline> disciplines)
         {
             _handler.Window = window;
+            _handler.Disciplines = disciplines.ToList();
             _externalEvent.Raise();
         }
     }
@@ -35,6 +36,7 @@ namespace FamiliesImporterHub.Infrastructure
     internal class ParameterEditorSelectionHandler : IExternalEventHandler
     {
         public ParameterEditorWindow? Window { get; set; }
+        public List<Discipline> Disciplines { get; set; } = new();
 
         public string GetName() => "TigreBIM.ParameterEditorSelectionHandler";
 
@@ -56,12 +58,28 @@ namespace FamiliesImporterHub.Infrastructure
 
                 Document doc = uiDoc.Document;
 
+                // Constroi o filtro de seleção a partir das disciplinas
+                // marcadas. Se nenhuma disciplina estiver marcada, não há
+                // filtro de categoria — o Revit aceitará qualquer elemento.
+                ISelectionFilter? filter = null;
+                if (Disciplines.Count > 0)
+                {
+                    HashSet<long> allowed = DisciplineCategoryMap.UnionCategoryIds(Disciplines);
+                    if (allowed.Count > 0)
+                        filter = new DisciplineSelectionFilter(allowed);
+                }
+
                 IList<Reference> refs;
                 try
                 {
-                    refs = uiDoc.Selection.PickObjects(
-                        ObjectType.Element,
-                        "Selecione os elementos. ENTER ou ESC para finalizar.");
+                    refs = filter != null
+                        ? uiDoc.Selection.PickObjects(
+                            ObjectType.Element,
+                            filter,
+                            "Selecione os elementos. ENTER ou ESC para finalizar.")
+                        : uiDoc.Selection.PickObjects(
+                            ObjectType.Element,
+                            "Selecione os elementos. ENTER ou ESC para finalizar.");
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                 {
@@ -82,7 +100,14 @@ namespace FamiliesImporterHub.Infrastructure
                     .ToList()!;
 
                 List<ElementId> ids = elements.Select(e => e.Id).ToList();
-                IReadOnlyList<CommonParameterOption> common = ParameterEditorService.ComputeCommonParameters(elements);
+
+                // Os parâmetros em comum consideram apenas os elementos
+                // selecionados pelo usuário. As famílias aninhadas só são
+                // expandidas no momento do Apply, então valores que
+                // existirem nelas são preenchidos por consequência (e
+                // ignorados quando o parâmetro não está presente).
+                IReadOnlyList<CommonParameterOption> common =
+                    ParameterEditorService.ComputeCommonParameters(elements);
 
                 win.SetSelection(ids, common);
             }
@@ -92,6 +117,31 @@ namespace FamiliesImporterHub.Infrastructure
                 win.SetSelectionActive(false);
             }
         }
+    }
+
+    /// <summary>
+    /// Aceita apenas elementos cuja categoria pertença a uma das disciplinas
+    /// marcadas pelo usuário no editor de parâmetros.
+    /// </summary>
+    internal class DisciplineSelectionFilter : ISelectionFilter
+    {
+        private readonly HashSet<long> _allowedCategoryIds;
+
+        public DisciplineSelectionFilter(HashSet<long> allowedCategoryIds)
+        {
+            _allowedCategoryIds = allowedCategoryIds;
+        }
+
+        public bool AllowElement(Element elem)
+        {
+            Category? cat = elem?.Category;
+            if (cat == null)
+                return false;
+
+            return _allowedCategoryIds.Contains(cat.Id.Value);
+        }
+
+        public bool AllowReference(Reference reference, XYZ position) => false;
     }
 
     public class ParameterEditorApplyExternalEvent
@@ -112,6 +162,7 @@ namespace FamiliesImporterHub.Infrastructure
             string value)
         {
             _handler.Window = window;
+            // ToList() cria um snapshot independente da lista da janela.
             _handler.Ids = ids.ToList();
             _handler.Parameter = parameter;
             _handler.Value = value;
@@ -145,6 +196,28 @@ namespace FamiliesImporterHub.Infrastructure
 
                 Document doc = uiDoc.Document;
 
+                // Resolve os elementos e adiciona seus subcomponents (famílias
+                // aninhadas) recursivamente. Também inclui o supercomponent
+                // raiz quando o usuário seleciona algo aninhado, replicando o
+                // comportamento do script Dynamo original.
+                List<Element> roots = new();
+                HashSet<long> rootIds = new();
+                foreach (ElementId id in Ids)
+                {
+                    Element? el = doc.GetElement(id);
+                    if (el == null)
+                        continue;
+
+                    Element top = ParameterEditorService.GetTopSuperComponent(el);
+                    long tid = top.Id.Value;
+                    if (rootIds.Add(tid))
+                        roots.Add(top);
+                }
+
+                List<Element> targets = ParameterEditorService
+                    .ExpandWithNested(doc, roots)
+                    .ToList();
+
                 int updated = 0;
                 int skipped = 0;
                 int failed = 0;
@@ -152,15 +225,8 @@ namespace FamiliesImporterHub.Infrastructure
                 using Transaction tx = new(doc, $"TigreBIM — Atribuir '{Parameter.Name}'");
                 tx.Start();
 
-                foreach (ElementId id in Ids)
+                foreach (Element elem in targets)
                 {
-                    Element? elem = doc.GetElement(id);
-                    if (elem == null)
-                    {
-                        skipped++;
-                        continue;
-                    }
-
                     Parameter? param = ParameterEditorService.FindParameter(elem, Parameter);
                     if (param == null || param.IsReadOnly)
                     {
@@ -177,7 +243,7 @@ namespace FamiliesImporterHub.Infrastructure
                 tx.Commit();
 
                 string status =
-                    $"Aplicado em {updated} elemento(s). " +
+                    $"Aplicado em {updated} elemento(s) (incluindo aninhados). " +
                     $"Pulado(s): {skipped}. Falhou: {failed}.";
 
                 win.SetStatus(status);
@@ -228,6 +294,93 @@ namespace FamiliesImporterHub.Infrastructure
 
     internal static class ParameterEditorService
     {
+        /// <summary>
+        /// Sobe pela hierarquia de <c>FamilyInstance.SuperComponent</c> até
+        /// chegar à raiz (família que não está aninhada em outra). Para
+        /// elementos que não são <c>FamilyInstance</c> ou que já são raiz,
+        /// retorna o próprio elemento.
+        /// </summary>
+        public static Element GetTopSuperComponent(Element element)
+        {
+            Element current = element;
+            HashSet<long> visited = new();
+
+            while (true)
+            {
+                if (current is not FamilyInstance fi)
+                    return current;
+
+                Element? sc;
+                try
+                {
+                    sc = fi.SuperComponent;
+                }
+                catch
+                {
+                    return current;
+                }
+
+                if (sc == null)
+                    return current;
+
+                long sid = sc.Id.Value;
+                if (!visited.Add(sid))
+                    return current; // proteção contra loop
+
+                current = sc;
+            }
+        }
+
+        /// <summary>
+        /// Expande uma lista de elementos para incluir todas as famílias
+        /// aninhadas (subcomponents) recursivamente. A ordem preserva o
+        /// elemento raiz primeiro, seguido pelos seus aninhados.
+        /// </summary>
+        public static IEnumerable<Element> ExpandWithNested(Document doc, IEnumerable<Element> roots)
+        {
+            HashSet<long> seen = new();
+            Stack<Element> stack = new();
+
+            foreach (Element r in roots)
+            {
+                if (r != null)
+                    stack.Push(r);
+            }
+
+            while (stack.Count > 0)
+            {
+                Element cur = stack.Pop();
+                long cid = cur.Id.Value;
+                if (!seen.Add(cid))
+                    continue;
+
+                yield return cur;
+
+                if (cur is FamilyInstance fi)
+                {
+                    ICollection<ElementId>? subIds = null;
+                    try
+                    {
+                        subIds = fi.GetSubComponentIds();
+                    }
+                    catch
+                    {
+                        subIds = null;
+                    }
+
+                    if (subIds == null)
+                        continue;
+
+                    foreach (ElementId sid in subIds)
+                    {
+                        Element? child = doc.GetElement(sid);
+                        if (child != null)
+                            stack.Push(child);
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// Calcula a interseção dos parâmetros editáveis (não-ReadOnly) entre os
         /// elementos selecionados, considerando parâmetros de instância e de

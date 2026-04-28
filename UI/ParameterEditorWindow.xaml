@@ -14,6 +14,8 @@
         Closed="OnWindowClosed">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
         <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="SoftBorderBrush" Color="#D8E0EA" />
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
@@ -21,6 +23,7 @@
         <SolidColorBrush x:Key="PrimaryBrush" Color="#2563EB" />
         <SolidColorBrush x:Key="ActiveBrush" Color="#16A34A" />
         <SolidColorBrush x:Key="ErrorBrush" Color="#DC2626" />
+        <SolidColorBrush x:Key="FilterPanelBrush" Color="#F1F5F9" />
 
         <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
@@ -82,6 +85,26 @@
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="0,8,0,0" />
         </Style>
+
+        <Style x:Key="DisciplineCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,2,8,2" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="AllDisciplinesCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource DisciplineCheckBoxStyle}">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="NoCommonParamsTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
     </Window.Resources>
 
     <Border Background="{StaticResource CardBackgroundBrush}"
@@ -100,6 +123,35 @@
             <TextBlock Text="Selecione elementos do projeto e atribua um valor a um parâmetro comum a todos eles."
                        Style="{StaticResource HintTextStyle}" />
 
+            <TextBlock Text="Filtrar por disciplina" Style="{StaticResource FieldLabelStyle}" />
+            <Border Background="{StaticResource FilterPanelBrush}"
+                    BorderBrush="{StaticResource SoftBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="10,8"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <CheckBox Content="Todos"
+                              Style="{StaticResource AllDisciplinesCheckBoxStyle}"
+                              IsChecked="{Binding IsAllDisciplinesSelected, Mode=TwoWay}" />
+                    <ItemsControl ItemsSource="{Binding DisciplineFilters}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Content="{Binding DisplayName}"
+                                          IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                          Style="{StaticResource DisciplineCheckBoxStyle}"
+                                          Width="160" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <Button x:Name="SelectButton"
                     Style="{StaticResource SelectButtonStyle}"
                     Content="Selecionar elementos"
@@ -109,6 +161,9 @@
                        Style="{StaticResource HintTextStyle}" />
 
             <TextBlock Text="Parâmetro" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding NoCommonParametersMessage}"
+                       Style="{StaticResource NoCommonParamsTextStyle}"
+                       Visibility="{Binding HasNoCommonParametersMessage, Converter={StaticResource BoolToVisibilityConverter}}" />
             <ComboBox x:Name="ParameterComboBox"
                       ItemsSource="{Binding Parameters}"
                       SelectedItem="{Binding SelectedParameter}"
