@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reflection;
+using Autodesk.Revit.DB.Events;
 using Autodesk.Revit.UI;
 using FamiliesImporterHub.Commands;
 using FamiliesImporterHub.Infrastructure;
@@ -21,6 +22,8 @@ namespace FamiliesImporterHub
         {
             try
             {
+                application.ControlledApplication.DocumentActivated += OnDocumentActivated;
+
                 TryCreateRibbonTab(application, TabName);
 
                 RibbonPanel panel = GetOrCreateRibbonPanel(application, TabName, PanelName);
@@ -77,7 +80,13 @@ namespace FamiliesImporterHub
 
         public Result OnShutdown(UIControlledApplication application)
         {
+            application.ControlledApplication.DocumentActivated -= OnDocumentActivated;
             return Result.Succeeded;
+        }
+
+        private static void OnDocumentActivated(object sender, DocumentActivatedEventArgs e)
+        {
+            PipeConverterWindow.RequestDataReload();
         }
 
         private static void TryCreateRibbonTab(UIControlledApplication application, string tabName)
