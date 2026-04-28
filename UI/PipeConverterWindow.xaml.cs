@@ -19,6 +19,7 @@ namespace FamiliesImporterHub.UI
         {
             InitializeComponent();
             ViewModel = new PipeConverterViewModel();
+            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
             DataContext = ViewModel;
         }
 
@@ -68,11 +69,46 @@ namespace FamiliesImporterHub.UI
 
         private void OnWindowClosing(object sender, CancelEventArgs e)
         {
+            ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+
             if (ViewModel.IsActive)
             {
                 ViewModel.IsActive = false;
                 SendEscapeToRevit();
             }
+        }
+
+        // Quando o usuário troca um parâmetro de inserção (sistema, tipo,
+        // diâmetro, nível, offset) com a ferramenta ATIVA, cancela o PickObject
+        // corrente e reagenda um novo pick. Sem isso, o ciclo de seleção podia
+        // ficar travado depois de uma alteração no WPF.
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (!ViewModel.IsActive)
+                return;
+
+            if (!IsInsertionParameter(e.PropertyName))
+                return;
+
+            // Cancela o pick atual em andamento; o handler vai cair no catch
+            // de OperationCanceled, e o re-arm automático (no finally) já
+            // agenda o próximo pick. Como reforço, chamamos RaiseIfActive
+            // para garantir que a fila não fique vazia.
+            SendEscapeToRevit();
+            _pipeInsertionEvent.RaiseIfActive(ViewModel);
+        }
+
+        // Apenas parâmetros vindos de ComboBox: a alteração ocorre dentro do
+        // próprio WPF (sem clique no canvas) então é seguro disparar ESC.
+        // OffsetMm fica de fora para não criar corrida com o clique-pick
+        // (TextBox.LostFocus dispara junto com a mudança de foco).
+        private static bool IsInsertionParameter(string? propertyName)
+        {
+            return propertyName is
+                nameof(PipeConverterViewModel.SelectedSystem) or
+                nameof(PipeConverterViewModel.SelectedPipeType) or
+                nameof(PipeConverterViewModel.SelectedDiameterMm) or
+                nameof(PipeConverterViewModel.SelectedLevel);
         }
 
         // Chamado pelo App quando o documento ativo do Revit muda.
