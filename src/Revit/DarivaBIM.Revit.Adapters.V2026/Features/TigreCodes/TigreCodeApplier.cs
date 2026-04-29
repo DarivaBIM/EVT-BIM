@@ -6,7 +6,6 @@ using DarivaBIM.Application.Contracts;
 using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Domain.Tigre;
 using DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters;
-using DarivaBIM.Revit.Adapters.V2026.Features.TigreCodes.SharedParameters;
 
 namespace DarivaBIM.Revit.Adapters.V2026.Features.TigreCodes
 {
