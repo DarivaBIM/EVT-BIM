@@ -4,15 +4,8 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Autodesk.Revit.DB;
-using DarivaBIM.Application.DTOs.Family;
-using DarivaBIM.Application.DTOs.Pipe;
-using DarivaBIM.Infrastructure.Persistence.Settings;
-using DarivaBIM.Revit.Adapters.V2026.Filters;
 using DarivaBIM.Plugin.V2026.Features.ParameterEditor;
-using DarivaBIM.Revit.Adapters.V2026.Mapping;
-using DarivaBIM.Revit.Adapters.V2026.Parameters;
-using DarivaBIM.Revit.Adapters.V2026.Transactions;
-using DarivaBIM.Revit.Adapters.V2026.Writers;
+using DarivaBIM.Revit.Adapters.V2026.Features.ParameterEditor;
 
 namespace DarivaBIM.Plugin.V2026.Ui
 {

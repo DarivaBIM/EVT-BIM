@@ -215,25 +215,70 @@ PickObject + Transaction). Não é o lugar para regra pesada. O padrão atual:
 
 - O Handler controla o ciclo (pick → reagendar → cancelamento).
 - A montagem do `PipeConversionConfig` saiu para
-  `Tools/PipeCadMapper/PipeConversionConfigFactory`.
+  `Plugin.V2026/Features/PipeCadMapper/Tools/PipeConversionConfigFactory`.
 - A formatação da mensagem de status saiu para
-  `Tools/PipeCadMapper/PipeInsertionStatusFormatter`.
+  `Plugin.V2026/Features/PipeCadMapper/Tools/PipeInsertionStatusFormatter`.
 - O ViewModel consumido vem de `Presentation.Wpf` e não conhece `ElementId`.
 
-## 4.4. PipeCreator (fachada temporária)
+## 4.4. Organização por Feature no Adapter
 
-`DarivaBIM.Revit.Adapters.V2026/Writers/PipeCreator.cs` permanece como
-fachada para não quebrar chamadas atuais, mas a lógica está sendo extraída:
+A partir de ADR-0012, `Revit.Adapters.V2026` é organizada em **Common +
+Features**, espelhando a divisão do Plugin (ADR-0011):
 
-- `Cad/CadGeometryExtractor` — resolve `Transform` para `ImportInstance`.
-- `Cad/CadSegmentExtractor` — converte `Line/PolyLine/Arc` em segmentos.
-- `Pipes/PipeConnectorService` — conecta extremidades coincidentes
-  (placeholders consecutivos e tubos pré-existentes).
+```
+DarivaBIM.Revit.Adapters.V2026/
+├── Common/                            (blocos reutilizáveis de RevitAPI)
+│   ├── Cad/
+│   ├── Elements/
+│   ├── Filters/
+│   ├── Parameters/
+│   ├── Pipes/
+│   ├── Selection/
+│   ├── SharedParameters/
+│   ├── Transactions/
+│   │   └── FailurePreprocessors/
+│   └── Units/
+└── Features/                          (implementação Revit por ferramenta)
+    ├── TigreCodes/
+    │   └── SharedParameters/
+    ├── PipeCadMapper/
+    ├── Prolongador/
+    ├── ParameterEditor/
+    └── FamiliesImporter/
+```
 
-A façade ainda concentra a transação e a chamada a
-`PlumbingUtils.ConvertPipePlaceholders`. Próxima etapa (não nesta entrega):
-extrair `PipePlaceholderService` e `PipeCreationService` para zerar o estado
-estático.
+Princípios:
+
+- **Common**: helpers que respondem a "como faço X genérico no Revit?"
+  (`SharedParameterService`, `RevitParameterReader`, `RevitTransactionRunner`,
+  `RevitUnitConverter`, `CadCurveSelectionFilter`, `PipeConnectorService` etc.).
+- **Features**: classes que respondem a "como esta ferramenta funciona?"
+  (`TigreCodeApplier`, `PipeCreator`, `ProlongadorCreator`, `RevitFamilyLoadOptions`,
+  `Discipline*`).
+
+Detalhes em `src/docs/guides/adapter-anatomy.md` e
+`src/docs/guides/shared-parameters-architecture.md`.
+
+## 4.5. Fluxo Dynamo/Python → Plugin
+
+Quando uma ferramenta nasce como script Dynamo/Python:
+
+```
+Script Dynamo/Python
+   → docs/dynamo-migration/<Nome>.md          (etiquetar trechos do script)
+   → Plugin.V2026/Features/<Nome>/             (botão, command, tool, events)
+   → Application/UseCases/<Nome>/              (se houver orquestração reusável)
+   → Adapter.V2026/Features/<Nome>/            (collectors, readers, writers, creators)
+   → Domain/                                   (regras puras, se houver)
+   → Infrastructure.*                          (persistência, API, telemetria)
+```
+
+Etiquetas do roteiro: `[INPUT]`, `[SELECTION]`, `[COLLECT]`, `[READ_PARAM]`,
+`[FILTER]`, `[CALCULATE]`, `[WRITE_PARAM]`, `[CREATE_ELEMENT]`,
+`[TRANSACTION]`, `[RESULT]`, `[UI]`. Guia completo em
+`src/docs/guides/dynamo-to-plugin-migration.md`; template em
+`src/docs/dynamo-migration/_template.md`; exemplos prontos em
+`src/docs/dynamo-migration/{tigre-codes,pipe-cad-mapper,prolongador}.md`.
 
 ## 5. Multi-versão Revit
 
@@ -293,11 +338,26 @@ Resumo (passo a passo completo em
 
 ## 9. Como criar um novo adapter Revit
 
-1. Em `DarivaBIM.Revit.Adapters.V2026/<Categoria>/<Nome>.cs`.
-2. Implementa o `I*Service`/`I*Repository` definido em Application.
-3. Recebe `Document` (ou `IRevitDocumentContext`) por construtor.
-4. Encapsula transações, leitura/escrita de parâmetros, conversão de unidades,
-   filtros de categoria.
+1. Decida onde mora a classe nova:
+   - **Reutilizável por várias features** → `Adapters.V2026/Common/<categoria>/`
+     (exemplos: `Common/SharedParameters/SharedParameterService.cs`,
+     `Common/Parameters/RevitParameterReader.cs`,
+     `Common/Transactions/RevitTransactionRunner.cs`).
+   - **Específica de uma ferramenta** → `Adapters.V2026/Features/<Nome>/`
+     com sufixos `Collector`, `Reader`, `Writer`, `Creator`, `Resolver`,
+     `Finder`, `Applier` (exemplos: `Features/TigreCodes/TigreCodeApplier.cs`,
+     `Features/Prolongador/VerticalConnectorFinder.cs`).
+2. Se implementa um contrato de Application (`I*Service`/`I*Repository`/
+   `I*Provider`), recebe `Document` (ou `IRevitDocumentContext`) por
+   construtor.
+3. Encapsula transações via `RevitTransactionRunner`, leitura/escrita de
+   parâmetros via `RevitParameterReader`/`RevitParameterWriter` e conversões
+   via `RevitUnitConverter`, mantendo cada classe focada em uma única
+   responsabilidade.
+4. Para shared parameters, declare a definição em
+   `Features/<Nome>/SharedParameters/<Nome>SharedParameters.cs` e use
+   `Common/SharedParameters/SharedParameterService` — não reimplemente
+   criação/binding (ver ADR-0013).
 5. Testar com smoke tests em `DarivaBIM.Revit.Adapters.V2026.Tests`.
 
 ## 10. Como compilar e testar V2026

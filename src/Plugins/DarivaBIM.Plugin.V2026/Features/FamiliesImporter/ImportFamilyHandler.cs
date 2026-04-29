@@ -3,17 +3,10 @@ using System.IO;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using DarivaBIM.Application.DTOs.Family;
 using DarivaBIM.Infrastructure.Api.Clients;
 using DarivaBIM.Infrastructure.Persistence.Cache;
-using DarivaBIM.Revit.Adapters.V2026.Filters;
-using DarivaBIM.Revit.Adapters.V2026.Mapping;
-using DarivaBIM.Revit.Adapters.V2026.Parameters;
-using DarivaBIM.Revit.Adapters.V2026.Transactions;
-using DarivaBIM.Revit.Adapters.V2026.Writers;
-using DarivaBIM.Domain.Tigre;
-using DarivaBIM.Application.DTOs.Family;
-using DarivaBIM.Application.DTOs.Tigre;
-using DarivaBIM.Application.Contracts;
+using DarivaBIM.Revit.Adapters.V2026.Features.FamiliesImporter;
 
 namespace DarivaBIM.Plugin.V2026.Features.FamiliesImporter
 {
