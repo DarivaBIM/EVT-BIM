@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>DarivaBIM.Plugin.V2025</RootNamespace>
+    <AssemblyName>DarivaBIM.Plugin.V2025</AssemblyName>
+    <Description>Revit 2025 plugin entry point. Stub.</Description>
+    <RevitVersion>2025</RevitVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
+    <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Adapters.V2025\DarivaBIM.Revit.Adapters.V2025.csproj" />
+  </ItemGroup>
+
+</Project>

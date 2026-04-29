@@ -1,0 +1,50 @@
+<Project>
+
+  <PropertyGroup>
+    <Product>DarivaBIM</Product>
+    <Company>DarivaBIM</Company>
+    <Authors>DarivaBIM</Authors>
+    <Copyright>Copyright (c) DarivaBIM</Copyright>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NeutralLanguage>pt-BR</NeutralLanguage>
+
+    <!-- Per-Revit-version target frameworks. Projects opt in by setting RevitVersion. -->
+    <RevitTargetFramework Condition="'$(RevitVersion)' == '2023'">net48</RevitTargetFramework>
+    <RevitTargetFramework Condition="'$(RevitVersion)' == '2024'">net48</RevitTargetFramework>
+    <RevitTargetFramework Condition="'$(RevitVersion)' == '2025'">net8.0-windows</RevitTargetFramework>
+    <RevitTargetFramework Condition="'$(RevitVersion)' == '2026'">net8.0-windows</RevitTargetFramework>
+    <RevitTargetFramework Condition="'$(RevitVersion)' == '2027'">net10.0-windows</RevitTargetFramework>
+
+    <!-- Default Revit install path per version. Override via env var REVIT_<VERSION>_PATH. -->
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2023' AND '$(REVIT_2023_PATH)' != ''">$(REVIT_2023_PATH)</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2023' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2023</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2024' AND '$(REVIT_2024_PATH)' != ''">$(REVIT_2024_PATH)</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2024' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2024</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2025' AND '$(REVIT_2025_PATH)' != ''">$(REVIT_2025_PATH)</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2025' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2025</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2026' AND '$(REVIT_2026_PATH)' != ''">$(REVIT_2026_PATH)</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2026' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2026</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2027' AND '$(REVIT_2027_PATH)' != ''">$(REVIT_2027_PATH)</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitVersion)' == '2027' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2027</RevitInstallDir>
+
+    <!-- Symbol shared across the codebase to compile-fence per-version code. -->
+    <DefineConstants Condition="'$(RevitVersion)' != ''">$(DefineConstants);REVIT$(RevitVersion)</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+</Project>
