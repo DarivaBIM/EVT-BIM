@@ -2,18 +2,14 @@ using System;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using DarivaBIM.Application.Contracts;
-using DarivaBIM.Application.DTOs.Tigre;
-using DarivaBIM.Application.UseCases.ApplyTigreCodes;
-using DarivaBIM.Plugin.V2026.Tools.ApplyTigreCodes;
 using DarivaBIM.Revit.Hosting.Commands;
 
-namespace DarivaBIM.Plugin.V2026.Commands
+namespace DarivaBIM.Plugin.V2026.Features.TigreCodes
 {
     /// <summary>
     /// Thin <c>IExternalCommand</c> shell. Validates the active document,
-    /// resolves <see cref="ITigreCatalogProvider"/> from the DI scope and
-    /// delegates the run to <see cref="ApplyTigreCodesTool"/>.
+    /// resolves <see cref="ApplyTigreCodesTool"/> from the DI scope and
+    /// delegates the run to it.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     public class ApplyTigreCodesCommand : IExternalCommand
@@ -33,15 +29,12 @@ namespace DarivaBIM.Plugin.V2026.Commands
                     return Result.Cancelled;
                 }
 
-                ITigreCatalogProvider catalogProvider =
-                    (ITigreCatalogProvider)ctx.Services.GetService(typeof(ITigreCatalogProvider))!;
+                ApplyTigreCodesTool tool =
+                    (ApplyTigreCodesTool)ctx.Services.GetService(typeof(ApplyTigreCodesTool))!;
 
                 try
                 {
-                    ApplyTigreCodesTool tool = new ApplyTigreCodesTool(catalogProvider);
-                    TigreCodeApplyResult report = tool.Execute(doc);
-                    TaskDialog.Show("TigreBIM — Códigos Tigre", ApplyTigreCodesUseCase.FormatReport(report));
-                    return Result.Succeeded;
+                    return tool.Execute(doc);
                 }
                 catch (Exception ex)
                 {

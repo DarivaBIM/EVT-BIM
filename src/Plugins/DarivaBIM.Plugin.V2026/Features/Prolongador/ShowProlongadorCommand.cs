@@ -3,10 +3,10 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Plugin.V2026.Ui;
 
-namespace DarivaBIM.Plugin.V2026.Commands
+namespace DarivaBIM.Plugin.V2026.Features.Prolongador
 {
     [Transaction(TransactionMode.Manual)]
-    public class ShowParameterEditorCommand : IExternalCommand
+    public class ShowProlongadorCommand : IExternalCommand
     {
         public Result Execute(
             ExternalCommandData commandData,
@@ -16,7 +16,7 @@ namespace DarivaBIM.Plugin.V2026.Commands
             string outerMessage = message;
             Result result = App.Executor.Execute(commandData, ref outerMessage, _ =>
             {
-                ParameterEditorWindow.ShowSingleton();
+                ProlongadorWindow.ShowSingleton();
                 return Result.Succeeded;
             });
             message = outerMessage;

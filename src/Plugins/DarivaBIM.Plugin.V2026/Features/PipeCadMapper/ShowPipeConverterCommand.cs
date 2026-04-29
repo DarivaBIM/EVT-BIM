@@ -3,7 +3,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Plugin.V2026.Ui;
 
-namespace DarivaBIM.Plugin.V2026.Commands
+namespace DarivaBIM.Plugin.V2026.Features.PipeCadMapper
 {
     [Transaction(TransactionMode.Manual)]
     public class ShowPipeConverterCommand : IExternalCommand

@@ -3,7 +3,7 @@ using Autodesk.Revit.UI;
 using DarivaBIM.Infrastructure.Persistence.Settings;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
 
-namespace DarivaBIM.Plugin.V2026.ExternalServices
+namespace DarivaBIM.Plugin.V2026.Features.PipeCadMapper
 {
     public class PipeConverterDataLoadExternalEvent
     {

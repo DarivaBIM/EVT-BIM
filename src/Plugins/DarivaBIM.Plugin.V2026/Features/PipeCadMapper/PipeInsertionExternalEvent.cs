@@ -2,7 +2,7 @@ using System;
 using Autodesk.Revit.UI;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
 
-namespace DarivaBIM.Plugin.V2026.ExternalServices
+namespace DarivaBIM.Plugin.V2026.Features.PipeCadMapper
 {
     /// <summary>
     /// Wrapper do <c>ExternalEvent</c> que aciona o
