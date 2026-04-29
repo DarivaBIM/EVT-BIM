@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Common Revit references for any project that opts in by setting
+    RevitVersion. Provides RevitAPI.dll and RevitAPIUI.dll as Reference items.
+    Uses HintPath into the per-version install directory and CopyLocal=false
+    so the assemblies are not redistributed.
+  -->
+  <ItemGroup Condition="'$(RevitVersion)' != ''">
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitInstallDir)\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

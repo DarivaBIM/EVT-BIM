@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>false</UseWPF>
+    <RootNamespace>DarivaBIM.Revit.Adapters.V2026</RootNamespace>
+    <AssemblyName>DarivaBIM.Revit.Adapters.V2026</AssemblyName>
+    <Description>Concrete Revit 2026 adapters: repositories, mapping, readers, writers, transactions, selection, filters, parameters, units, external services.</Description>
+
+    <RevitVersion>2026</RevitVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
+    <ProjectReference Include="..\..\Core\DarivaBIM.Domain\DarivaBIM.Domain.csproj" />
+    <ProjectReference Include="..\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Persistence\DarivaBIM.Infrastructure.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

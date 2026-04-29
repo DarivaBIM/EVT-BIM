@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Presentation.Wpf is intended to be Revit-agnostic. It must NEVER reference
+      Autodesk.Revit.* assemblies. Multi-targeting is reserved for the moment a
+      pre-2025 (net48) plugin needs to share these views; until then a single
+      net8.0-windows target is enough for V2025/V2026.
+    -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>DarivaBIM.Presentation.Wpf</RootNamespace>
+    <AssemblyName>DarivaBIM.Presentation.Wpf</AssemblyName>
+    <Description>WPF views, view models and visual components. Pure presentation. No Autodesk.Revit.* allowed.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
+    <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

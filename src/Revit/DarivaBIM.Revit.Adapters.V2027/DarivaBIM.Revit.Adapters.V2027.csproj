@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Stub project. Materialize when Revit 2027 support is implemented. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>DarivaBIM.Revit.Adapters.V2027</RootNamespace>
+    <AssemblyName>DarivaBIM.Revit.Adapters.V2027</AssemblyName>
+    <Description>Concrete Revit 2027 adapters. Stub.</Description>
+    <RevitVersion>2027</RevitVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
+    <ProjectReference Include="..\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

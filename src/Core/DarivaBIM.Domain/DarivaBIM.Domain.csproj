@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DarivaBIM.Domain</RootNamespace>
+    <AssemblyName>DarivaBIM.Domain</AssemblyName>
+    <Description>Pure domain model: entities, value objects, hydraulic calculations, NBR 5626 rules, Tigre/Rinnai rules. No Revit, WPF, HTTP or filesystem dependencies.</Description>
+  </PropertyGroup>
+
+</Project>

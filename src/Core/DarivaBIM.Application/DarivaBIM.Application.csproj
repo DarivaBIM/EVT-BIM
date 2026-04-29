@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DarivaBIM.Application</RootNamespace>
+    <AssemblyName>DarivaBIM.Application</AssemblyName>
+    <Description>Application layer: use cases, contracts, DTOs, orchestration. Depends on Domain only. Must not reference RevitAPI directly.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DarivaBIM.Domain\DarivaBIM.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

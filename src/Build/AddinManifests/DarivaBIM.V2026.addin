@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>DarivaBIM</Name>
+    <Assembly>C:\ProgramData\Autodesk\Revit\Addins\2026\DarivaBIM\DarivaBIM.Plugin.V2026.dll</Assembly>
+    <AddInId>85D71C18-7B8D-4567-A14A-C4F5CB801513</AddInId>
+    <FullClassName>DarivaBIM.Plugin.V2026.App</FullClassName>
+    <VendorId>DarivaBIM</VendorId>
+    <VendorDescription>DarivaBIM</VendorDescription>
+  </AddIn>
+</RevitAddIns>

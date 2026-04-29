@@ -1,0 +1,12 @@
+<Project>
+
+  <!--
+    Repository-root Directory.Build.props.
+    Delegates to src/Build/Directory.Build.props so the actual build
+    configuration lives next to the rest of the build assets while still
+    being auto-applied by MSBuild to every project under the solution.
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)src\Build\Directory.Build.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)src\Build\Directory.Build.props')" />
+
+</Project>

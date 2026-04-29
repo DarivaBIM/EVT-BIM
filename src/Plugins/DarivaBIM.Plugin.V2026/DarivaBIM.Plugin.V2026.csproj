@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>DarivaBIM.Plugin.V2026</RootNamespace>
+    <AssemblyName>DarivaBIM.Plugin.V2026</AssemblyName>
+    <Description>Revit 2026 plugin entry point: IExternalApplication, IExternalCommands, Ribbon, CommandRegistry. The .addin manifest loads this assembly.</Description>
+
+    <RevitVersion>2026</RevitVersion>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
+    <ProjectReference Include="..\..\Core\DarivaBIM.Domain\DarivaBIM.Domain.csproj" />
+    <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Hosting\DarivaBIM.Revit.Hosting.csproj" />
+    <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Adapters.V2026\DarivaBIM.Revit.Adapters.V2026.csproj" />
+    <ProjectReference Include="..\..\Presentation\DarivaBIM.Presentation.Wpf\DarivaBIM.Presentation.Wpf.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Api\DarivaBIM.Infrastructure.Api.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Persistence\DarivaBIM.Infrastructure.Persistence.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Licensing\DarivaBIM.Infrastructure.Licensing.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Telemetry\DarivaBIM.Infrastructure.Telemetry.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\Build\AddinManifests\DarivaBIM.V2026.addin">
+      <Link>DarivaBIM.V2026.addin</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Resources\tigre_codes.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="DeployAddin" AfterTargets="PostBuildEvent" Condition="Exists('$(ProjectDir)build\deploy_revit_2026.cmd')">
+    <Exec Command="call &quot;$(ProjectDir)build\deploy_revit_2026.cmd&quot; &quot;$(ProjectDir)&quot; &quot;$(TargetDir)&quot;" ContinueOnError="true" />
+  </Target>
+
+</Project>
