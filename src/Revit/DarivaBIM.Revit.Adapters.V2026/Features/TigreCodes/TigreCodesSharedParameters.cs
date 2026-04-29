@@ -3,7 +3,7 @@ using Autodesk.Revit.DB;
 using DarivaBIM.Domain.Tigre;
 using DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters;
 
-namespace DarivaBIM.Revit.Adapters.V2026.Features.TigreCodes.SharedParameters
+namespace DarivaBIM.Revit.Adapters.V2026.Features.TigreCodes
 {
     /// <summary>
     /// Declaração dos shared parameters utilizados pela feature "Códigos
