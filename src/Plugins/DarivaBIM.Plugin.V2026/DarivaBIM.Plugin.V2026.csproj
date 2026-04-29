@@ -34,6 +34,12 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Ribbon\Resources\Icons\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <Target Name="DeployAddin" AfterTargets="PostBuildEvent" Condition="Exists('$(ProjectDir)build\deploy_revit_2026.cmd')">
     <Exec Command="call &quot;$(ProjectDir)build\deploy_revit_2026.cmd&quot; &quot;$(ProjectDir)&quot; &quot;$(TargetDir)&quot;" ContinueOnError="true" />
   </Target>
