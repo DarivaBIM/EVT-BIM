@@ -1,11 +1,12 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using DarivaBIM.Plugin.V2026.Ui;
 
-namespace DarivaBIM.Plugin.V2026.Commands
+namespace DarivaBIM.Plugin.V2026.Features.ParameterEditor
 {
     [Transaction(TransactionMode.Manual)]
-    public class ShowFamiliesPaneCommand : IExternalCommand
+    public class ShowParameterEditorCommand : IExternalCommand
     {
         public Result Execute(
             ExternalCommandData commandData,
@@ -15,9 +16,7 @@ namespace DarivaBIM.Plugin.V2026.Commands
             string outerMessage = message;
             Result result = App.Executor.Execute(commandData, ref outerMessage, _ =>
             {
-                DockablePaneId paneId = new DockablePaneId(PaneIds.FamiliesPaneId);
-                DockablePane pane = commandData.Application.GetDockablePane(paneId);
-                pane.Show();
+                ParameterEditorWindow.ShowSingleton();
                 return Result.Succeeded;
             });
             message = outerMessage;

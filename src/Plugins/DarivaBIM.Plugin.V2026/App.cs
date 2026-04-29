@@ -70,7 +70,8 @@ namespace DarivaBIM.Plugin.V2026
                 .AddDarivaApplication()
                 .AddDarivaInfrastructure()
                 .AddRevitAdaptersV2026()
-                .AddDarivaPresentation();
+                .AddDarivaPresentation()
+                .AddPluginFeaturesV2026();
 
             return new PluginHost(services);
         }

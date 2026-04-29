@@ -1,6 +1,6 @@
 using DarivaBIM.Revit.Abstractions.Ribbon;
 
-namespace DarivaBIM.Plugin.V2026.Ribbon.Buttons
+namespace DarivaBIM.Plugin.V2026.Features.TigreCodes
 {
     public static class TigreCodesButton
     {

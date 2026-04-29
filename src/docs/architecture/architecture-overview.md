@@ -83,12 +83,7 @@ Command.Execute → App.Executor.Execute(commandData, ref message, ctx => ...)
 DarivaBimRibbonDefinition (agregador)
 ├── Panels/                       (um arquivo por painel)
 │   └── TigrePanelDefinition.cs
-└── Buttons/                      (um arquivo por botão)
-    ├── TigreCodesButton.cs
-    ├── PipeCadMapperButton.cs
-    ├── ProlongadorButton.cs
-    ├── ParameterEditorButton.cs
-    └── FamiliesImporterHubButton.cs
+└── Features/<Tool>/<Tool>Button.cs (botão ao lado da feature)
 
 RibbonButtonDefinition (commandId: RibbonCommandId.WriteTigreCodes)
                   │
@@ -99,19 +94,28 @@ RibbonButtonDefinition (commandId: RibbonCommandId.WriteTigreCodes)
        typeof(ApplyTigreCodesCommand)
 ```
 
-Adicionar uma ferramenta nova significa:
-1. Criar a classe `IExternalCommand` em `Commands/`.
-2. Acrescentar um valor em `RibbonCommandId` (se for novo conceito).
-3. Mapear o `RibbonCommandId` no `CommandRegistry`.
-4. Criar o arquivo de botão em `Ribbon/Buttons/<NomeDoBotão>.cs`.
-5. Anexar o botão a um `Ribbon/Panels/<Nome>PanelDefinition.cs`.
-6. O agregador `DarivaBimRibbonDefinition` lista os painéis.
+Adicionar uma ferramenta nova significa (ver também
+`src/docs/guides/how-to-create-a-tool.md` e ADR-0011):
+1. Acrescentar um valor em `RibbonCommandId` (se for novo conceito).
+2. Criar a pasta `Plugin.Vxxxx/Features/<Nome>/` com `<Nome>Button.cs`,
+   `<Nome>Command.cs` e `<Nome>Feature.cs`.
+3. Adicionar `<Nome>Feature.Button` no painel
+   (`Ribbon/Panels/<Nome>PanelDefinition.cs`).
+4. Adicionar `{ <Nome>Feature.CommandId, <Nome>Feature.CommandType }` no
+   `Ribbon/CommandRegistry.cs`.
+5. Adicionar `<Nome>Feature.AddServices(services)` no
+   `Composition/PluginFeatureServiceRegistration.cs` se houver serviços.
+6. Se a ferramenta tem regra de negócio, criar UseCase em
+   `DarivaBIM.Application.UseCases.<Nome>/`, contratos em
+   `Application.Contracts` e implementação em
+   `DarivaBIM.Revit.Adapters.V2026/...`.
 
 Sem mudar `App.cs`, sem mexer em `RibbonBuilder`.
 
-## 4.1. Plugin.Vxxxx como casca fina
+## 4.1. Plugin.Vxxxx como casca fina (organização por feature)
 
-A partir de ADR-0010 a estrutura interna do plugin V2026 segue o padrão:
+A partir de ADR-0010 (plugin fino) + ADR-0011 (organização por feature), a
+estrutura interna do plugin V2026 segue o padrão:
 
 ```
 DarivaBIM.Plugin.V2026/
@@ -121,13 +125,28 @@ DarivaBIM.Plugin.V2026/
 │   ├── ApplicationServiceRegistration.cs
 │   ├── InfrastructureServiceRegistration.cs
 │   ├── RevitAdapterServiceRegistration.cs
-│   └── PresentationServiceRegistration.cs
-├── Commands/                     (IExternalCommand, casca fina)
-├── Tools/                        (orquestração Adapter+Application+UI)
-│   ├── ApplyTigreCodes/
+│   ├── PresentationServiceRegistration.cs
+│   └── PluginFeatureServiceRegistration.cs   (agrega Feature.AddServices)
+├── Features/                     (uma pasta por ferramenta)
+│   ├── TigreCodes/
+│   │   ├── TigreCodesButton.cs
+│   │   ├── TigreCodesFeature.cs
+│   │   ├── ApplyTigreCodesCommand.cs
+│   │   └── ApplyTigreCodesTool.cs
+│   ├── PipeCadMapper/
+│   │   ├── PipeCadMapperButton.cs
+│   │   ├── PipeCadMapperFeature.cs
+│   │   ├── ShowPipeConverterCommand.cs
+│   │   ├── PipeInsertionExternalEvent.cs
+│   │   ├── PipeInsertionHandler.cs
+│   │   ├── PipeConverterDataLoadExternalEvent.cs
+│   │   └── PipeConverterDataLoadHandler.cs
+│   ├── Prolongador/
+│   ├── ParameterEditor/
+│   └── FamiliesImporter/
+├── Tools/                        (helpers reutilizáveis entre features)
 │   └── PipeCadMapper/
-├── ExternalServices/             (ExternalEvent + Handler, magros)
-├── Ribbon/                       (DarivaBimRibbonDefinition, painéis, botões)
+├── Ribbon/                       (DarivaBimRibbonDefinition, painéis, CommandRegistry)
 └── Ui/                           (windows/pages WPF do plugin)
 ```
 
@@ -135,8 +154,32 @@ Cada `IExternalCommand` faz apenas:
 1. Abre escopo do executor (`App.Executor.Execute`).
 2. Valida `Document` (existe? não-família?).
 3. Resolve dependências do `ctx.Services`.
-4. Delega a execução para uma classe em `Tools/`.
+4. Delega a execução para a Tool da feature (ex.: `ApplyTigreCodesTool`).
 5. Traduz o resultado em `Result.Succeeded/Cancelled/Failed`.
+
+## 4.1.1. Organização por Feature no Plugin
+
+Cada ferramenta tem uma pasta central em `Plugin.Vxxxx/Features/<Nome>/`,
+com:
+
+- `<Nome>Button.cs` — `RibbonButtonDefinition`.
+- `<Nome>Command.cs` — `IExternalCommand` (casca fina).
+- `<Nome>Tool.cs` — orquestração Adapter↔UseCase quando faz sentido.
+- `<Nome>ExternalEvent.cs` / `<Nome>Handler.cs` — quando há ciclo modeless.
+- `<Nome>Feature.cs` — manifesto: `CommandId`, `Button`, `CommandType`,
+  `AddServices`.
+
+A regra de negócio **continua nas camadas certas**: Feature não substitui
+Application, Domain, Adapter, Infrastructure ou Presentation.Wpf. O objetivo
+é apenas agrupar a porta de entrada da ferramenta no Revit em um único lugar
+para melhorar navegação e entendimento.
+
+`Ribbon/Panels/TigrePanelDefinition.cs` consome `Feature.Button` e
+`Ribbon/CommandRegistry.cs` consome `Feature.CommandId/CommandType`, então a
+relação id↔botão↔comando vive em um único arquivo por ferramenta.
+
+Detalhes completos em `src/docs/guides/how-to-create-a-tool.md` e em
+ADR-0011.
 
 ## 4.2. Presentation.Wpf — view models neutros
 
@@ -221,16 +264,24 @@ estático.
 
 ## 7. Como adicionar uma nova ferramenta/botão
 
+Resumo (passo a passo completo em
+`src/docs/guides/how-to-create-a-tool.md`):
+
 1. Definir um valor novo em `RibbonCommandId` se a ação não existir.
-2. Criar `MeuComandoCommand : IExternalCommand` em
-   `DarivaBIM.Plugin.V2026/Commands/`.
-3. Mapear o `RibbonCommandId → typeof(MeuComandoCommand)` em `CommandRegistry`.
-4. Adicionar `RibbonButtonDefinition` em `DarivaBimRibbonDefinition`.
+2. Criar `Plugin.V2026/Features/<Nome>/` com `<Nome>Button.cs`,
+   `<Nome>Command.cs` e `<Nome>Feature.cs`.
+3. Adicionar `<Nome>Feature.Button` em
+   `Ribbon/Panels/TigrePanelDefinition.cs` e
+   `{ <Nome>Feature.CommandId, <Nome>Feature.CommandType }` em
+   `Ribbon/CommandRegistry.cs`.
+4. Adicionar `<Nome>Feature.AddServices(services)` em
+   `Composition/PluginFeatureServiceRegistration.cs` se a feature registrar
+   serviços.
 5. Se a ferramenta tem regra de negócio: criar UseCase em
-   `DarivaBIM.Application.UseCases.MinhaFuncionalidade/` que recebe interfaces
-   por construtor.
-6. Implementar as interfaces em `DarivaBIM.Revit.Adapters.V2026/...` ou
-   `DarivaBIM.Infrastructure.*`.
+   `DarivaBIM.Application.UseCases.<Nome>/` que recebe interfaces por
+   construtor; implementar as interfaces em
+   `DarivaBIM.Revit.Adapters.V2026/...` ou `DarivaBIM.Infrastructure.*`;
+   adicionar `<Nome>Tool.cs` na pasta da feature para colar tudo.
 
 ## 8. Como criar um novo UseCase
 

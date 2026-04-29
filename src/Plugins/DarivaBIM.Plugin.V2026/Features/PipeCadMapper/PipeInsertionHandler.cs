@@ -8,7 +8,7 @@ using DarivaBIM.Revit.Adapters.V2026.Mapping;
 using DarivaBIM.Revit.Adapters.V2026.Writers;
 using DarivaBIM.Plugin.V2026.Tools.PipeCadMapper;
 
-namespace DarivaBIM.Plugin.V2026.ExternalServices
+namespace DarivaBIM.Plugin.V2026.Features.PipeCadMapper
 {
     /// <summary>
     /// Handler do <c>ExternalEvent</c> que executa UMA seleção (PickObject) por

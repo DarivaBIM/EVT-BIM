@@ -10,7 +10,7 @@ using DarivaBIM.Application.DTOs.Family;
 using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Application.Contracts;
 
-namespace DarivaBIM.Plugin.V2026.ExternalServices
+namespace DarivaBIM.Plugin.V2026.Features.FamiliesImporter
 {
     public class ImportFamilyExternalEvent
     {

@@ -5,8 +5,9 @@ namespace DarivaBIM.Plugin.V2026.Ribbon
 {
     /// <summary>
     /// Declarative ribbon for the Revit 2026 plugin. Acts only as the aggregator
-    /// of the main TigreBIM tab — each panel and each button lives in its own
-    /// file under <c>Ribbon/Panels</c> and <c>Ribbon/Buttons</c>.
+    /// of the main TigreBIM tab — each panel lives under <c>Ribbon/Panels</c>
+    /// and each button lives next to its feature in
+    /// <c>Features/&lt;Tool&gt;/&lt;Tool&gt;Button.cs</c>.
     /// </summary>
     public static class DarivaBimRibbonDefinition
     {

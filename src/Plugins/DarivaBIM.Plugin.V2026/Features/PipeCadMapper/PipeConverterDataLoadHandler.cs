@@ -9,7 +9,7 @@ using DarivaBIM.Presentation.Wpf.Models;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
 using DarivaBIM.Plugin.V2026.Tools.PipeCadMapper;
 
-namespace DarivaBIM.Plugin.V2026.ExternalServices
+namespace DarivaBIM.Plugin.V2026.Features.PipeCadMapper
 {
     /// <summary>
     /// Carrega sistemas, tipos de tubo, diâmetros e níveis disponíveis no

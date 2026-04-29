@@ -1,4 +1,8 @@
-using DarivaBIM.Plugin.V2026.Ribbon.Buttons;
+using DarivaBIM.Plugin.V2026.Features.FamiliesImporter;
+using DarivaBIM.Plugin.V2026.Features.ParameterEditor;
+using DarivaBIM.Plugin.V2026.Features.PipeCadMapper;
+using DarivaBIM.Plugin.V2026.Features.Prolongador;
+using DarivaBIM.Plugin.V2026.Features.TigreCodes;
 using DarivaBIM.Revit.Abstractions.Ribbon;
 
 namespace DarivaBIM.Plugin.V2026.Ribbon.Panels
@@ -11,11 +15,11 @@ namespace DarivaBIM.Plugin.V2026.Ribbon.Panels
         {
             return new RibbonPanelDefinition(Name, new[]
             {
-                FamiliesImporterHubButton.Definition,
-                PipeCadMapperButton.Definition,
-                TigreCodesButton.Definition,
-                ProlongadorButton.Definition,
-                ParameterEditorButton.Definition
+                FamiliesImporterFeature.Button,
+                PipeCadMapperFeature.Button,
+                TigreCodesFeature.Button,
+                ProlongadorFeature.Button,
+                ParameterEditorFeature.Button
             });
         }
     }

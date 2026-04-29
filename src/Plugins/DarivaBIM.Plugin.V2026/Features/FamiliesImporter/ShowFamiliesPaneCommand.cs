@@ -1,12 +1,11 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using DarivaBIM.Plugin.V2026.Ui;
 
-namespace DarivaBIM.Plugin.V2026.Commands
+namespace DarivaBIM.Plugin.V2026.Features.FamiliesImporter
 {
     [Transaction(TransactionMode.Manual)]
-    public class ShowProlongadorCommand : IExternalCommand
+    public class ShowFamiliesPaneCommand : IExternalCommand
     {
         public Result Execute(
             ExternalCommandData commandData,
@@ -16,7 +15,9 @@ namespace DarivaBIM.Plugin.V2026.Commands
             string outerMessage = message;
             Result result = App.Executor.Execute(commandData, ref outerMessage, _ =>
             {
-                ProlongadorWindow.ShowSingleton();
+                DockablePaneId paneId = new DockablePaneId(PaneIds.FamiliesPaneId);
+                DockablePane pane = commandData.Application.GetDockablePane(paneId);
+                pane.Show();
                 return Result.Succeeded;
             });
             message = outerMessage;
