@@ -2,16 +2,11 @@ using System;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
-using DarivaBIM.Plugin.V2026.Ui;
+using DarivaBIM.Presentation.Wpf.PipeConverter;
 using DarivaBIM.Revit.Adapters.V2026.Filters;
 using DarivaBIM.Revit.Adapters.V2026.Mapping;
-using DarivaBIM.Revit.Adapters.V2026.Parameters;
-using DarivaBIM.Revit.Adapters.V2026.Transactions;
 using DarivaBIM.Revit.Adapters.V2026.Writers;
-using DarivaBIM.Domain.Tigre;
-using DarivaBIM.Application.DTOs.Family;
-using DarivaBIM.Application.DTOs.Tigre;
-using DarivaBIM.Application.Contracts;
+using DarivaBIM.Plugin.V2026.Tools.PipeCadMapper;
 
 namespace DarivaBIM.Plugin.V2026.ExternalServices
 {
@@ -101,14 +96,14 @@ namespace DarivaBIM.Plugin.V2026.ExternalServices
 
                 // Lê parâmetros atualizados do VM a cada pick — assim mudanças
                 // feitas no WPF entre uma seleção e outra entram em vigor.
-                if (!TryBuildConfig(vm, out PipeConversionConfig? config, out string? configError))
+                if (!PipeConversionConfigFactory.TryCreate(vm, out PipeConversionConfig? config, out string? configError))
                 {
                     vm.StatusMessage = configError;
                     return;
                 }
 
                 PipeCreationResult result = PipeCreator.CreateFromReference(doc, reference, config!);
-                vm.StatusMessage = BuildStatusMessage(vm, result);
+                vm.StatusMessage = PipeInsertionStatusFormatter.Format(vm, result);
             }
             catch (Exception ex)
             {
@@ -131,54 +126,5 @@ namespace DarivaBIM.Plugin.V2026.ExternalServices
         }
 
         public string GetName() => "TigreBIM.PipeInsertionHandler";
-
-        private static bool TryBuildConfig(
-            PipeConverterViewModel vm,
-            out PipeConversionConfig? config,
-            out string? error)
-        {
-            config = null;
-            error = null;
-
-            PipingSystemOption? system = vm.SelectedSystem;
-            PipeTypeOption? pipeType = vm.SelectedPipeType;
-            double? diameter = vm.SelectedDiameterMm;
-            LevelOption? level = vm.SelectedLevel;
-            double offsetMm = vm.OffsetMm;
-
-            if (system == null || pipeType == null || !diameter.HasValue || level == null)
-            {
-                error = "Configuração incompleta — selecione sistema, tipo, diâmetro e nível.";
-                return false;
-            }
-
-            config = new PipeConversionConfig(
-                system.Id,
-                pipeType.Id,
-                level.Id,
-                diameter.Value,
-                level.ElevationFeet,
-                offsetMm);
-
-            return true;
-        }
-
-        private static string BuildStatusMessage(PipeConverterViewModel vm, PipeCreationResult result)
-        {
-            if (!result.Success)
-                return $"Não foi possível criar o tubo: {result.ErrorMessage}";
-
-            string skippedNote = result.SkippedCount > 0
-                ? $" ({result.SkippedCount} segmento(s) curto(s) ignorado(s))"
-                : string.Empty;
-
-            string arcNote = result.ArcsAsChordCount > 0
-                ? $" [{result.ArcsAsChordCount} arco(s) convertido(s) como corda reta]"
-                : string.Empty;
-
-            return $"Criado(s) {result.CreatedCount} tubo(s){skippedNote}{arcNote} | " +
-                   $"{vm.SelectedPipeType?.Name} Ø{vm.SelectedDiameterMm}mm | " +
-                   $"{vm.SelectedLevel?.Name} + {vm.OffsetMm}mm";
-        }
     }
 }

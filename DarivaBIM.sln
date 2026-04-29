@@ -81,6 +81,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DarivaBIM.Revit.Adapters.V2
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DarivaBIM.Revit.Adapters.V2027.Tests", "src\tests\DarivaBIM.Revit.Adapters.V2027.Tests\DarivaBIM.Revit.Adapters.V2027.Tests.csproj", "{30000000-0000-0000-0000-000000000008}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DarivaBIM.Architecture.Tests", "src\tests\DarivaBIM.Architecture.Tests\DarivaBIM.Architecture.Tests.csproj", "{30000000-0000-0000-0000-000000000009}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -195,6 +197,10 @@ Global
 		{30000000-0000-0000-0000-000000000008}.Debug|x64.Build.0 = Debug|x64
 		{30000000-0000-0000-0000-000000000008}.Release|x64.ActiveCfg = Release|x64
 		{30000000-0000-0000-0000-000000000008}.Release|x64.Build.0 = Release|x64
+		{30000000-0000-0000-0000-000000000009}.Debug|x64.ActiveCfg = Debug|x64
+		{30000000-0000-0000-0000-000000000009}.Debug|x64.Build.0 = Debug|x64
+		{30000000-0000-0000-0000-000000000009}.Release|x64.ActiveCfg = Release|x64
+		{30000000-0000-0000-0000-000000000009}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{10000000-0000-0000-0000-000000000002} = {10000000-0000-0000-0000-000000000001}
@@ -232,6 +238,7 @@ Global
 		{30000000-0000-0000-0000-000000000006} = {10000000-0000-0000-0000-000000000007}
 		{30000000-0000-0000-0000-000000000007} = {10000000-0000-0000-0000-000000000007}
 		{30000000-0000-0000-0000-000000000008} = {10000000-0000-0000-0000-000000000007}
+		{30000000-0000-0000-0000-000000000009} = {10000000-0000-0000-0000-000000000007}
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

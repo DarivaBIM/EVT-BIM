@@ -5,15 +5,15 @@ using Autodesk.Revit.UI;
 using DarivaBIM.Application.Contracts;
 using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Application.UseCases.ApplyTigreCodes;
-using DarivaBIM.Revit.Adapters.V2026.Writers;
+using DarivaBIM.Plugin.V2026.Tools.ApplyTigreCodes;
 using DarivaBIM.Revit.Hosting.Commands;
 
 namespace DarivaBIM.Plugin.V2026.Commands
 {
     /// <summary>
-    /// Thin <c>IExternalCommand</c> shell. Resolves the use case from the DI
-    /// scope built by <see cref="RevitCommandExecutor"/> and translates the
-    /// outcome to a Revit <see cref="Result"/>.
+    /// Thin <c>IExternalCommand</c> shell. Validates the active document,
+    /// resolves <see cref="ITigreCatalogProvider"/> from the DI scope and
+    /// delegates the run to <see cref="ApplyTigreCodesTool"/>.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     public class ApplyTigreCodesCommand : IExternalCommand
@@ -33,13 +33,13 @@ namespace DarivaBIM.Plugin.V2026.Commands
                     return Result.Cancelled;
                 }
 
-                ITigreCatalogProvider catalogProvider = (ITigreCatalogProvider)ctx.Services.GetService(typeof(ITigreCatalogProvider))!;
-                ITigreCodeApplyService service = new TigreCodeApplier(doc, catalogProvider);
-                ApplyTigreCodesUseCase useCase = new ApplyTigreCodesUseCase(service);
+                ITigreCatalogProvider catalogProvider =
+                    (ITigreCatalogProvider)ctx.Services.GetService(typeof(ITigreCatalogProvider))!;
 
                 try
                 {
-                    TigreCodeApplyResult report = useCase.Execute();
+                    ApplyTigreCodesTool tool = new ApplyTigreCodesTool(catalogProvider);
+                    TigreCodeApplyResult report = tool.Execute(doc);
                     TaskDialog.Show("TigreBIM — Códigos Tigre", ApplyTigreCodesUseCase.FormatReport(report));
                     return Result.Succeeded;
                 }
