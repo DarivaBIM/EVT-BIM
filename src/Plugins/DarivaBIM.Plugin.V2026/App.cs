@@ -3,14 +3,12 @@ using System.Reflection;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Events;
-using DarivaBIM.Application.Contracts;
-using DarivaBIM.Infrastructure.Persistence.TigreCatalog;
+using DarivaBIM.Plugin.V2026.Composition;
 using DarivaBIM.Plugin.V2026.Ribbon;
 using DarivaBIM.Plugin.V2026.Ui;
 using DarivaBIM.Revit.Abstractions.Ribbon;
 using DarivaBIM.Revit.Hosting.Commands;
 using DarivaBIM.Revit.Hosting.DependencyInjection;
-using DarivaBIM.Revit.Hosting.Events;
 using DarivaBIM.Revit.Hosting.Ribbon;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -67,17 +65,12 @@ namespace DarivaBIM.Plugin.V2026
         {
             var services = new ServiceCollection();
 
-            // Hosting infrastructure.
-            services.AddSingleton(new RevitApplicationContext(application));
-            services.AddSingleton<ICommandRegistry, CommandRegistry>();
-
-            // Application/Domain providers.
-            services.AddSingleton<ITigreCatalogProvider>(sp => new TigreCatalogJsonLoader());
-
-            // Future: register IRevitTransactionRunner, IRevitParameterWriter,
-            // IRevitElementWriter, IRevitSelectionService — implementations live
-            // in DarivaBIM.Revit.Adapters.V2026 and will be added here as the
-            // adapter surface grows.
+            services
+                .AddPluginV2026(application)
+                .AddDarivaApplication()
+                .AddDarivaInfrastructure()
+                .AddRevitAdaptersV2026()
+                .AddDarivaPresentation();
 
             return new PluginHost(services);
         }

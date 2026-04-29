@@ -4,16 +4,10 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
-using DarivaBIM.Plugin.V2026.Ui;
-using DarivaBIM.Revit.Adapters.V2026.Filters;
-using DarivaBIM.Revit.Adapters.V2026.Mapping;
-using DarivaBIM.Revit.Adapters.V2026.Parameters;
-using DarivaBIM.Revit.Adapters.V2026.Transactions;
-using DarivaBIM.Revit.Adapters.V2026.Writers;
-using DarivaBIM.Domain.Tigre;
-using DarivaBIM.Application.DTOs.Family;
-using DarivaBIM.Application.DTOs.Tigre;
-using DarivaBIM.Application.Contracts;
+using DarivaBIM.Infrastructure.Persistence.Settings;
+using DarivaBIM.Presentation.Wpf.Models;
+using DarivaBIM.Presentation.Wpf.PipeConverter;
+using DarivaBIM.Plugin.V2026.Tools.PipeCadMapper;
 
 namespace DarivaBIM.Plugin.V2026.ExternalServices
 {
@@ -51,25 +45,28 @@ namespace DarivaBIM.Plugin.V2026.ExternalServices
 
                 Document doc = uiDoc.Document;
 
-                List<PipingSystemOption> systems = new FilteredElementCollector(doc)
+                List<PipingSystemOptionViewModel> systems = new FilteredElementCollector(doc)
                     .OfClass(typeof(PipingSystemType))
                     .Cast<PipingSystemType>()
                     .OrderBy(s => s.Name)
-                    .Select(s => new PipingSystemOption(s.Id, s.Name))
+                    .Select(s => new PipingSystemOptionViewModel(RevitElementIdConversions.ToLong(s.Id), s.Name))
                     .ToList();
 
-                List<PipeTypeOption> pipeTypes = new FilteredElementCollector(doc)
+                List<PipeTypeOptionViewModel> pipeTypes = new FilteredElementCollector(doc)
                     .OfClass(typeof(PipeType))
                     .Cast<PipeType>()
                     .OrderBy(t => t.Name)
-                    .Select(t => new PipeTypeOption(t.Id, t.Name, GetAvailableDiametersMm(doc, t)))
+                    .Select(t => new PipeTypeOptionViewModel(
+                        RevitElementIdConversions.ToLong(t.Id),
+                        t.Name,
+                        GetAvailableDiametersMm(doc, t)))
                     .ToList();
 
-                List<LevelOption> levels = new FilteredElementCollector(doc)
+                List<LevelOptionViewModel> levels = new FilteredElementCollector(doc)
                     .OfClass(typeof(Level))
                     .Cast<Level>()
                     .OrderBy(l => l.Elevation)
-                    .Select(l => new LevelOption(l.Id, l.Name, l.Elevation))
+                    .Select(l => new LevelOptionViewModel(RevitElementIdConversions.ToLong(l.Id), l.Name, l.Elevation))
                     .ToList();
 
                 PopulateViewModel(vm, systems, pipeTypes, levels);
@@ -107,7 +104,7 @@ namespace DarivaBIM.Plugin.V2026.ExternalServices
 
             if (!string.IsNullOrEmpty(settings.SystemName))
             {
-                foreach (PipingSystemOption option in vm.Systems)
+                foreach (PipingSystemOptionViewModel option in vm.Systems)
                 {
                     if (string.Equals(option.Name, settings.SystemName, StringComparison.Ordinal))
                     {
@@ -119,7 +116,7 @@ namespace DarivaBIM.Plugin.V2026.ExternalServices
 
             if (!string.IsNullOrEmpty(settings.PipeTypeName))
             {
-                foreach (PipeTypeOption option in vm.PipeTypes)
+                foreach (PipeTypeOptionViewModel option in vm.PipeTypes)
                 {
                     if (string.Equals(option.Name, settings.PipeTypeName, StringComparison.Ordinal))
                     {
@@ -143,7 +140,7 @@ namespace DarivaBIM.Plugin.V2026.ExternalServices
 
             if (!string.IsNullOrEmpty(settings.LevelName))
             {
-                foreach (LevelOption option in vm.Levels)
+                foreach (LevelOptionViewModel option in vm.Levels)
                 {
                     if (string.Equals(option.Name, settings.LevelName, StringComparison.Ordinal))
                     {
@@ -158,24 +155,24 @@ namespace DarivaBIM.Plugin.V2026.ExternalServices
 
         private static void PopulateViewModel(
             PipeConverterViewModel vm,
-            IReadOnlyList<PipingSystemOption> systems,
-            IReadOnlyList<PipeTypeOption> pipeTypes,
-            IReadOnlyList<LevelOption> levels)
+            IReadOnlyList<PipingSystemOptionViewModel> systems,
+            IReadOnlyList<PipeTypeOptionViewModel> pipeTypes,
+            IReadOnlyList<LevelOptionViewModel> levels)
         {
             vm.Systems.Clear();
-            foreach (PipingSystemOption s in systems)
+            foreach (PipingSystemOptionViewModel s in systems)
             {
                 vm.Systems.Add(s);
             }
 
             vm.PipeTypes.Clear();
-            foreach (PipeTypeOption t in pipeTypes)
+            foreach (PipeTypeOptionViewModel t in pipeTypes)
             {
                 vm.PipeTypes.Add(t);
             }
 
             vm.Levels.Clear();
-            foreach (LevelOption l in levels)
+            foreach (LevelOptionViewModel l in levels)
             {
                 vm.Levels.Add(l);
             }

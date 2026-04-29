@@ -80,24 +80,117 @@ Command.Execute → App.Executor.Execute(commandData, ref message, ctx => ...)
 ## 4. Organização da Ribbon
 
 ```
-RibbonDefinition
-└── RibbonPanelDefinition
-    └── RibbonButtonDefinition (commandId: RibbonCommandId.WriteTigreCodes)
-                                       │
-                                       ▼
-                            ICommandRegistry (Plugin.Vxxxx)
-                                       │
-                                       ▼
-                            typeof(ApplyTigreCodesCommand)
+DarivaBimRibbonDefinition (agregador)
+├── Panels/                       (um arquivo por painel)
+│   └── TigrePanelDefinition.cs
+└── Buttons/                      (um arquivo por botão)
+    ├── TigreCodesButton.cs
+    ├── PipeCadMapperButton.cs
+    ├── ProlongadorButton.cs
+    ├── ParameterEditorButton.cs
+    └── FamiliesImporterHubButton.cs
+
+RibbonButtonDefinition (commandId: RibbonCommandId.WriteTigreCodes)
+                  │
+                  ▼
+       ICommandRegistry (Plugin.Vxxxx)
+                  │
+                  ▼
+       typeof(ApplyTigreCodesCommand)
 ```
 
 Adicionar uma ferramenta nova significa:
-1. Criar a classe `IExternalCommand`.
+1. Criar a classe `IExternalCommand` em `Commands/`.
 2. Acrescentar um valor em `RibbonCommandId` (se for novo conceito).
 3. Mapear o `RibbonCommandId` no `CommandRegistry`.
-4. Listar a ferramenta em `DarivaBimRibbonDefinition`.
+4. Criar o arquivo de botão em `Ribbon/Buttons/<NomeDoBotão>.cs`.
+5. Anexar o botão a um `Ribbon/Panels/<Nome>PanelDefinition.cs`.
+6. O agregador `DarivaBimRibbonDefinition` lista os painéis.
 
 Sem mudar `App.cs`, sem mexer em `RibbonBuilder`.
+
+## 4.1. Plugin.Vxxxx como casca fina
+
+A partir de ADR-0010 a estrutura interna do plugin V2026 segue o padrão:
+
+```
+DarivaBIM.Plugin.V2026/
+├── App.cs                        (IExternalApplication, magro)
+├── Composition/                  (Composition Root, dividido por camada)
+│   ├── PluginServiceRegistration.cs
+│   ├── ApplicationServiceRegistration.cs
+│   ├── InfrastructureServiceRegistration.cs
+│   ├── RevitAdapterServiceRegistration.cs
+│   └── PresentationServiceRegistration.cs
+├── Commands/                     (IExternalCommand, casca fina)
+├── Tools/                        (orquestração Adapter+Application+UI)
+│   ├── ApplyTigreCodes/
+│   └── PipeCadMapper/
+├── ExternalServices/             (ExternalEvent + Handler, magros)
+├── Ribbon/                       (DarivaBimRibbonDefinition, painéis, botões)
+└── Ui/                           (windows/pages WPF do plugin)
+```
+
+Cada `IExternalCommand` faz apenas:
+1. Abre escopo do executor (`App.Executor.Execute`).
+2. Valida `Document` (existe? não-família?).
+3. Resolve dependências do `ctx.Services`.
+4. Delega a execução para uma classe em `Tools/`.
+5. Traduz o resultado em `Result.Succeeded/Cancelled/Failed`.
+
+## 4.2. Presentation.Wpf — view models neutros
+
+`DarivaBIM.Presentation.Wpf` hospeda Views e ViewModels reutilizáveis entre
+versões do Revit. As regras invioláveis:
+
+- Não pode usar `Autodesk.Revit.*`.
+- Não pode usar `ElementId`, `Document`, `UIDocument`, `UIApplication`,
+  `Connector`, `BuiltInParameter` etc.
+- Identificadores de elementos viajam como `long` (DTO neutro). A conversão
+  `long ↔ ElementId` acontece apenas no Plugin/Adapter, idealmente em um
+  helper `RevitElementIdConversions` por versão (Revit 2024+ usa
+  `ElementId.Value`; pré-2024 usa `ElementId.IntegerValue`).
+
+Estrutura recomendada:
+
+```
+DarivaBIM.Presentation.Wpf/
+├── Common/
+│   └── ObservableObject.cs       (base INotifyPropertyChanged)
+├── Models/                       (DTOs neutros: Option/Item ViewModels)
+│   ├── PipingSystemOptionViewModel.cs
+│   ├── PipeTypeOptionViewModel.cs
+│   └── LevelOptionViewModel.cs
+└── <Feature>/                    (pastas por feature WPF)
+    └── <Feature>ViewModel.cs
+```
+
+## 4.3. ExternalEvents
+
+Um `IExternalEventHandler` é uma ponte para o contexto Revit (UIApplication +
+PickObject + Transaction). Não é o lugar para regra pesada. O padrão atual:
+
+- O Handler controla o ciclo (pick → reagendar → cancelamento).
+- A montagem do `PipeConversionConfig` saiu para
+  `Tools/PipeCadMapper/PipeConversionConfigFactory`.
+- A formatação da mensagem de status saiu para
+  `Tools/PipeCadMapper/PipeInsertionStatusFormatter`.
+- O ViewModel consumido vem de `Presentation.Wpf` e não conhece `ElementId`.
+
+## 4.4. PipeCreator (fachada temporária)
+
+`DarivaBIM.Revit.Adapters.V2026/Writers/PipeCreator.cs` permanece como
+fachada para não quebrar chamadas atuais, mas a lógica está sendo extraída:
+
+- `Cad/CadGeometryExtractor` — resolve `Transform` para `ImportInstance`.
+- `Cad/CadSegmentExtractor` — converte `Line/PolyLine/Arc` em segmentos.
+- `Pipes/PipeConnectorService` — conecta extremidades coincidentes
+  (placeholders consecutivos e tubos pré-existentes).
+
+A façade ainda concentra a transação e a chamada a
+`PlumbingUtils.ConvertPipePlaceholders`. Próxima etapa (não nesta entrega):
+extrair `PipePlaceholderService` e `PipeCreationService` para zerar o estado
+estático.
 
 ## 5. Multi-versão Revit
 
