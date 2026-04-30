@@ -48,7 +48,7 @@ namespace DarivaBIM.Plugin.V2026
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("DarivaBIM", $"Erro ao iniciar o plugin:\n{ex}");
+                TaskDialog.Show("EVT-BIM", $"Erro ao iniciar o plugin:\n{ex}");
                 return Result.Failed;
             }
         }

@@ -14,10 +14,13 @@ if "%TARGET_DIR%"=="" (
     exit /b 1
 )
 
-set "ADDIN_NAME=DarivaBIM"
+set "ADDIN_NAME=EVT-BIM"
 set "ASSEMBLY_NAME=DarivaBIM.Plugin.V2026"
-set "ADDIN_FILE=DarivaBIM.V2026.addin"
+set "ADDIN_FILE=EVT-BIM.V2026.addin"
 set "ADDIN_SOURCE=%PROJECT_DIR%..\..\Build\AddinManifests\%ADDIN_FILE%"
+
+set "LEGACY_ADDIN_NAME=DarivaBIM"
+set "LEGACY_ADDIN_FILE=DarivaBIM.V2026.addin"
 
 set "RVT_ADDIN_PATH=%ProgramData%\Autodesk\Revit\Addins\2026"
 set "ADDIN_SUBFOLDER=%RVT_ADDIN_PATH%\%ADDIN_NAME%"
@@ -47,6 +50,10 @@ if exist "%USER_ADDIN_PATH%\FamiliesImporterHub.addin" del /F /Q "%USER_ADDIN_PA
 if exist "%USER_ADDIN_PATH%\FamiliesImporterHub" rmdir /S /Q "%USER_ADDIN_PATH%\FamiliesImporterHub"
 if exist "%USER_ADDIN_PATH%\%ADDIN_FILE%" del /F /Q "%USER_ADDIN_PATH%\%ADDIN_FILE%"
 if exist "%USER_ADDIN_PATH%\%ADDIN_NAME%" rmdir /S /Q "%USER_ADDIN_PATH%\%ADDIN_NAME%"
+
+REM Remove legacy TigreBIM-era artifacts (when this add-in was named DarivaBIM).
+if exist "%RVT_ADDIN_PATH%\%LEGACY_ADDIN_FILE%" del /F /Q "%RVT_ADDIN_PATH%\%LEGACY_ADDIN_FILE%"
+if exist "%RVT_ADDIN_PATH%\%LEGACY_ADDIN_NAME%" rmdir /S /Q "%RVT_ADDIN_PATH%\%LEGACY_ADDIN_NAME%"
 
 copy /Y "%ADDIN_SOURCE%" "%RVT_ADDIN_PATH%\%ADDIN_FILE%"
 if errorlevel 1 (

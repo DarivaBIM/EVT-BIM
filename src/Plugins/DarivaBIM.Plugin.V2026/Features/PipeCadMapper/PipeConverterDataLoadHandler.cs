@@ -89,7 +89,7 @@ namespace DarivaBIM.Plugin.V2026.Features.PipeCadMapper
             }
         }
 
-        public string GetName() => "TigreBIM.PipeConverterDataLoadHandler";
+        public string GetName() => "EvtBim.PipeConverterDataLoadHandler";
 
         private void ApplyPendingSettings(PipeConverterViewModel vm)
         {

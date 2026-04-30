@@ -38,7 +38,7 @@ namespace DarivaBIM.Plugin.V2026.Features.Prolongador
         public ProlongadorWindow? Window { get; set; }
         public double LengthMeters { get; set; }
 
-        public string GetName() => "TigreBIM.ProlongadorHandler";
+        public string GetName() => "EvtBim.ProlongadorHandler";
 
         public void Execute(UIApplication app)
         {
@@ -101,13 +101,13 @@ namespace DarivaBIM.Plugin.V2026.Features.Prolongador
                 if (result.Created == 0)
                 {
                     string preview = string.Join("\n", result.Logs.Take(40));
-                    TaskDialog.Show("TigreBIM — Prolongador", status + "\n\nLog:\n" + preview);
+                    TaskDialog.Show("EVT-BIM — Prolongador", status + "\n\nLog:\n" + preview);
                 }
             }
             catch (Exception ex)
             {
                 win.SetStatus($"Erro inesperado: {ex.Message}");
-                TaskDialog.Show("TigreBIM", $"Erro ao criar prolongadores:\n{ex.Message}");
+                TaskDialog.Show("EVT-BIM", $"Erro ao criar prolongadores:\n{ex.Message}");
             }
         }
     }

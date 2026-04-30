@@ -31,7 +31,7 @@ namespace DarivaBIM.Plugin.V2026.Features.TigreCodes
             TigreCodeApplyResult report = useCase.Execute();
 
             TaskDialog.Show(
-                "TigreBIM — Códigos Tigre",
+                "EVT-BIM — Códigos Tigre",
                 ApplyTigreCodesUseCase.FormatReport(report));
 
             return Result.Succeeded;
