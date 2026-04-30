@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using RevitDomain = Autodesk.Revit.DB.Domain;
 
 namespace DarivaBIM.Revit.Adapters.V2026.Features.Prolongador
 {
@@ -72,7 +73,7 @@ namespace DarivaBIM.Revit.Adapters.V2026.Features.Prolongador
             {
                 try
                 {
-                    if (onlyPiping && c.Domain != Domain.DomainPiping)
+                    if (onlyPiping && c.Domain != RevitDomain.DomainPiping)
                     {
                         logs.Add($"  -> Conector #{idx}: Domain={c.Domain} (ignorado)");
                         idx++;

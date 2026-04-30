@@ -1,6 +1,6 @@
 using System;
-using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.DB;
+using RevitApp = Autodesk.Revit.ApplicationServices.Application;
 
 namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
 {
@@ -29,7 +29,7 @@ namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
             if (definition == null) throw new ArgumentNullException(nameof(definition));
 
             SharedParameterEnsureResult result = new();
-            Application app = doc.Application;
+            RevitApp app = doc.Application;
 
             ExistingSharedParameterBindingInfo? existing =
                 ProjectParameterBindingService.InspectExistingBinding(doc, definition.Name, definition.Guid);
@@ -123,7 +123,7 @@ namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
         }
 
         private static Definition GetOrCreateSharedDefinition(
-            Application app,
+            RevitApp app,
             SharedParameterDefinition definition,
             out string? oldSpPath)
         {

@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.DB;
+using RevitApp = Autodesk.Revit.ApplicationServices.Application;
 
 namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
 {
@@ -22,7 +22,7 @@ namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
         /// O caminho anterior é devolvido em <paramref name="previousPath"/>
         /// para que o caller restaure depois.
         /// </summary>
-        public static DefinitionFile OpenOrCreate(Application app, out string? previousPath)
+        public static DefinitionFile OpenOrCreate(RevitApp app, out string? previousPath)
         {
             previousPath = app.SharedParametersFilename;
             string? sp = previousPath;
@@ -47,7 +47,7 @@ namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
         /// Usado em <c>finally</c> para não deixar o usuário com um caminho
         /// temporário "permanente".
         /// </summary>
-        public static void RestorePreviousPath(Application app, string? previousPath)
+        public static void RestorePreviousPath(RevitApp app, string? previousPath)
         {
             if (previousPath == null)
                 return;

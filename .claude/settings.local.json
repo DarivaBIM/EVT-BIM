@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(env)",
+      "Bash(git *)",
+      "Bash(dotnet --info)",
+      "Bash(grep -E \"Erro\\\\\\(s\\\\\\)|: error |Tempo Decorrido|^.+ -> .+\\\\.dll$\")"
+    ]
+  }
+}

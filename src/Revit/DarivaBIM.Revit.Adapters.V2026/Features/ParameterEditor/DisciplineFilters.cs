@@ -111,7 +111,7 @@ namespace DarivaBIM.Revit.Adapters.V2026.Features.ParameterEditor
             BuiltInCategory.OST_StructuralFoundation,
             BuiltInCategory.OST_StructuralTruss,
             BuiltInCategory.OST_StructuralStiffener,
-            BuiltInCategory.OST_StructuralConnections,
+            BuiltInCategory.OST_StructConnections,
             BuiltInCategory.OST_Rebar,
             BuiltInCategory.OST_AreaRein,
             BuiltInCategory.OST_PathRein,

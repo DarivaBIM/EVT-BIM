@@ -1,6 +1,6 @@
 using System;
-using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.DB;
+using RevitApp = Autodesk.Revit.ApplicationServices.Application;
 
 namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
 {
@@ -53,7 +53,7 @@ namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
         }
 
         public static CategorySet BuildCategorySet(
-            Application app,
+            RevitApp app,
             Document doc,
             ElementBinding? existingBinding,
             System.Collections.Generic.IReadOnlyList<BuiltInCategory> targetCategories)
@@ -88,7 +88,7 @@ namespace DarivaBIM.Revit.Adapters.V2026.Common.SharedParameters
         }
 
         public static ElementBinding CreateBinding(
-            Application app,
+            RevitApp app,
             CategorySet categorySet,
             SharedParameterBindingKind kind)
         {

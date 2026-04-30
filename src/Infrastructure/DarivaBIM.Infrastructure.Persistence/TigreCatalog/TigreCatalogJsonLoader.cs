@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using DarivaBIM.Application.Contracts;
 using DarivaBIM.Domain.Tigre;
 
 namespace DarivaBIM.Infrastructure.Persistence.TigreCatalog

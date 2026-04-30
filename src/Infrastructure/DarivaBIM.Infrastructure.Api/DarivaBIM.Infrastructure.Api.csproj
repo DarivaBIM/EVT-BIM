@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
+    <ProjectReference Include="..\DarivaBIM.Infrastructure.Persistence\DarivaBIM.Infrastructure.Persistence.csproj" />
   </ItemGroup>
 
   <ItemGroup>
