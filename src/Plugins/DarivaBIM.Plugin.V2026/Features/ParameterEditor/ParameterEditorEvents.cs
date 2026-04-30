@@ -46,7 +46,7 @@ namespace DarivaBIM.Plugin.V2026.Features.ParameterEditor
         public List<Discipline> Disciplines { get; set; } = new();
         public List<ElementId> PreviousSelection { get; set; } = new();
 
-        public string GetName() => "TigreBIM.ParameterEditorSelectionHandler";
+        public string GetName() => "EvtBim.ParameterEditorSelectionHandler";
 
         public void Execute(UIApplication app)
         {
@@ -340,7 +340,7 @@ namespace DarivaBIM.Plugin.V2026.Features.ParameterEditor
         public CommonParameterOption? Parameter { get; set; }
         public string Value { get; set; } = string.Empty;
 
-        public string GetName() => "TigreBIM.ParameterEditorApplyHandler";
+        public string GetName() => "EvtBim.ParameterEditorApplyHandler";
 
         public void Execute(UIApplication app)
         {
@@ -399,7 +399,7 @@ namespace DarivaBIM.Plugin.V2026.Features.ParameterEditor
                 int skippedMissing = 0;
                 int failed = 0;
 
-                using Transaction tx = new(doc, $"TigreBIM — Atribuir '{Parameter.Name}'");
+                using Transaction tx = new(doc, $"EVT-BIM — Atribuir '{Parameter.Name}'");
                 tx.Start();
 
                 foreach (Element elem in targets)

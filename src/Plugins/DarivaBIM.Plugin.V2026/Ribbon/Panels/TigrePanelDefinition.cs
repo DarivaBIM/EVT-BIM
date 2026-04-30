@@ -9,7 +9,7 @@ namespace DarivaBIM.Plugin.V2026.Ribbon.Panels
 {
     public static class TigrePanelDefinition
     {
-        public const string Name = "Tigre";
+        public const string Name = "EVT-BIM";
 
         public static RibbonPanelDefinition Build()
         {

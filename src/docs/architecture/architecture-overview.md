@@ -1,5 +1,13 @@
 # DarivaBIM — Visão geral da arquitetura
 
+> Este repositório serve hoje ao plugin **EVT-BIM** (entregável Tigre, no
+> escopo do programa Engenharia de Valor Tigre) e servirá ao **DarivaBIM
+> V2** no futuro, compartilhando exatamente a mesma arquitetura descrita
+> neste documento. A diferença entre os dois entregáveis está apenas na
+> "casca" externa (aba do Revit, `.addin`, instalador, mensagens visíveis
+> ao usuário) — projetos C#, namespaces e assemblies permanecem
+> `DarivaBIM.*`. Ver [ADR-0014](../adr/ADR-0014-evt-bim-rebrand.md).
+
 ## 1. Camadas e dependências
 
 ```

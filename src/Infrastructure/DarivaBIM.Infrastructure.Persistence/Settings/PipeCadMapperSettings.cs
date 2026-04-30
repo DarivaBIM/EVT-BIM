@@ -6,9 +6,12 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
 {
     /// <summary>
     /// Estado serializável do PipeCADMapper, persistido em
-    /// <c>%APPDATA%\TigreBIM\pipecadmapper.json</c>. Como os <c>ElementId</c>s
+    /// <c>%APPDATA%\EVT-BIM\pipecadmapper.json</c>. Como os <c>ElementId</c>s
     /// mudam entre projetos, gravamos as seleções por NOME e reconstruímos a
-    /// referência ao recarregar os dados do documento ativo.
+    /// referência ao recarregar os dados do documento ativo. Caso o arquivo
+    /// não exista no caminho atual mas exista no caminho legado
+    /// <c>%APPDATA%\TigreBIM\pipecadmapper.json</c>, ele é carregado uma vez
+    /// e regravado no novo caminho na próxima chamada a <see cref="Save"/>.
     /// </summary>
     public class PipeCadMapperSettings
     {
@@ -23,6 +26,16 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
             get
             {
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string dir = Path.Combine(appData, "EVT-BIM");
+                return Path.Combine(dir, "pipecadmapper.json");
+            }
+        }
+
+        private static string LegacySettingsPath
+        {
+            get
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                 string dir = Path.Combine(appData, "TigreBIM");
                 return Path.Combine(dir, "pipecadmapper.json");
             }
@@ -33,10 +46,25 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
             try
             {
                 string path = SettingsPath;
-                if (!File.Exists(path))
+                string? sourcePath = null;
+
+                if (File.Exists(path))
+                {
+                    sourcePath = path;
+                }
+                else
+                {
+                    string legacyPath = LegacySettingsPath;
+                    if (File.Exists(legacyPath))
+                    {
+                        sourcePath = legacyPath;
+                    }
+                }
+
+                if (sourcePath == null)
                     return new PipeCadMapperSettings();
 
-                string json = File.ReadAllText(path);
+                string json = File.ReadAllText(sourcePath);
                 PipeCadMapperSettings? loaded = JsonSerializer.Deserialize<PipeCadMapperSettings>(json);
                 return loaded ?? new PipeCadMapperSettings();
             }

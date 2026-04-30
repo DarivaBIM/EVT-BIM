@@ -215,7 +215,7 @@ namespace DarivaBIM.Plugin.V2026.Ui
 
         private static void ShowResultDialog(ParameterApplyResult result)
         {
-            TaskDialog dlg = new("TigreBIM — Editor de parâmetros");
+            TaskDialog dlg = new("EVT-BIM — Editor de parâmetros");
 
             if (!string.IsNullOrEmpty(result.ErrorMessage))
             {

@@ -107,7 +107,7 @@ namespace DarivaBIM.Plugin.V2026.Features.PipeCadMapper
             catch (Exception ex)
             {
                 vm.StatusMessage = $"Erro inesperado: {ex.Message}";
-                TaskDialog.Show("TigreBIM", $"Erro na inserção de tubos:\n{ex.Message}");
+                TaskDialog.Show("EVT-BIM", $"Erro na inserção de tubos:\n{ex.Message}");
             }
             finally
             {
@@ -124,6 +124,6 @@ namespace DarivaBIM.Plugin.V2026.Features.PipeCadMapper
             }
         }
 
-        public string GetName() => "TigreBIM.PipeInsertionHandler";
+        public string GetName() => "EvtBim.PipeInsertionHandler";
     }
 }

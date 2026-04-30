@@ -25,7 +25,7 @@ namespace DarivaBIM.Plugin.V2026.Features.TigreCodes
                 Document? doc = (ctx.Document as RevitDocumentContext)?.RevitDocument;
                 if (doc == null || doc.IsFamilyDocument)
                 {
-                    TaskDialog.Show("TigreBIM", "Abra um projeto Revit para aplicar os códigos Tigre.");
+                    TaskDialog.Show("EVT-BIM", "Abra um projeto Revit para aplicar os códigos Tigre.");
                     return Result.Cancelled;
                 }
 
@@ -38,7 +38,7 @@ namespace DarivaBIM.Plugin.V2026.Features.TigreCodes
                 }
                 catch (Exception ex)
                 {
-                    TaskDialog.Show("TigreBIM", $"Erro ao aplicar códigos Tigre:\n{ex.Message}");
+                    TaskDialog.Show("EVT-BIM", $"Erro ao aplicar códigos Tigre:\n{ex.Message}");
                     return Result.Failed;
                 }
             });
