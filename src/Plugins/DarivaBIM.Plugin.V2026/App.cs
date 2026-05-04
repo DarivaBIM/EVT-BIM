@@ -34,7 +34,7 @@ namespace DarivaBIM.Plugin.V2026
                 _host = BuildHost(application);
                 Executor = new RevitCommandExecutor(_host);
 
-                ICommandRegistry registry = (ICommandRegistry)_host.Root.GetService(typeof(ICommandRegistry))!;
+                ICommandRegistry registry = _host.Root.GetRequiredService<ICommandRegistry>();
                 string assemblyPath = Assembly.GetExecutingAssembly().Location;
 
                 var ribbonBuilder = new RibbonBuilder(registry, assemblyPath);

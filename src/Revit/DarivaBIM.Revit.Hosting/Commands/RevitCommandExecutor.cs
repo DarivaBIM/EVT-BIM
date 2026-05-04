@@ -16,9 +16,18 @@ namespace DarivaBIM.Revit.Hosting.Commands
     {
         private readonly PluginHost _host;
 
+        /// <summary>
+        /// Process-wide accessor used by version-neutral command shells
+        /// (<see cref="RevitCommandBase{TTool}"/>) that cannot take a
+        /// dependency on the per-version <c>App</c> static. Set during the
+        /// constructor; never reassigned during a session.
+        /// </summary>
+        public static RevitCommandExecutor? Current { get; private set; }
+
         public RevitCommandExecutor(PluginHost host)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
+            Current = this;
         }
 
         public Result Execute(
