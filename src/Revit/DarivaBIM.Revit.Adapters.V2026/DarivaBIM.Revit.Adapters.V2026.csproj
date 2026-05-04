@@ -3,9 +3,9 @@
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>false</UseWPF>
-    <RootNamespace>DarivaBIM.Revit.Adapters.V2026</RootNamespace>
+    <RootNamespace>DarivaBIM.Revit.Adapters</RootNamespace>
     <AssemblyName>DarivaBIM.Revit.Adapters.V2026</AssemblyName>
-    <Description>Concrete Revit 2026 adapters: repositories, mapping, readers, writers, transactions, selection, filters, parameters, units, external services.</Description>
+    <Description>Concrete Revit 2026 adapters: casca de compilacao que puxa o codigo de DarivaBIM.Revit.Adapters.SharedSource compilado contra a RevitAPI 2026 (ADR-0017).</Description>
 
     <RevitVersion>2026</RevitVersion>
   </PropertyGroup>
@@ -15,6 +15,18 @@
     <ProjectReference Include="..\..\Core\DarivaBIM.Domain\DarivaBIM.Domain.csproj" />
     <ProjectReference Include="..\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
     <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure\DarivaBIM.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!--
+    Source-shared do adapter neutro. Cada Adapters.V20XX compila os mesmos
+    arquivos contra sua propria RevitAPI.dll (ver ADR-0017). Os simbolos
+    REVIT2025/REVIT2026 sao injetados em src/Build/Directory.Build.targets
+    a partir do <RevitVersion> acima.
+  -->
+  <ItemGroup>
+    <Compile Include="..\DarivaBIM.Revit.Adapters.SharedSource\**\*.cs"
+             Exclude="..\DarivaBIM.Revit.Adapters.SharedSource\**\bin\**;..\DarivaBIM.Revit.Adapters.SharedSource\**\obj\**"
+             Link="Shared\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

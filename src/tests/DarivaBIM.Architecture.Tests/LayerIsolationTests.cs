@@ -78,19 +78,41 @@ namespace DarivaBIM.Architecture.Tests
         public void PluginSharedSource_does_not_reference_versioned_namespaces()
         {
             // Plugin.SharedSource e compilado pelos plugins V2025 e V2026;
-            // qualquer using direto a DarivaBIM.Plugin.V2025 ou V2026 quebra
-            // a ideia de fonte unica neutra. Imports do adapter (V2025/V2026)
-            // continuam permitidos porque ficam atras de #if REVIT2025/REVIT2026
-            // e o ForbiddenUsingsScanner so olha "using " no inicio da linha.
+            // qualquer using direto a um namespace versionado quebra a ideia
+            // de fonte unica neutra. Apos ADR-0017 o adapter tambem usa
+            // namespace neutro (DarivaBIM.Revit.Adapters.*), entao referencias
+            // a Adapters.V2025/V2026 agora tambem sao proibidas.
             string projectRoot = SourceTreeLocator.FindProjectRoot("src/Plugins/DarivaBIM.Plugin.SharedSource");
             var violations = ForbiddenUsingsScanner.Scan(projectRoot, new[]
             {
                 "DarivaBIM.Plugin.V2025",
                 "DarivaBIM.Plugin.V2026",
+                "DarivaBIM.Revit.Adapters.V2025",
+                "DarivaBIM.Revit.Adapters.V2026",
             });
             Assert.True(
                 violations.Count == 0,
                 $"Plugin.SharedSource não pode referenciar namespaces versionados:\n{ForbiddenUsingsScanner.Format(violations)}");
+        }
+
+        [Fact]
+        public void AdapterSharedSource_does_not_reference_versioned_namespaces()
+        {
+            // Revit.Adapters.SharedSource e compilado pelos adapters V2025
+            // e V2026 com namespace neutro (DarivaBIM.Revit.Adapters.*).
+            // Diferencas reais de RevitAPI sao tratadas com #if REVITxxxx
+            // localizado, nao com namespaces versionados.
+            string projectRoot = SourceTreeLocator.FindProjectRoot("src/Revit/DarivaBIM.Revit.Adapters.SharedSource");
+            var violations = ForbiddenUsingsScanner.Scan(projectRoot, new[]
+            {
+                "DarivaBIM.Revit.Adapters.V2025",
+                "DarivaBIM.Revit.Adapters.V2026",
+                "DarivaBIM.Plugin.V2025",
+                "DarivaBIM.Plugin.V2026",
+            });
+            Assert.True(
+                violations.Count == 0,
+                $"Revit.Adapters.SharedSource não pode referenciar namespaces versionados:\n{ForbiddenUsingsScanner.Format(violations)}");
         }
     }
 }

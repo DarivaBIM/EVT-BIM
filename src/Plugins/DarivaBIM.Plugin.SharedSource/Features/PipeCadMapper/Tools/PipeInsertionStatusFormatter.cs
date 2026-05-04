@@ -1,9 +1,5 @@
 using DarivaBIM.Presentation.Wpf.PipeConverter;
-#if REVIT2026
-using DarivaBIM.Revit.Adapters.V2026.Features.PipeCadMapper;
-#elif REVIT2025
-using DarivaBIM.Revit.Adapters.V2025.Features.PipeCadMapper;
-#endif
+using DarivaBIM.Revit.Adapters.Features.PipeCadMapper;
 
 namespace DarivaBIM.Plugin.Features.PipeCadMapper.Tools
 {

@@ -5,11 +5,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using DarivaBIM.Plugin.Ui;
-#if REVIT2026
-using DarivaBIM.Revit.Adapters.V2026.Features.Prolongador;
-#elif REVIT2025
-using DarivaBIM.Revit.Adapters.V2025.Features.Prolongador;
-#endif
+using DarivaBIM.Revit.Adapters.Features.Prolongador;
 
 namespace DarivaBIM.Plugin.Features.Prolongador
 {

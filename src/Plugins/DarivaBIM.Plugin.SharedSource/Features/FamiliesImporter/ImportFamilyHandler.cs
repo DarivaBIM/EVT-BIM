@@ -4,11 +4,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.DTOs.Family;
-#if REVIT2026
-using DarivaBIM.Revit.Adapters.V2026.Features.FamiliesImporter;
-#elif REVIT2025
-using DarivaBIM.Revit.Adapters.V2025.Features.FamiliesImporter;
-#endif
+using DarivaBIM.Revit.Adapters.Features.FamiliesImporter;
 
 namespace DarivaBIM.Plugin.Features.FamiliesImporter
 {

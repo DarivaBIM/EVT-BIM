@@ -7,11 +7,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Plugin.Features.ParameterEditor;
 using DarivaBIM.Presentation.Wpf.ParameterEditor;
-#if REVIT2026
-using DarivaBIM.Revit.Adapters.V2026.Features.ParameterEditor;
-#elif REVIT2025
-using DarivaBIM.Revit.Adapters.V2025.Features.ParameterEditor;
-#endif
+using DarivaBIM.Revit.Adapters.Features.ParameterEditor;
 
 namespace DarivaBIM.Plugin.Ui
 {

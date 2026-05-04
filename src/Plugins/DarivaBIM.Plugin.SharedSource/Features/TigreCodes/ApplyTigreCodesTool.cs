@@ -4,11 +4,7 @@ using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Application.Tools;
 using DarivaBIM.Application.UseCases.ApplyTigreCodes;
 using DarivaBIM.Revit.Hosting.Commands;
-#if REVIT2026
-using DarivaBIM.Revit.Adapters.V2026.Features.TigreCodes;
-#elif REVIT2025
-using DarivaBIM.Revit.Adapters.V2025.Features.TigreCodes;
-#endif
+using DarivaBIM.Revit.Adapters.Features.TigreCodes;
 
 namespace DarivaBIM.Plugin.Features.TigreCodes
 {

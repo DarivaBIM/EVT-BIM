@@ -3,16 +3,8 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
-#if REVIT2026
-using DarivaBIM.Revit.Adapters.V2026.Common.Filters;
-#elif REVIT2025
-using DarivaBIM.Revit.Adapters.V2025.Common.Filters;
-#endif
-#if REVIT2026
-using DarivaBIM.Revit.Adapters.V2026.Features.PipeCadMapper;
-#elif REVIT2025
-using DarivaBIM.Revit.Adapters.V2025.Features.PipeCadMapper;
-#endif
+using DarivaBIM.Revit.Adapters.Common.Filters;
+using DarivaBIM.Revit.Adapters.Features.PipeCadMapper;
 using DarivaBIM.Plugin.Features.PipeCadMapper.Tools;
 
 namespace DarivaBIM.Plugin.Features.PipeCadMapper
