@@ -59,10 +59,10 @@ namespace DarivaBIM.Revit.Hosting.Ribbon
                 button.ToolTip = def.ToolTip;
                 button.LongDescription = def.LongDescription;
 
-                BitmapImage? large = TryLoadIcon(def.LargeIconResource);
+                BitmapSource? large = TryLoadIcon(def.LargeIconResource);
                 if (large != null) button.LargeImage = large;
 
-                BitmapImage? small = TryLoadIcon(def.SmallIconResource);
+                BitmapSource? small = TryLoadIcon(def.SmallIconResource);
                 if (small != null) button.Image = small;
 
                 if (!string.IsNullOrWhiteSpace(def.HelpUrl))
@@ -72,7 +72,7 @@ namespace DarivaBIM.Revit.Hosting.Ribbon
             }
         }
 
-        private BitmapImage? TryLoadIcon(string? resourcePath)
+        private BitmapSource? TryLoadIcon(string? resourcePath)
         {
             if (string.IsNullOrWhiteSpace(resourcePath)) return null;
 
@@ -85,11 +85,33 @@ namespace DarivaBIM.Revit.Hosting.Ribbon
 
                 if (!File.Exists(fullPath)) return null;
 
-                BitmapImage image = new BitmapImage();
-                image.BeginInit();
-                image.CacheOption = BitmapCacheOption.OnLoad;
-                image.UriSource = new Uri(fullPath, UriKind.Absolute);
-                image.EndInit();
+                BitmapFrame frame;
+                using (FileStream stream = File.OpenRead(fullPath))
+                {
+                    BitmapDecoder decoder = BitmapDecoder.Create(
+                        stream,
+                        BitmapCreateOptions.None,
+                        BitmapCacheOption.OnLoad);
+                    frame = decoder.Frames[0];
+                }
+
+                // Revit's ribbon sizes icons in DPI-aware logical units. PNGs
+                // exported at 72 DPI render ~33% larger than their pixel size
+                // and get cropped in the 32x32 button slot, so re-emit the
+                // bitmap at 96 DPI (logical size == pixel size).
+                int stride = (frame.PixelWidth * frame.Format.BitsPerPixel + 7) / 8;
+                byte[] pixels = new byte[stride * frame.PixelHeight];
+                frame.CopyPixels(pixels, stride, 0);
+
+                BitmapSource image = BitmapSource.Create(
+                    frame.PixelWidth,
+                    frame.PixelHeight,
+                    96,
+                    96,
+                    frame.Format,
+                    frame.Palette,
+                    pixels,
+                    stride);
                 image.Freeze();
                 return image;
             }
