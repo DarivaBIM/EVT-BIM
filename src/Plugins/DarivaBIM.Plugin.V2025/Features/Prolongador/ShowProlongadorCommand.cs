@@ -1,0 +1,26 @@
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using DarivaBIM.Plugin.V2025.Ui;
+
+namespace DarivaBIM.Plugin.V2025.Features.Prolongador
+{
+    [Transaction(TransactionMode.Manual)]
+    public class ShowProlongadorCommand : IExternalCommand
+    {
+        public Result Execute(
+            ExternalCommandData commandData,
+            ref string message,
+            ElementSet elements)
+        {
+            string outerMessage = message;
+            Result result = App.Executor.Execute(commandData, ref outerMessage, _ =>
+            {
+                ProlongadorWindow.ShowSingleton();
+                return Result.Succeeded;
+            });
+            message = outerMessage;
+            return result;
+        }
+    }
+}

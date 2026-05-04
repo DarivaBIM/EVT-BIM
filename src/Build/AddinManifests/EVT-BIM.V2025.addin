@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>EVT-BIM</Name>
+    <Assembly>C:\ProgramData\Autodesk\Revit\Addins\2025\EVT-BIM\DarivaBIM.Plugin.V2025.dll</Assembly>
+    <AddInId>D58F3C49-1E6A-4A22-B5F1-7D8C92A40B25</AddInId>
+    <FullClassName>DarivaBIM.Plugin.V2025.App</FullClassName>
+    <VendorId>EVT-BIM</VendorId>
+    <VendorDescription>Engenharia de Valor Tigre — EVT-BIM</VendorDescription>
+  </AddIn>
+</RevitAddIns>

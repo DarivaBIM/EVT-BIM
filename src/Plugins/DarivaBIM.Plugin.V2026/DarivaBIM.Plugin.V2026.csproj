@@ -8,7 +8,7 @@
     <Description>Revit 2026 plugin entry point: IExternalApplication, IExternalCommands, Ribbon, CommandRegistry. The .addin manifest loads this assembly.</Description>
 
     <RevitVersion>2026</RevitVersion>
-    <PlatformTarget>x64</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>c
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,6 +35,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- UseWPF auto-includes **/*.png as embedded Resource; suppress so icons can be copied to output and loaded from disk by RibbonBuilder. -->
+    <Resource Remove="Ribbon\Resources\Icons\*.png" />
     <None Include="Ribbon\Resources\Icons\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

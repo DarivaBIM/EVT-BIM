@@ -15,16 +15,16 @@ if "%TARGET_DIR%"=="" (
 )
 
 set "ADDIN_NAME=EVT-BIM"
-set "ASSEMBLY_NAME=DarivaBIM.Plugin.V2026"
-set "ADDIN_FILE=EVT-BIM.V2026.addin"
+set "ASSEMBLY_NAME=DarivaBIM.Plugin.V2025"
+set "ADDIN_FILE=EVT-BIM.V2025.addin"
 set "ADDIN_SOURCE=%PROJECT_DIR%..\..\Build\AddinManifests\%ADDIN_FILE%"
 
 set "LEGACY_ADDIN_NAME=DarivaBIM"
-set "LEGACY_ADDIN_FILE=DarivaBIM.V2026.addin"
+set "LEGACY_ADDIN_FILE=DarivaBIM.V2025.addin"
 
-set "RVT_ADDIN_PATH=%ProgramData%\Autodesk\Revit\Addins\2026"
+set "RVT_ADDIN_PATH=%ProgramData%\Autodesk\Revit\Addins\2025"
 set "ADDIN_SUBFOLDER=%RVT_ADDIN_PATH%\%ADDIN_NAME%"
-set "USER_ADDIN_PATH=%AppData%\Autodesk\Revit\Addins\2026"
+set "USER_ADDIN_PATH=%AppData%\Autodesk\Revit\Addins\2025"
 
 echo ===== Deploy %ADDIN_NAME% =====
 echo PROJECT_DIR   = "%PROJECT_DIR%"

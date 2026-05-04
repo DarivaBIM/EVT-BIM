@@ -1,0 +1,287 @@
+<Window x:Class="DarivaBIM.Plugin.V2025.Ui.ParameterEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Editor de parâmetros"
+        Width="400"
+        SizeToContent="Height"
+        ResizeMode="CanMinimize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        Background="#F4F7FB"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Closed="OnWindowClosed">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="SoftBorderBrush" Color="#D8E0EA" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
+        <SolidColorBrush x:Key="LabelBrush" Color="#64748B" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#2563EB" />
+        <SolidColorBrush x:Key="ActiveBrush" Color="#16A34A" />
+        <SolidColorBrush x:Key="SuccessBgBrush" Color="#ECFDF5" />
+        <SolidColorBrush x:Key="SuccessBorderBrush" Color="#A7F3D0" />
+        <SolidColorBrush x:Key="SuccessTextBrush" Color="#047857" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#DC2626" />
+        <SolidColorBrush x:Key="FilterPanelBrush" Color="#F1F5F9" />
+        <SolidColorBrush x:Key="ClearBrush" Color="#94A3B8" />
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,4,0,8" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.5" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SelectButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelectionActive}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource ActiveBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ClearButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{StaticResource ClearBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,4,0,8" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="HintTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+
+        <Style x:Key="InfoBoxStyle" TargetType="Border">
+            <Setter Property="Background" Value="#EFF6FF" />
+            <Setter Property="BorderBrush" Value="#BFDBFE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+
+        <Style x:Key="InfoBoxTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="#1E3A8A" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="ValidationTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+
+        <Style x:Key="StatusTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+
+        <Style x:Key="DisciplineCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,2,8,2" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="AllDisciplinesCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource DisciplineCheckBoxStyle}">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="NoCommonParamsTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource CardBackgroundBrush}"
+            BorderBrush="{StaticResource SoftBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="14"
+            Margin="12"
+            Padding="16">
+        <StackPanel>
+            <TextBlock Text="Editor de parâmetros"
+                       FontSize="14"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Margin="0,0,0,4" />
+
+            <TextBlock Text="Selecione elementos do projeto e atribua um valor a um parâmetro comum a todos eles. O valor também é propagado para as famílias aninhadas dentro dos elementos selecionados (quando o parâmetro existir lá)."
+                       Style="{StaticResource HintTextStyle}" />
+
+            <TextBlock Text="Filtrar por disciplina" Style="{StaticResource FieldLabelStyle}" />
+            <Border Background="{StaticResource FilterPanelBrush}"
+                    BorderBrush="{StaticResource SoftBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="10,8"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <CheckBox Content="Todos"
+                              Style="{StaticResource AllDisciplinesCheckBoxStyle}"
+                              IsChecked="{Binding IsAllDisciplinesSelected, Mode=TwoWay}" />
+                    <ItemsControl ItemsSource="{Binding DisciplineFilters}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Content="{Binding DisplayName}"
+                                          IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                          Style="{StaticResource DisciplineCheckBoxStyle}"
+                                          Width="160" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="SelectButton"
+                        Grid.Column="0"
+                        Style="{StaticResource SelectButtonStyle}"
+                        Content="{Binding SelectButtonText}"
+                        Click="OnSelectClicked" />
+
+                <Button x:Name="ClearSelectionButton"
+                        Grid.Column="2"
+                        Style="{StaticResource ClearButtonStyle}"
+                        Content="Limpar"
+                        Padding="14,0"
+                        ToolTip="Limpa a lista de elementos selecionados."
+                        IsEnabled="{Binding HasSelection}"
+                        Click="OnClearSelectionClicked" />
+            </Grid>
+
+            <Border Style="{StaticResource InfoBoxStyle}"
+                    Visibility="{Binding IsSelectionActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                <TextBlock Style="{StaticResource InfoBoxTextStyle}"
+                           Text="Selecione elementos no Revit. Use Ctrl+clique para adicionar e Shift+clique para remover. Quando terminar, clique em Concluir na ribbon do Revit (ou pressione ENTER, se o foco estiver no Revit)." />
+            </Border>
+
+            <Border Background="{StaticResource SuccessBgBrush}"
+                    BorderBrush="{StaticResource SuccessBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="10,8"
+                    Margin="0,0,0,8"
+                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel>
+                    <TextBlock Text="{Binding SelectionSummary}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource SuccessTextBrush}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding SelectionCategoriesSummary}"
+                               FontSize="10.5"
+                               Foreground="{StaticResource SuccessTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0"
+                               Visibility="{Binding HasSelectionCategoriesSummary, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    <TextBlock Text="Clique em &quot;Selecionar elementos&quot; novamente para adicionar/ajustar a seleção (os elementos atuais ficarão pré-selecionados no Revit)."
+                               FontSize="10"
+                               Foreground="{StaticResource SuccessTextBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"
+                               Opacity="0.85" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Nenhum elemento selecionado ainda."
+                       Style="{StaticResource HintTextStyle}"
+                       Visibility="{Binding HasNoSelection, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+            <TextBlock Text="Parâmetro" Style="{StaticResource FieldLabelStyle}" />
+            <TextBlock Text="{Binding NoCommonParametersMessage}"
+                       Style="{StaticResource NoCommonParamsTextStyle}"
+                       Visibility="{Binding HasNoCommonParametersMessage, Converter={StaticResource BoolToVisibilityConverter}}" />
+            <ComboBox x:Name="ParameterComboBox"
+                      ItemsSource="{Binding Parameters}"
+                      SelectedItem="{Binding SelectedParameter}"
+                      DisplayMemberPath="DisplayName"
+                      IsEnabled="{Binding HasSelection}" />
+            <TextBlock Text="{Binding ValueTypeHint}" Style="{StaticResource HintTextStyle}" />
+
+            <TextBlock Text="Valor" Style="{StaticResource FieldLabelStyle}" />
+            <TextBox x:Name="ValueTextBox"
+                     Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                     IsEnabled="{Binding IsParameterSelected}" />
+            <TextBlock Text="{Binding ValidationMessage}"
+                       Style="{StaticResource ValidationTextStyle}" />
+
+            <Button x:Name="ApplyButton"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Content="Aplicar nos elementos selecionados"
+                    IsEnabled="{Binding CanApply}"
+                    Click="OnApplyClicked" />
+
+            <TextBlock x:Name="StatusTextBlock"
+                       Style="{StaticResource StatusTextStyle}"
+                       Text="{Binding StatusMessage}" />
+        </StackPanel>
+    </Border>
+</Window>

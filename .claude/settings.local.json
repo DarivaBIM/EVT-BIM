@@ -5,7 +5,14 @@
       "Bash(env)",
       "Bash(git *)",
       "Bash(dotnet --info)",
-      "Bash(grep -E \"Erro\\\\\\(s\\\\\\)|: error |Tempo Decorrido|^.+ -> .+\\\\.dll$\")"
+      "Bash(grep -E \"Erro\\\\\\(s\\\\\\)|: error |Tempo Decorrido|^.+ -> .+\\\\.dll$\")",
+      "Read(//c/ProgramData/Autodesk/Revit/Addins/2025/**)",
+      "Read(//c/ProgramData/Autodesk/Revit/Addins/2025/EVT-BIM/**)",
+      "Bash(xxd src/Plugins/DarivaBIM.Plugin.V2025/DarivaBIM.Plugin.V2025.csproj)",
+      "Bash(xxd src/Plugins/DarivaBIM.Plugin.V2026/DarivaBIM.Plugin.V2026.csproj)",
+      "Bash(command -v unix2dos)",
+      "Bash(unix2dos -q src/Plugins/DarivaBIM.Plugin.V2025/Properties/launchSettings.json src/Plugins/DarivaBIM.Plugin.V2025/Resources/tigre_codes.json)",
+      "Bash(xxd src/Plugins/DarivaBIM.Plugin.V2025/Properties/launchSettings.json)"
     ]
   }
 }
