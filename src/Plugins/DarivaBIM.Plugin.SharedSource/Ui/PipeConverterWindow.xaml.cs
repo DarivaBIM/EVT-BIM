@@ -1,11 +1,10 @@
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Windows;
 using DarivaBIM.Infrastructure.Persistence.Settings;
 using DarivaBIM.Plugin.Features.PipeCadMapper;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
+using DarivaBIM.Revit.Abstractions.Hosting;
 
 namespace DarivaBIM.Plugin.Ui
 {
@@ -15,6 +14,8 @@ namespace DarivaBIM.Plugin.Ui
 
         private readonly PipeConverterDataLoadExternalEvent _dataLoadEvent = new();
         private readonly PipeInsertionExternalEvent _pipeInsertionEvent = new();
+        private readonly IRevitPickCancellationService _pickCancellationService =
+            new Win32RevitPickCancellationService();
 
         private PipeCadMapperSettings _initialSettings = new();
         private bool _initialLoadDone;
@@ -64,7 +65,7 @@ namespace DarivaBIM.Plugin.Ui
                 ViewModel.IsActive = false;
                 ViewModel.StatusMessage = "Ferramenta desativada.";
                 _pipeInsertionEvent.MarkNextCancelAsInternal();
-                SendEscapeToRevit();
+                _pickCancellationService.CancelPendingPick();
                 return;
             }
 
@@ -91,7 +92,7 @@ namespace DarivaBIM.Plugin.Ui
             {
                 ViewModel.IsActive = false;
                 _pipeInsertionEvent.MarkNextCancelAsInternal();
-                SendEscapeToRevit();
+                _pickCancellationService.CancelPendingPick();
             }
         }
 
@@ -131,7 +132,7 @@ namespace DarivaBIM.Plugin.Ui
             // contrário o handler interpretaria como ESC do usuário e
             // desativaria a ferramenta.
             _pipeInsertionEvent.MarkNextCancelAsInternal();
-            SendEscapeToRevit();
+            _pickCancellationService.CancelPendingPick();
             _pipeInsertionEvent.RaiseIfActive(ViewModel);
         }
 
@@ -190,35 +191,5 @@ namespace DarivaBIM.Plugin.Ui
                 && ViewModel.SelectedLevel != null;
         }
 
-        private const byte VK_ESCAPE = 0x1B;
-        private const uint KEYEVENTF_KEYUP = 0x0002;
-
-        [DllImport("user32.dll")]
-        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        private static void SendEscapeToRevit()
-        {
-            try
-            {
-                // Sem dar foco a Revit, o ESC pode ser consumido pela própria
-                // janela WPF (Topmost) e o PickObject continua travado.
-                IntPtr revitHandle = Process.GetCurrentProcess().MainWindowHandle;
-                if (revitHandle != IntPtr.Zero)
-                {
-                    SetForegroundWindow(revitHandle);
-                }
-
-                keybd_event(VK_ESCAPE, 0, 0, UIntPtr.Zero);
-                keybd_event(VK_ESCAPE, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            }
-            catch
-            {
-                // Se o sistema bloquear, o loop sai no próximo pick/ESC manual.
-            }
-        }
     }
 }
