@@ -35,11 +35,31 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- UseWPF auto-includes **/*.png as embedded Resource; suppress so icons can be copied to output and loaded from disk by RibbonBuilder. -->
-    <Resource Remove="Ribbon\Resources\Icons\*.png" />
-    <None Include="Ribbon\Resources\Icons\*.png">
+    <!--
+      Icons live in DarivaBIM.Plugin.SharedSource so V2025 and V2026 share a
+      single source of truth (see Plugin.SharedSource/README.md).
+      RibbonBuilder loads icons by physical path (Path.Combine + File.Exists
+      + BitmapImage.UriSource), so they must be copied to the output folder
+      under "Ribbon\Resources\Icons" — the path expected by feature buttons.
+    -->
+    <None Include="..\DarivaBIM.Plugin.SharedSource\Resources\Icons\*.png"
+          Link="Ribbon\Resources\Icons\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <!--
+    Source-shared code from Plugin.SharedSource. Each plugin compiles the
+    same files against its own RevitAPI version (see ADR-0015).
+    These globs are no-ops until the first feature is migrated; once
+    migrated, the files appear automatically in this project's build.
+  -->
+  <ItemGroup>
+    <Compile Include="..\DarivaBIM.Plugin.SharedSource\**\*.cs"
+             Exclude="..\DarivaBIM.Plugin.SharedSource\**\bin\**;..\DarivaBIM.Plugin.SharedSource\**\obj\**"
+             Link="Shared\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Page Include="..\DarivaBIM.Plugin.SharedSource\Ui\**\*.xaml"
+          Link="Shared\Ui\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <Target Name="DeployAddin" AfterTargets="PostBuildEvent" Condition="Exists('$(ProjectDir)build\deploy_revit_2025.cmd')">
