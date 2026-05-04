@@ -4,8 +4,6 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.DTOs.Family;
-using DarivaBIM.Infrastructure.Api.Clients;
-using DarivaBIM.Infrastructure.Persistence.Cache;
 #if REVIT2026
 using DarivaBIM.Revit.Adapters.V2026.Features.FamiliesImporter;
 #elif REVIT2025
@@ -14,26 +12,34 @@ using DarivaBIM.Revit.Adapters.V2025.Features.FamiliesImporter;
 
 namespace DarivaBIM.Plugin.Features.FamiliesImporter
 {
+    /// <summary>
+    /// Loads a family file into the active Revit project. The handler is
+    /// invoked on Revit's UI thread inside <see cref="IExternalEventHandler"/>,
+    /// so it must not perform network I/O here — the caller is expected to
+    /// download the .rfa to local cache asynchronously and pass the resulting
+    /// path through <see cref="PendingRequest"/> + <see cref="PendingLocalFilePath"/>
+    /// before raising the event.
+    /// </summary>
     public class ImportFamilyHandler : IExternalEventHandler
     {
-        private readonly FamilyCacheService _cacheService = new();
-        private readonly FamilyDownloadService _downloadService = new();
-
         public ImportFamilyRequest? PendingRequest { get; set; }
+        public string? PendingLocalFilePath { get; set; }
 
         public void Execute(UIApplication app)
         {
-            if (PendingRequest == null)
+            if (PendingRequest == null || string.IsNullOrWhiteSpace(PendingLocalFilePath))
             {
                 TaskDialog.Show(
                     "FamiliesImporterHub",
-                    "Nenhuma requisição de importação foi recebida.");
+                    "Nenhuma requisição de importação preparada foi recebida.");
 
                 return;
             }
 
             ImportFamilyRequest request = PendingRequest;
+            string cachedFilePath = PendingLocalFilePath!;
             PendingRequest = null;
+            PendingLocalFilePath = null;
 
             try
             {
@@ -60,11 +66,9 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                     return;
                 }
 
-                string cachedFilePath = _downloadService.DownloadToCache(request, _cacheService);
-
                 if (!File.Exists(cachedFilePath))
                 {
-                    throw new System.IO.FileNotFoundException(
+                    throw new FileNotFoundException(
                         "O arquivo baixado não foi encontrado no cache local.",
                         cachedFilePath);
                 }

@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using DarivaBIM.Application.DTOs.Family;
 using DarivaBIM.Infrastructure.Persistence.Cache;
 
@@ -21,7 +23,16 @@ namespace DarivaBIM.Infrastructure.Api.Clients
             return client;
         }
 
-        public string DownloadToCache(ImportFamilyRequest request, FamilyCacheService cacheService)
+        /// <summary>
+        /// Downloads the family file to the local cache and returns the cache path.
+        /// Always call this BEFORE raising the Revit ExternalEvent — the
+        /// ExternalEvent runs on Revit's UI thread and any I/O there freezes
+        /// the entire Revit window until completion (see ADR-0015 follow-up).
+        /// </summary>
+        public async Task<string> DownloadToCacheAsync(
+            ImportFamilyRequest request,
+            FamilyCacheService cacheService,
+            CancellationToken cancellationToken = default)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -56,25 +67,33 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                     File.Delete(tempFilePath);
                 }
 
-                using (HttpResponseMessage response = HttpClient
-                           .GetAsync(request.DownloadUrl, HttpCompletionOption.ResponseHeadersRead)
-                           .GetAwaiter()
-                           .GetResult())
+                using (HttpResponseMessage response = await HttpClient
+                           .GetAsync(
+                               request.DownloadUrl,
+                               HttpCompletionOption.ResponseHeadersRead,
+                               cancellationToken)
+                           .ConfigureAwait(false))
                 {
                     response.EnsureSuccessStatusCode();
 
-                    using (Stream inputStream = response.Content
-                               .ReadAsStreamAsync()
-                               .GetAwaiter()
-                               .GetResult())
+                    using (Stream inputStream = await response.Content
+                               .ReadAsStreamAsync(cancellationToken)
+                               .ConfigureAwait(false))
                     using (FileStream outputStream = new FileStream(
                                tempFilePath,
                                FileMode.Create,
                                FileAccess.Write,
-                               FileShare.None))
+                               FileShare.None,
+                               bufferSize: 81920,
+                               useAsync: true))
                     {
-                        inputStream.CopyTo(outputStream);
-                        outputStream.Flush();
+                        await inputStream
+                            .CopyToAsync(outputStream, cancellationToken)
+                            .ConfigureAwait(false);
+
+                        await outputStream
+                            .FlushAsync(cancellationToken)
+                            .ConfigureAwait(false);
                     }
                 }
 

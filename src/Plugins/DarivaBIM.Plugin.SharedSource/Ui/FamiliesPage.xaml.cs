@@ -1,6 +1,7 @@
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.DTOs.Family;
 using DarivaBIM.Infrastructure.Api.Clients;
+using DarivaBIM.Infrastructure.Persistence.Cache;
 using DarivaBIM.Plugin.Features.FamiliesImporter;
 using System;
 using System.Collections.Generic;
@@ -26,6 +27,8 @@ namespace DarivaBIM.Plugin.Ui
 
         private readonly ApiClient _apiClient = new();
         private readonly ImportFamilyExternalEvent _importFamilyExternalEvent = new();
+        private readonly FamilyCacheService _familyCacheService = new();
+        private readonly FamilyDownloadService _familyDownloadService = new();
         private readonly List<FamilyItem> _allFamilies = new();
         private readonly ObservableCollection<FamilyItem> _visibleFamilies = new();
         private readonly DispatcherTimer _searchDebounceTimer;
@@ -80,7 +83,7 @@ namespace DarivaBIM.Plugin.Ui
             await ApplySearchAsync(SearchTextBox.Text, scrollToTop: true);
         }
 
-        private void OnFamilyCardClicked(object sender, MouseButtonEventArgs e)
+        private async void OnFamilyCardClicked(object sender, MouseButtonEventArgs e)
         {
             if (sender is not Border border || border.Tag is not FamilyItem family)
             {
@@ -96,16 +99,56 @@ namespace DarivaBIM.Plugin.Ui
                 return;
             }
 
+            // Download runs on the WPF thread pool BEFORE the ExternalEvent
+            // fires, so the .rfa is already cached locally when the Revit-side
+            // handler executes. This keeps Revit responsive during slow
+            // network conditions.
+            ImportFamilyRequest request;
+            string localFilePath;
+
             try
             {
-                ImportFamilyRequest request = ImportFamilyRequest.FromFamily(family);
-                _importFamilyExternalEvent.Raise(request);
+                request = ImportFamilyRequest.FromFamily(family);
             }
             catch (Exception ex)
             {
                 TaskDialog.Show(
                     "FamiliesImporterHub",
                     $"Não foi possível preparar a importação da família.\n\n{ex.Message}");
+                return;
+            }
+
+            try
+            {
+                SetBusyState(true);
+                localFilePath = await _familyDownloadService.DownloadToCacheAsync(
+                    request,
+                    _familyCacheService);
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show(
+                    "FamiliesImporterHub",
+                    "Não foi possível baixar o arquivo da família.\n\n" +
+                    $"Família: {request.FamilyName}\n" +
+                    $"URL: {request.DownloadUrl}\n\n" +
+                    $"Erro: {ex.Message}");
+                return;
+            }
+            finally
+            {
+                SetBusyState(false);
+            }
+
+            try
+            {
+                _importFamilyExternalEvent.Raise(request, localFilePath);
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show(
+                    "FamiliesImporterHub",
+                    $"Não foi possível agendar a importação da família.\n\n{ex.Message}");
             }
         }
 
