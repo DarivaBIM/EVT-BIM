@@ -29,7 +29,8 @@
       <Link>EVT-BIM.V2025.addin</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Resources\tigre_codes.json">
+    <None Include="..\DarivaBIM.Plugin.SharedSource\Resources\tigre_codes.json"
+          Link="Resources\tigre_codes.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

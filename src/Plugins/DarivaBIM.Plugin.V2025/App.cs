@@ -3,9 +3,11 @@ using System.Reflection;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Events;
+using DarivaBIM.Plugin;
+using DarivaBIM.Plugin.Composition;
+using DarivaBIM.Plugin.Ribbon;
+using DarivaBIM.Plugin.Ui;
 using DarivaBIM.Plugin.V2025.Composition;
-using DarivaBIM.Plugin.V2025.Ribbon;
-using DarivaBIM.Plugin.V2025.Ui;
 using DarivaBIM.Revit.Abstractions.Ribbon;
 using DarivaBIM.Revit.Hosting.Commands;
 using DarivaBIM.Revit.Hosting.DependencyInjection;
@@ -66,12 +68,12 @@ namespace DarivaBIM.Plugin.V2025
             var services = new ServiceCollection();
 
             services
-                .AddPluginV2025(application)
+                .AddPluginShared(application)
                 .AddDarivaApplication()
                 .AddDarivaInfrastructure()
                 .AddRevitAdaptersV2025()
                 .AddDarivaPresentation()
-                .AddPluginFeaturesV2025();
+                .AddPluginFeatures();
 
             return new PluginHost(services);
         }
