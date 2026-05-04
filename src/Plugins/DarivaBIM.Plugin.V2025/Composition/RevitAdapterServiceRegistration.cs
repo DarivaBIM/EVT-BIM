@@ -7,7 +7,7 @@ namespace DarivaBIM.Plugin.V2025.Composition
     /// Empty for now because the current adapters either need an active
     /// <c>Document</c> at construction time (so they are built per-command in
     /// each feature's Tool) or are still consumed via static helpers
-    /// (<see cref="DarivaBIM.Revit.Adapters.V2025.Features.PipeCadMapper.PipeCreator"/>).
+    /// (<see cref="DarivaBIM.Revit.Adapters.Features.PipeCadMapper.PipeCreator"/>).
     ///
     /// As <c>IRevitTransactionRunner</c>, <c>IRevitParameterWriter</c>,
     /// <c>IRevitElementWriter</c> and <c>IRevitSelectionService</c> ship,

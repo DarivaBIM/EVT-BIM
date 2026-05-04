@@ -8,8 +8,9 @@ against its own `RevitAPI.dll` via `<Compile Include>` in the `.csproj`.
 ## Política
 
 Esta pasta **não tem `.csproj`** e **não gera DLL própria**, pelo mesmo
-motivo que `DarivaBIM.Plugin.SharedSource` e `DarivaBIM.Revit.SharedSource`
-(ver ADR-0008 e ADR-0015): cada Revit (2025/2026) tem sua própria
+motivo que `DarivaBIM.Plugin.SharedSource` e
+`DarivaBIM.Revit.Adapters.SharedSource` (ver ADR-0008, ADR-0015 e
+ADR-0017): cada Revit (2025/2026) tem sua própria
 `RevitAPI.dll` e uma DLL pré-compilada contra uma versão pode falhar em
 outra. Compartilhando **fonte**, cada plugin tem um Hosting binariamente
 correto para a sua versão.

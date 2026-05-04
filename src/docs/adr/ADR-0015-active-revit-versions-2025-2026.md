@@ -37,6 +37,10 @@ Manter os stubs na solution gera atrito sem ganho:
   source-shared, ou split) é tratada em fase posterior do refactor.
 - `Plugin.SharedSource` (ADR-0011-bis a ser escrito) passa a concentrar o
   código antes duplicado entre V2025 e V2026.
+  - **Atualizacao**: a centralizacao foi implementada em duas frentes,
+    `Plugin.SharedSource` (ja existente) e `Revit.Adapters.SharedSource`
+    (ADR-0017). O "ADR-0011-bis" referido aqui foi efetivamente
+    coberto pelo ADR-0017.
 - O ADR-0002 fica marcado como **Superseded by ADR-0015** e mantido como
   registro histórico da intenção original multi-versão ampla.
 

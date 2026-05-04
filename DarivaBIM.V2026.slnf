@@ -1,0 +1,16 @@
+{
+  "solution": {
+    "path": "DarivaBIM.sln",
+    "projects": [
+      "src\\Core\\DarivaBIM.Domain\\DarivaBIM.Domain.csproj",
+      "src\\Core\\DarivaBIM.Application\\DarivaBIM.Application.csproj",
+      "src\\Revit\\DarivaBIM.Revit.Abstractions\\DarivaBIM.Revit.Abstractions.csproj",
+      "src\\Revit\\DarivaBIM.Revit.Adapters.V2026\\DarivaBIM.Revit.Adapters.V2026.csproj",
+      "src\\Plugins\\DarivaBIM.Plugin.V2026\\DarivaBIM.Plugin.V2026.csproj",
+      "src\\Presentation\\DarivaBIM.Presentation.Wpf\\DarivaBIM.Presentation.Wpf.csproj",
+      "src\\Infrastructure\\DarivaBIM.Infrastructure\\DarivaBIM.Infrastructure.csproj",
+      "src\\tests\\DarivaBIM.Core.Tests\\DarivaBIM.Core.Tests.csproj",
+      "src\\tests\\DarivaBIM.Architecture.Tests\\DarivaBIM.Architecture.Tests.csproj"
+    ]
+  }
+}

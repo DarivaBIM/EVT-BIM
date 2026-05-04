@@ -1,7 +1,11 @@
 # ADR-0008 — Política para `Revit.SharedSource`
 
 ## Status
-Aceito (criado por antecipação, sem código compilável ainda).
+Aceito. **Materializado pelo ADR-0017** (a pasta foi renomeada para
+`Revit.Adapters.SharedSource` e populada com 37 arquivos antes
+duplicados entre V2025 e V2026). A politica abaixo continua valendo
+para *novos* candidatos: nao criar SharedSource proativamente, so
+quando houver duplicacao real.
 
 ## Contexto
 `DarivaBIM.Revit.SharedSource` é uma pasta destinada a **compartilhar
