@@ -1,6 +1,7 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using DarivaBIM.Revit.Hosting.Commands;
 
 namespace DarivaBIM.Plugin.Features.FamiliesImporter
 {
@@ -13,7 +14,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
             ElementSet elements)
         {
             string outerMessage = message;
-            Result result = App.Executor.Execute(commandData, ref outerMessage, _ =>
+            Result result = RevitCommandExecutor.Current!.Execute(commandData, ref outerMessage, _ =>
             {
                 DockablePaneId paneId = new DockablePaneId(PaneIds.FamiliesPaneId);
                 DockablePane pane = commandData.Application.GetDockablePane(paneId);

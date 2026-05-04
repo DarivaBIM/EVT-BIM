@@ -2,6 +2,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Plugin.Ui;
+using DarivaBIM.Revit.Hosting.Commands;
 
 namespace DarivaBIM.Plugin.Features.ParameterEditor
 {
@@ -14,7 +15,7 @@ namespace DarivaBIM.Plugin.Features.ParameterEditor
             ElementSet elements)
         {
             string outerMessage = message;
-            Result result = App.Executor.Execute(commandData, ref outerMessage, _ =>
+            Result result = RevitCommandExecutor.Current!.Execute(commandData, ref outerMessage, _ =>
             {
                 ParameterEditorWindow.ShowSingleton();
                 return Result.Succeeded;

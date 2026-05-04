@@ -11,6 +11,14 @@
     <RevitInstallDir Condition="'$(RevitVersion)' == '2025' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2025</RevitInstallDir>
     <RevitInstallDir Condition="'$(RevitVersion)' == '2026' AND '$(REVIT_2026_PATH)' != ''">$(REVIT_2026_PATH)</RevitInstallDir>
     <RevitInstallDir Condition="'$(RevitVersion)' == '2026' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2026</RevitInstallDir>
+
+    <!--
+      Compile-fence symbol shared across the codebase. Defined here (not in
+      Directory.Build.props) for the same reason as RevitInstallDir: this file
+      runs after the csproj's <RevitVersion> has been set, so the value
+      actually expands to e.g. REVIT2026 instead of the empty REVIT.
+    -->
+    <DefineConstants>$(DefineConstants);REVIT$(RevitVersion)</DefineConstants>
   </PropertyGroup>
 
   <!--
