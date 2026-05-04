@@ -76,8 +76,12 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                 {
                     response.EnsureSuccessStatusCode();
 
+                    // netstandard2.0 doesn't expose a CancellationToken overload
+                    // of ReadAsStreamAsync; the GetAsync above already honours
+                    // the token while reading headers, and CopyToAsync below
+                    // covers cancellation during the body transfer.
                     using (Stream inputStream = await response.Content
-                               .ReadAsStreamAsync(cancellationToken)
+                               .ReadAsStreamAsync()
                                .ConfigureAwait(false))
                     using (FileStream outputStream = new FileStream(
                                tempFilePath,
@@ -88,7 +92,7 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                                useAsync: true))
                     {
                         await inputStream
-                            .CopyToAsync(outputStream, cancellationToken)
+                            .CopyToAsync(outputStream, bufferSize: 81920, cancellationToken)
                             .ConfigureAwait(false);
 
                         await outputStream

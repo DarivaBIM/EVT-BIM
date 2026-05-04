@@ -45,8 +45,12 @@
     <RevitTargetFramework Condition="'$(RevitVersion)' == '2025'">net8.0-windows</RevitTargetFramework>
     <RevitTargetFramework Condition="'$(RevitVersion)' == '2026'">net8.0-windows</RevitTargetFramework>
 
-    <!-- Symbol shared across the codebase to compile-fence per-version code. -->
-    <DefineConstants Condition="'$(RevitVersion)' != ''">$(DefineConstants);REVIT$(RevitVersion)</DefineConstants>
+    <!--
+      The compile-fence symbol REVIT$(RevitVersion) is appended to
+      DefineConstants in Directory.Build.targets, after each csproj has had a
+      chance to set <RevitVersion>. Doing it here would expand to the empty
+      value because the project's PropertyGroup hasn't run yet.
+    -->
   </PropertyGroup>
 
   <PropertyGroup>
