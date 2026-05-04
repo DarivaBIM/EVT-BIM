@@ -6,6 +6,7 @@ using System.Windows;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Plugin.Features.ParameterEditor;
+using DarivaBIM.Presentation.Wpf.ParameterEditor;
 #if REVIT2026
 using DarivaBIM.Revit.Adapters.V2026.Features.ParameterEditor;
 #elif REVIT2025
@@ -25,6 +26,12 @@ namespace DarivaBIM.Plugin.Ui
         // referência. O Document e os Elements são revalidados a cada execução
         // do external event para evitar referências obsoletas.
         private readonly List<ElementId> _selectedIds = new();
+
+        // O ViewModel só conhece tipos neutros (Presentation.Wpf), então
+        // guardamos por aqui o CommonParameterOption original de cada opção
+        // exibida — assim o handler do botão "Aplicar" sabe qual StorageType
+        // entregar ao ExternalEvent que toca a RevitAPI.
+        private readonly Dictionary<(string Name, bool IsInstance), CommonParameterOption> _adapterByVm = new();
 
         public ParameterEditorViewModel ViewModel { get; }
 
@@ -67,15 +74,24 @@ namespace DarivaBIM.Plugin.Ui
                 ViewModel.SelectedCount = ids.Count;
                 ViewModel.SelectionCategoriesSummary = categoriesSummary ?? string.Empty;
 
-                CommonParameterOption? previous = ViewModel.SelectedParameter;
+                ParameterOptionViewModel? previous = ViewModel.SelectedParameter;
                 ViewModel.Parameters.Clear();
+                _adapterByVm.Clear();
 
                 foreach (CommonParameterOption opt in commonParams)
-                    ViewModel.Parameters.Add(opt);
+                {
+                    ParameterOptionViewModel vmOpt = new(
+                        opt.Name,
+                        ParameterEditorTypeMapping.ToValueKind(opt.StorageType),
+                        opt.IsInstance);
+
+                    ViewModel.Parameters.Add(vmOpt);
+                    _adapterByVm[(opt.Name, opt.IsInstance)] = opt;
+                }
 
                 if (previous != null)
                 {
-                    foreach (CommonParameterOption opt in ViewModel.Parameters)
+                    foreach (ParameterOptionViewModel opt in ViewModel.Parameters)
                     {
                         if (opt.Name == previous.Name && opt.IsInstance == previous.IsInstance)
                         {
@@ -151,7 +167,9 @@ namespace DarivaBIM.Plugin.Ui
             // Snapshot das disciplinas marcadas no momento do clique e dos IDs
             // já selecionados; o handler vai usar esses IDs como pré-seleção
             // do PickObjects, permitindo seleção incremental entre cliques.
-            IReadOnlyList<Discipline> disciplines = ViewModel.SelectedDisciplines;
+            IReadOnlyList<Discipline> disciplines = ViewModel.SelectedDisciplines
+                .Select(ParameterEditorTypeMapping.ToAdapter)
+                .ToList();
             List<ElementId> previous = _selectedIds.ToList();
             _selectionEvent.Raise(this, disciplines, previous);
         }
@@ -163,6 +181,7 @@ namespace DarivaBIM.Plugin.Ui
             ViewModel.SelectionCategoriesSummary = string.Empty;
             ViewModel.NoCommonParametersMessage = string.Empty;
             ViewModel.Parameters.Clear();
+            _adapterByVm.Clear();
             ViewModel.SelectedParameter = null;
             ViewModel.StatusMessage = "Seleção limpa.";
         }
@@ -181,10 +200,16 @@ namespace DarivaBIM.Plugin.Ui
                 return;
             }
 
-            CommonParameterOption? param = ViewModel.SelectedParameter;
+            ParameterOptionViewModel? param = ViewModel.SelectedParameter;
             if (param == null)
             {
                 ViewModel.StatusMessage = "Escolha um parâmetro.";
+                return;
+            }
+
+            if (!_adapterByVm.TryGetValue((param.Name, param.IsInstance), out CommonParameterOption? adapterParam))
+            {
+                ViewModel.StatusMessage = "Não foi possível resolver o parâmetro selecionado.";
                 return;
             }
 
@@ -195,12 +220,13 @@ namespace DarivaBIM.Plugin.Ui
             }
 
             ViewModel.StatusMessage = "Aplicando…";
-            _applyEvent.Raise(this, snapshot, param, ViewModel.Value ?? string.Empty);
+            _applyEvent.Raise(this, snapshot, adapterParam, ViewModel.Value ?? string.Empty);
         }
 
         private void OnWindowClosed(object? sender, EventArgs e)
         {
             _selectedIds.Clear();
+            _adapterByVm.Clear();
         }
 
         private static string BuildShortStatus(ParameterApplyResult result)

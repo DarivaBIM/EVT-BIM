@@ -1,41 +1,41 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using Autodesk.Revit.DB;
-using DarivaBIM.Plugin.Features.ParameterEditor;
-#if REVIT2026
-using DarivaBIM.Revit.Adapters.V2026.Features.ParameterEditor;
-#elif REVIT2025
-using DarivaBIM.Revit.Adapters.V2025.Features.ParameterEditor;
-#endif
 
-namespace DarivaBIM.Plugin.Ui
+namespace DarivaBIM.Presentation.Wpf.ParameterEditor
 {
+    /// <summary>
+    /// Revit-agnostic view-model that drives the Parameter Editor window.
+    /// Lives in Presentation.Wpf and depends only on neutral types
+    /// (<see cref="ParameterValueKind"/>, <see cref="ParameterDiscipline"/>);
+    /// the plugin adapter is responsible for mapping to/from
+    /// <c>Autodesk.Revit.DB.StorageType</c> and the adapter-side discipline.
+    /// </summary>
     public class ParameterEditorViewModel : INotifyPropertyChanged
     {
-        public ObservableCollection<CommonParameterOption> Parameters { get; } = new();
+        public ObservableCollection<ParameterOptionViewModel> Parameters { get; } = new();
 
-        public ObservableCollection<DisciplineFilterItem> DisciplineFilters { get; } = new();
+        public ObservableCollection<DisciplineFilterViewModel> DisciplineFilters { get; } = new();
 
         public ParameterEditorViewModel()
         {
-            // Ordem dos checkboxes na UI.
-            Discipline[] order =
+            ParameterDiscipline[] order =
             {
-                Discipline.Hidraulica,
-                Discipline.Eletrica,
-                Discipline.Mecanica,
-                Discipline.CombateIncendio,
-                Discipline.Estrutura,
-                Discipline.Arquitetura,
-                Discipline.ModelosGenericos,
+                ParameterDiscipline.Hidraulica,
+                ParameterDiscipline.Eletrica,
+                ParameterDiscipline.Mecanica,
+                ParameterDiscipline.CombateIncendio,
+                ParameterDiscipline.Estrutura,
+                ParameterDiscipline.Arquitetura,
+                ParameterDiscipline.ModelosGenericos,
             };
 
-            foreach (Discipline d in order)
+            foreach (ParameterDiscipline d in order)
             {
-                DisciplineFilterItem item = new(d, DisplayName(d), isChecked: true);
+                DisciplineFilterViewModel item = new(d, DisplayName(d), isChecked: true);
                 item.PropertyChanged += OnDisciplineItemChanged;
                 DisciplineFilters.Add(item);
             }
@@ -57,7 +57,7 @@ namespace DarivaBIM.Plugin.Ui
                     _suppressDisciplineSync = true;
                     try
                     {
-                        foreach (DisciplineFilterItem d in DisciplineFilters)
+                        foreach (DisciplineFilterViewModel d in DisciplineFilters)
                             d.IsChecked = value;
                     }
                     finally
@@ -70,7 +70,7 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnDisciplineItemChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName != nameof(DisciplineFilterItem.IsChecked))
+            if (e.PropertyName != nameof(DisciplineFilterViewModel.IsChecked))
                 return;
 
             if (_suppressDisciplineSync)
@@ -92,7 +92,7 @@ namespace DarivaBIM.Plugin.Ui
             }
         }
 
-        public IReadOnlyList<Discipline> SelectedDisciplines =>
+        public IReadOnlyList<ParameterDiscipline> SelectedDisciplines =>
             DisciplineFilters.Where(d => d.IsChecked).Select(d => d.Discipline).ToList();
 
         private int _selectedCount;
@@ -140,8 +140,8 @@ namespace DarivaBIM.Plugin.Ui
 
         public bool HasSelectionCategoriesSummary => !string.IsNullOrEmpty(_selectionCategoriesSummary);
 
-        private CommonParameterOption? _selectedParameter;
-        public CommonParameterOption? SelectedParameter
+        private ParameterOptionViewModel? _selectedParameter;
+        public ParameterOptionViewModel? SelectedParameter
         {
             get => _selectedParameter;
             set
@@ -160,7 +160,7 @@ namespace DarivaBIM.Plugin.Ui
 
         public string ValueTypeHint => _selectedParameter == null
             ? "Selecione um parâmetro."
-            : $"Tipo: {DescribeStorageType(_selectedParameter.StorageType)}.";
+            : $"Tipo: {DescribeValueKind(_selectedParameter.ValueKind)}.";
 
         private string _value = string.Empty;
         public string Value
@@ -186,14 +186,14 @@ namespace DarivaBIM.Plugin.Ui
                 if (string.IsNullOrEmpty(_value))
                     return string.Empty;
 
-                return _selectedParameter.StorageType switch
+                return _selectedParameter.ValueKind switch
                 {
-                    StorageType.Integer when !int.TryParse(_value, out _)
+                    ParameterValueKind.Integer when !int.TryParse(_value, out _)
                         => "Valor inválido — esperado número inteiro.",
-                    StorageType.Double when !double.TryParse(
+                    ParameterValueKind.Decimal when !double.TryParse(
                         _value.Replace(",", "."),
-                        System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
                         out _)
                         => "Valor inválido — esperado número decimal.",
                     _ => string.Empty,
@@ -225,8 +225,6 @@ namespace DarivaBIM.Plugin.Ui
             }
         }
 
-        // Mensagem destacada em vermelho quando os elementos selecionados não
-        // compartilham nenhum parâmetro editável em comum.
         private string _noCommonParametersMessage = string.Empty;
         public string NoCommonParametersMessage
         {
@@ -257,73 +255,25 @@ namespace DarivaBIM.Plugin.Ui
             return true;
         }
 
-        private static string DescribeStorageType(StorageType t) => t switch
+        private static string DescribeValueKind(ParameterValueKind kind) => kind switch
         {
-            StorageType.String => "Texto",
-            StorageType.Integer => "Número inteiro",
-            StorageType.Double => "Número decimal",
-            StorageType.ElementId => "Referência (ElementId)",
+            ParameterValueKind.Text => "Texto",
+            ParameterValueKind.Integer => "Número inteiro",
+            ParameterValueKind.Decimal => "Número decimal",
+            ParameterValueKind.ElementReference => "Referência (ElementId)",
             _ => "Outro",
         };
 
-        private static string DisplayName(Discipline d) => d switch
+        private static string DisplayName(ParameterDiscipline d) => d switch
         {
-            Discipline.Hidraulica => "Hidráulica",
-            Discipline.Eletrica => "Elétrica",
-            Discipline.Mecanica => "Mecânica",
-            Discipline.CombateIncendio => "Combate a incêndio",
-            Discipline.Estrutura => "Estrutura",
-            Discipline.Arquitetura => "Arquitetura",
-            Discipline.ModelosGenericos => "Modelos genéricos",
+            ParameterDiscipline.Hidraulica => "Hidráulica",
+            ParameterDiscipline.Eletrica => "Elétrica",
+            ParameterDiscipline.Mecanica => "Mecânica",
+            ParameterDiscipline.CombateIncendio => "Combate a incêndio",
+            ParameterDiscipline.Estrutura => "Estrutura",
+            ParameterDiscipline.Arquitetura => "Arquitetura",
+            ParameterDiscipline.ModelosGenericos => "Modelos genéricos",
             _ => d.ToString(),
         };
-    }
-
-    public class DisciplineFilterItem : INotifyPropertyChanged
-    {
-        public DisciplineFilterItem(Discipline discipline, string displayName, bool isChecked)
-        {
-            Discipline = discipline;
-            DisplayName = displayName;
-            _isChecked = isChecked;
-        }
-
-        public Discipline Discipline { get; }
-        public string DisplayName { get; }
-
-        private bool _isChecked;
-        public bool IsChecked
-        {
-            get => _isChecked;
-            set
-            {
-                if (_isChecked == value)
-                    return;
-                _isChecked = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChecked)));
-            }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-    }
-
-    public class CommonParameterOption
-    {
-        public CommonParameterOption(string name, StorageType storageType, bool isInstance)
-        {
-            Name = name;
-            StorageType = storageType;
-            IsInstance = isInstance;
-        }
-
-        public string Name { get; }
-        public StorageType StorageType { get; }
-        public bool IsInstance { get; }
-
-        public string DisplayName => IsInstance
-            ? Name
-            : $"{Name} (tipo)";
-
-        public override string ToString() => DisplayName;
     }
 }
