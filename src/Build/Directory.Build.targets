@@ -7,16 +7,10 @@
     and the Reference HintPaths below would resolve to "\RevitAPI.dll".
   -->
   <PropertyGroup Condition="'$(RevitVersion)' != ''">
-    <RevitInstallDir Condition="'$(RevitVersion)' == '2023' AND '$(REVIT_2023_PATH)' != ''">$(REVIT_2023_PATH)</RevitInstallDir>
-    <RevitInstallDir Condition="'$(RevitVersion)' == '2023' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2023</RevitInstallDir>
-    <RevitInstallDir Condition="'$(RevitVersion)' == '2024' AND '$(REVIT_2024_PATH)' != ''">$(REVIT_2024_PATH)</RevitInstallDir>
-    <RevitInstallDir Condition="'$(RevitVersion)' == '2024' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2024</RevitInstallDir>
     <RevitInstallDir Condition="'$(RevitVersion)' == '2025' AND '$(REVIT_2025_PATH)' != ''">$(REVIT_2025_PATH)</RevitInstallDir>
     <RevitInstallDir Condition="'$(RevitVersion)' == '2025' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2025</RevitInstallDir>
     <RevitInstallDir Condition="'$(RevitVersion)' == '2026' AND '$(REVIT_2026_PATH)' != ''">$(REVIT_2026_PATH)</RevitInstallDir>
     <RevitInstallDir Condition="'$(RevitVersion)' == '2026' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2026</RevitInstallDir>
-    <RevitInstallDir Condition="'$(RevitVersion)' == '2027' AND '$(REVIT_2027_PATH)' != ''">$(REVIT_2027_PATH)</RevitInstallDir>
-    <RevitInstallDir Condition="'$(RevitVersion)' == '2027' AND '$(RevitInstallDir)' == ''">C:\Program Files\Autodesk\Revit 2027</RevitInstallDir>
   </PropertyGroup>
 
   <!--

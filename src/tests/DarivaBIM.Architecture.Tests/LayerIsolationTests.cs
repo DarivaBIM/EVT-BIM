@@ -73,5 +73,24 @@ namespace DarivaBIM.Architecture.Tests
                 violations.Count == 0,
                 $"DarivaBIM.Domain não pode usar System.Windows / WPF:\n{ForbiddenUsingsScanner.Format(violations)}");
         }
+
+        [Fact]
+        public void PluginSharedSource_does_not_reference_versioned_namespaces()
+        {
+            // Plugin.SharedSource e compilado pelos plugins V2025 e V2026;
+            // qualquer using direto a DarivaBIM.Plugin.V2025 ou V2026 quebra
+            // a ideia de fonte unica neutra. Imports do adapter (V2025/V2026)
+            // continuam permitidos porque ficam atras de #if REVIT2025/REVIT2026
+            // e o ForbiddenUsingsScanner so olha "using " no inicio da linha.
+            string projectRoot = SourceTreeLocator.FindProjectRoot("src/Plugins/DarivaBIM.Plugin.SharedSource");
+            var violations = ForbiddenUsingsScanner.Scan(projectRoot, new[]
+            {
+                "DarivaBIM.Plugin.V2025",
+                "DarivaBIM.Plugin.V2026",
+            });
+            Assert.True(
+                violations.Count == 0,
+                $"Plugin.SharedSource não pode referenciar namespaces versionados:\n{ForbiddenUsingsScanner.Format(violations)}");
+        }
     }
 }

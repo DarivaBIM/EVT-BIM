@@ -12,7 +12,20 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!--
+      Higiene de build:
+      - TreatWarningsAsErrors em Release evita que avisos virem regressao
+        silenciosa. Debug fica permissivo para nao quebrar fluxo iterativo.
+      - AnalysisLevel=latest + EnforceCodeStyleInBuild aplicam analyzers
+        oficiais e estilo definido pelo .editorconfig em todos os projetos.
+      - Deterministic garante que dois builds da mesma revisao geram bytes
+        identicos, simplificando cache de CI e diffs binarios.
+    -->
+    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
 
     <PlatformTarget>x64</PlatformTarget>
     <Platforms>x64</Platforms>
@@ -22,17 +35,15 @@
 
     <!--
       Per-Revit-version target frameworks. Projects opt in by setting RevitVersion.
+      Active scope per ADR-0015: Revit 2025 and 2026 only.
       Note: RevitVersion is set in each csproj's PropertyGroup, which is evaluated
       AFTER this file. Conditions referencing $(RevitVersion) here will see the
       empty value, so per-version properties (RevitInstallDir) are resolved in
       Directory.Build.targets instead. RevitTargetFramework is kept here only
       because no project currently uses it as its <TargetFramework> value.
     -->
-    <RevitTargetFramework Condition="'$(RevitVersion)' == '2023'">net48</RevitTargetFramework>
-    <RevitTargetFramework Condition="'$(RevitVersion)' == '2024'">net48</RevitTargetFramework>
     <RevitTargetFramework Condition="'$(RevitVersion)' == '2025'">net8.0-windows</RevitTargetFramework>
     <RevitTargetFramework Condition="'$(RevitVersion)' == '2026'">net8.0-windows</RevitTargetFramework>
-    <RevitTargetFramework Condition="'$(RevitVersion)' == '2027'">net10.0-windows</RevitTargetFramework>
 
     <!-- Symbol shared across the codebase to compile-fence per-version code. -->
     <DefineConstants Condition="'$(RevitVersion)' != ''">$(DefineConstants);REVIT$(RevitVersion)</DefineConstants>

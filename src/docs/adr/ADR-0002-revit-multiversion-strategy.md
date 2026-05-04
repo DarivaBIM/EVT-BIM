@@ -1,7 +1,10 @@
 # ADR-0002 — Estratégia multi-versão Revit (2023–2027)
 
 ## Status
-Aceito.
+**Superseded by [ADR-0015](ADR-0015-active-revit-versions-2025-2026.md).**
+
+O escopo ativo foi reduzido a Revit 2025 e 2026. Este ADR fica como registro
+histórico da intenção original de cobrir 2023–2027 simultaneamente.
 
 ## Contexto
 O plugin precisa rodar em Revit 2023, 2024, 2025, 2026 e 2027. Cada versão da

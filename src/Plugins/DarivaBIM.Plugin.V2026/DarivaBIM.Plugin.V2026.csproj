@@ -9,13 +9,20 @@
 
     <RevitVersion>2026</RevitVersion>
     <PlatformTarget>x64</PlatformTarget>
+
+    <!--
+      Garante que todas as DLLs do grafo de dependencia sejam copiadas
+      para a pasta de saida do plugin. Sem isso o Revit pode falhar ao
+      carregar pacotes NuGet que estao em <PackageReference> e que o
+      runtime do Revit nao resolve por padrao.
+    -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
     <ProjectReference Include="..\..\Core\DarivaBIM.Domain\DarivaBIM.Domain.csproj" />
     <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
-    <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Hosting\DarivaBIM.Revit.Hosting.csproj" />
     <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Adapters.V2026\DarivaBIM.Revit.Adapters.V2026.csproj" />
     <ProjectReference Include="..\..\Presentation\DarivaBIM.Presentation.Wpf\DarivaBIM.Presentation.Wpf.csproj" />
     <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Api\DarivaBIM.Infrastructure.Api.csproj" />
@@ -24,22 +31,57 @@
     <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Telemetry\DarivaBIM.Infrastructure.Telemetry.csproj" />
   </ItemGroup>
 
+  <!--
+    Revit.Hosting passa a ser compilado source-shared para evitar o lock-in
+    de RevitAPI 2026 (ADR-0015). Os pacotes de DI que antes vinham via
+    ProjectReference do Hosting agora sao declarados aqui diretamente.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\Build\AddinManifests\EVT-BIM.V2026.addin">
       <Link>EVT-BIM.V2026.addin</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Resources\tigre_codes.json">
+    <None Include="..\..\Core\DarivaBIM.Domain\Tigre\tigre_codes.json"
+          Link="Resources\tigre_codes.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
   <ItemGroup>
-    <!-- UseWPF auto-includes **/*.png as embedded Resource; suppress so icons can be copied to output and loaded from disk by RibbonBuilder. -->
-    <Resource Remove="Ribbon\Resources\Icons\*.png" />
-    <None Include="Ribbon\Resources\Icons\*.png">
+    <!--
+      Icons live in DarivaBIM.Plugin.SharedSource so V2025 and V2026 share a
+      single source of truth (see Plugin.SharedSource/README.md).
+      RibbonBuilder loads icons by physical path (Path.Combine + File.Exists
+      + BitmapImage.UriSource), so they must be copied to the output folder
+      under "Ribbon\Resources\Icons" — the path expected by feature buttons.
+    -->
+    <None Include="..\DarivaBIM.Plugin.SharedSource\Resources\Icons\*.png"
+          Link="Ribbon\Resources\Icons\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <!--
+    Source-shared code from Plugin.SharedSource and Revit.Hosting. Each
+    plugin compiles the same files against its own RevitAPI version
+    (see ADR-0015). Revit.Hosting was previously a compiled DLL fixed at
+    RevitAPI 2026 — folding it in here removes the silent runtime risk of
+    loading a 2026-bound binary into Revit 2025.
+  -->
+  <ItemGroup>
+    <Compile Include="..\DarivaBIM.Plugin.SharedSource\**\*.cs"
+             Exclude="..\DarivaBIM.Plugin.SharedSource\**\bin\**;..\DarivaBIM.Plugin.SharedSource\**\obj\**"
+             Link="Shared\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Page Include="..\DarivaBIM.Plugin.SharedSource\Ui\**\*.xaml"
+          Link="Shared\Ui\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\..\Revit\DarivaBIM.Revit.Hosting\**\*.cs"
+             Exclude="..\..\Revit\DarivaBIM.Revit.Hosting\**\bin\**;..\..\Revit\DarivaBIM.Revit.Hosting\**\obj\**"
+             Link="Hosting\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <Target Name="DeployAddin" AfterTargets="PostBuildEvent" Condition="Exists('$(ProjectDir)build\deploy_revit_2026.cmd')">
