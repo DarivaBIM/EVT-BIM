@@ -7,4 +7,18 @@
     <Description>Pure domain model: entities, value objects, hydraulic calculations, NBR 5626 rules, Tigre/Rinnai rules. No Revit, WPF, HTTP or filesystem dependencies.</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!--
+      Catalogo Tigre canonico: o JSON e a fonte unica de verdade. Esta
+      embarcado para servir de fallback quando o arquivo no disco
+      (deployado pelos plugins via Link) nao puder ser carregado, e e o
+      mesmo conteudo lido pelo TigreCatalogJsonLoader em runtime.
+    -->
+    <EmbeddedResource Include="Tigre\tigre_codes.json" LogicalName="DarivaBIM.Domain.Tigre.tigre_codes.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
 </Project>

@@ -9,6 +9,14 @@
 
     <RevitVersion>2026</RevitVersion>
     <PlatformTarget>x64</PlatformTarget>
+
+    <!--
+      Garante que todas as DLLs do grafo de dependencia sejam copiadas
+      para a pasta de saida do plugin. Sem isso o Revit pode falhar ao
+      carregar pacotes NuGet que estao em <PackageReference> e que o
+      runtime do Revit nao resolve por padrao.
+    -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,7 +46,7 @@
       <Link>EVT-BIM.V2026.addin</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\DarivaBIM.Plugin.SharedSource\Resources\tigre_codes.json"
+    <None Include="..\..\Core\DarivaBIM.Domain\Tigre\tigre_codes.json"
           Link="Resources\tigre_codes.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

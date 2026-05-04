@@ -12,7 +12,20 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!--
+      Higiene de build:
+      - TreatWarningsAsErrors em Release evita que avisos virem regressao
+        silenciosa. Debug fica permissivo para nao quebrar fluxo iterativo.
+      - AnalysisLevel=latest + EnforceCodeStyleInBuild aplicam analyzers
+        oficiais e estilo definido pelo .editorconfig em todos os projetos.
+      - Deterministic garante que dois builds da mesma revisao geram bytes
+        identicos, simplificando cache de CI e diffs binarios.
+    -->
+    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
 
     <PlatformTarget>x64</PlatformTarget>
     <Platforms>x64</Platforms>
