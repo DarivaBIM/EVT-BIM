@@ -6,6 +6,7 @@
       "src\\Core\\DarivaBIM.Application\\DarivaBIM.Application.csproj",
       "src\\Revit\\DarivaBIM.Revit.Abstractions\\DarivaBIM.Revit.Abstractions.csproj",
       "src\\Revit\\DarivaBIM.Revit.Adapters.V2025\\DarivaBIM.Revit.Adapters.V2025.csproj",
+      "src\\Plugins\\DarivaBIM.Plugin.SharedSource\\DarivaBIM.Plugin.SharedSource.shproj",
       "src\\Plugins\\DarivaBIM.Plugin.V2025\\DarivaBIM.Plugin.V2025.csproj",
       "src\\Presentation\\DarivaBIM.Presentation.Wpf\\DarivaBIM.Presentation.Wpf.csproj",
       "src\\Infrastructure\\DarivaBIM.Infrastructure\\DarivaBIM.Infrastructure.csproj",

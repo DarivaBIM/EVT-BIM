@@ -49,33 +49,22 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
-    <!--
-      Icons live in DarivaBIM.Plugin.SharedSource so V2025 and V2026 share a
-      single source of truth (see Plugin.SharedSource/README.md).
-      RibbonBuilder loads icons by physical path (Path.Combine + File.Exists
-      + BitmapImage.UriSource), so they must be copied to the output folder
-      under "Ribbon\Resources\Icons" — the path expected by feature buttons.
-    -->
-    <None Include="..\DarivaBIM.Plugin.SharedSource\Resources\Icons\*.png"
-          Link="Ribbon\Resources\Icons\%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+  <!--
+    Plugin.SharedSource is consumed as a Shared Project (.shproj). The
+    Compile/Page/None items (including Ribbon icons under
+    Resources/Icons) live in DarivaBIM.Plugin.SharedSource.projitems.
+    See Plugin.SharedSource/README.md and ADR-0015.
+  -->
+  <Import Project="..\DarivaBIM.Plugin.SharedSource\DarivaBIM.Plugin.SharedSource.projitems" Label="Shared" />
 
   <!--
-    Source-shared code from Plugin.SharedSource and Revit.Hosting. Each
-    plugin compiles the same files against its own RevitAPI version
-    (see ADR-0015). Revit.Hosting was previously a compiled DLL fixed at
-    RevitAPI 2026 — folding it in here removes the silent runtime risk of
-    loading a 2026-bound binary into Revit 2025.
+    Revit.Hosting is still source-shared via glob include because it does
+    not have its own .shproj yet. Folding it into the plugin avoids the
+    silent runtime risk of loading a 2026-bound binary into Revit 2025
+    (ADR-0015). Convert to Shared Project later if the Solution Explorer
+    duplication becomes an issue.
   -->
   <ItemGroup>
-    <Compile Include="..\DarivaBIM.Plugin.SharedSource\**\*.cs"
-             Exclude="..\DarivaBIM.Plugin.SharedSource\**\bin\**;..\DarivaBIM.Plugin.SharedSource\**\obj\**"
-             Link="Shared\%(RecursiveDir)%(Filename)%(Extension)" />
-    <Page Include="..\DarivaBIM.Plugin.SharedSource\Ui\**\*.xaml"
-          Link="Shared\Ui\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\..\Revit\DarivaBIM.Revit.Hosting\**\*.cs"
              Exclude="..\..\Revit\DarivaBIM.Revit.Hosting\**\bin\**;..\..\Revit\DarivaBIM.Revit.Hosting\**\obj\**"
              Link="Hosting\%(RecursiveDir)%(Filename)%(Extension)" />

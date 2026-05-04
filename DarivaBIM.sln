@@ -32,6 +32,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DarivaBIM.Plugin.V2025", "s
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DarivaBIM.Plugin.V2026", "src\Plugins\DarivaBIM.Plugin.V2026\DarivaBIM.Plugin.V2026.csproj", "{20000000-0000-0000-0000-00000000000D}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "DarivaBIM.Plugin.SharedSource", "src\Plugins\DarivaBIM.Plugin.SharedSource\DarivaBIM.Plugin.SharedSource.shproj", "{40000000-0000-0000-0000-000000000001}"
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DarivaBIM.Presentation.Wpf", "src\Presentation\DarivaBIM.Presentation.Wpf\DarivaBIM.Presentation.Wpf.csproj", "{20000000-0000-0000-0000-00000000000F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DarivaBIM.Infrastructure", "src\Infrastructure\DarivaBIM.Infrastructure\DarivaBIM.Infrastructure.csproj", "{20000000-0000-0000-0000-000000000010}"
@@ -101,8 +103,14 @@ Global
 		{20000000-0000-0000-0000-000000000008} = {10000000-0000-0000-0000-0000000000A2}
 		{20000000-0000-0000-0000-00000000000C} = {10000000-0000-0000-0000-0000000000A2}
 		{20000000-0000-0000-0000-00000000000D} = {10000000-0000-0000-0000-0000000000A2}
+		{40000000-0000-0000-0000-000000000001} = {10000000-0000-0000-0000-0000000000A2}
 		{30000000-0000-0000-0000-000000000001} = {10000000-0000-0000-0000-0000000000A3}
 		{30000000-0000-0000-0000-000000000009} = {10000000-0000-0000-0000-0000000000A3}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		src\Plugins\DarivaBIM.Plugin.SharedSource\DarivaBIM.Plugin.SharedSource.projitems*{20000000-0000-0000-0000-00000000000c}*SharedItemsImports = 5
+		src\Plugins\DarivaBIM.Plugin.SharedSource\DarivaBIM.Plugin.SharedSource.projitems*{20000000-0000-0000-0000-00000000000d}*SharedItemsImports = 5
+		src\Plugins\DarivaBIM.Plugin.SharedSource\DarivaBIM.Plugin.SharedSource.projitems*{40000000-0000-0000-0000-000000000001}*SharedItemsImports = 13
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

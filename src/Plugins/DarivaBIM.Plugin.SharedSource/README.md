@@ -5,9 +5,10 @@ versionados (`DarivaBIM.Plugin.V2025`, `DarivaBIM.Plugin.V2026`).
 
 ## Política
 
-Esta pasta **não tem `.csproj` próprio** e **não gera DLL**. Cada plugin
-versionado inclui os arquivos daqui via `MSBuild Link` no seu próprio
-`.csproj`, compilando-os contra a `RevitAPI.dll` da versão correspondente.
+Esta pasta é exposta como um **Shared Project** (`.shproj` + `.projitems`)
+e **não gera DLL**. Cada plugin versionado importa o `.projitems` no seu
+próprio `.csproj`, compilando os arquivos contra a `RevitAPI.dll` da versão
+correspondente.
 
 Princípio (ADR-0015 + ADR-0008):
 
@@ -58,21 +59,19 @@ divergência por namespace.
 No `Plugin.V20XX.csproj`:
 
 ```xml
-<ItemGroup>
-  <Compile Include="..\DarivaBIM.Plugin.SharedSource\**\*.cs"
-           Exclude="..\DarivaBIM.Plugin.SharedSource\**\bin\**;..\DarivaBIM.Plugin.SharedSource\**\obj\**"
-           Link="Shared\%(RecursiveDir)%(Filename)%(Extension)" />
-  <Page    Include="..\DarivaBIM.Plugin.SharedSource\Ui\**\*.xaml"
-           Link="Shared\Ui\%(RecursiveDir)%(Filename)%(Extension)" />
-  <None    Include="..\DarivaBIM.Plugin.SharedSource\Resources\Icons\*.png"
-           Link="Ribbon\Resources\Icons\%(Filename)%(Extension)">
-    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-  </None>
-</ItemGroup>
+<Import Project="..\DarivaBIM.Plugin.SharedSource\DarivaBIM.Plugin.SharedSource.projitems"
+        Label="Shared" />
 ```
 
-Os ícones precisam ser `<None CopyToOutputDirectory>` (não `<Resource>`)
-porque o `RibbonBuilder` os carrega como arquivo físico no disco.
+O `.projitems` declara `<Compile>`, `<Page>` e `<None>` (ícones) usando
+`$(MSBuildThisFileDirectory)`, então os caminhos resolvem corretamente
+de qualquer consumidor. O Solution Explorer mostra `SharedSource` como um
+projeto próprio sob `2 - Revit Versions`, e cada plugin lista apenas uma
+referência *Shared Projects* — sem duplicação visual.
+
+Os ícones são declarados como `<None CopyToOutputDirectory>` (não `<Resource>`)
+porque o `RibbonBuilder` os carrega como arquivo físico no disco, em
+`Ribbon\Resources\Icons\`.
 
 ## Diferenças entre 2025 e 2026
 

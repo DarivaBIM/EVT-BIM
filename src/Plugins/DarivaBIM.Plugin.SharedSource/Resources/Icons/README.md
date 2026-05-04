@@ -32,7 +32,8 @@ permanece reservado para quando a arte for adicionada.
 
 ## Cópia para a saída do build
 
-O `DarivaBIM.Plugin.V2026.csproj` já inclui um `ItemGroup` com
-`Ribbon\Resources\Icons\*.png` configurado como `CopyToOutputDirectory =
-PreserveNewest`. Basta soltar os PNGs nesta pasta — não é necessário editar
-o `.csproj`.
+O Shared Project `DarivaBIM.Plugin.SharedSource.projitems` já inclui um
+`ItemGroup` com `Resources\Icons\*.png` configurado como
+`Link="Ribbon\Resources\Icons\%(Filename)%(Extension)"` e
+`CopyToOutputDirectory = PreserveNewest`. Basta soltar os PNGs nesta pasta
+— os plugins V2025 e V2026 herdam automaticamente.
