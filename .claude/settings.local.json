@@ -12,7 +12,10 @@
       "Bash(xxd src/Plugins/DarivaBIM.Plugin.V2026/DarivaBIM.Plugin.V2026.csproj)",
       "Bash(command -v unix2dos)",
       "Bash(unix2dos -q src/Plugins/DarivaBIM.Plugin.V2025/Properties/launchSettings.json src/Plugins/DarivaBIM.Plugin.V2025/Resources/tigre_codes.json)",
-      "Bash(xxd src/Plugins/DarivaBIM.Plugin.V2025/Properties/launchSettings.json)"
+      "Bash(xxd src/Plugins/DarivaBIM.Plugin.V2025/Properties/launchSettings.json)",
+      "Bash(xxd)",
+      "Bash(unix2dos -q src/Plugins/DarivaBIM.Plugin.V2026/DarivaBIM.Plugin.V2026.csproj)",
+      "Bash(sed -n '8,13p' src/Plugins/DarivaBIM.Plugin.V2026/DarivaBIM.Plugin.V2026.csproj)"
     ]
   }
 }
