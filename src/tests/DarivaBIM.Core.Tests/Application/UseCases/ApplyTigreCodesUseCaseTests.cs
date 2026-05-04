@@ -3,7 +3,7 @@ using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Application.UseCases.ApplyTigreCodes;
 using Xunit;
 
-namespace DarivaBIM.Application.Tests.UseCases
+namespace DarivaBIM.Core.Tests.Application.UseCases
 {
     public class ApplyTigreCodesUseCaseTests
     {

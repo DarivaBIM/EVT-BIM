@@ -1,7 +1,7 @@
 using DarivaBIM.Revit.Abstractions.Ribbon;
 using Xunit;
 
-namespace DarivaBIM.Revit.Abstractions.Tests.Ribbon
+namespace DarivaBIM.Core.Tests.Revit.Abstractions.Ribbon
 {
     public class RibbonDefinitionTests
     {

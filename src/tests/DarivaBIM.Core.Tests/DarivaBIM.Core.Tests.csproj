@@ -4,8 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <RootNamespace>DarivaBIM.Application.Tests</RootNamespace>
-    <AssemblyName>DarivaBIM.Application.Tests</AssemblyName>
+    <RootNamespace>DarivaBIM.Core.Tests</RootNamespace>
+    <AssemblyName>DarivaBIM.Core.Tests</AssemblyName>
+    <Description>Testes unitarios das camadas Core (Domain + Application) e da projecao Revit.Abstractions. Antes da consolidacao (ADR-0017) eram tres projetos separados (Domain.Tests, Application.Tests, Revit.Abstractions.Tests) com 1 arquivo de teste cada.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
     <ProjectReference Include="..\..\Core\DarivaBIM.Domain\DarivaBIM.Domain.csproj" />
+    <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
     <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
   </ItemGroup>
 

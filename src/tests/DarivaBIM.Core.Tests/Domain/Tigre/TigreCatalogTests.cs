@@ -2,7 +2,7 @@ using System.Linq;
 using DarivaBIM.Domain.Tigre;
 using Xunit;
 
-namespace DarivaBIM.Domain.Tests.Tigre
+namespace DarivaBIM.Core.Tests.Domain.Tigre
 {
     public class TigreCatalogTests
     {
