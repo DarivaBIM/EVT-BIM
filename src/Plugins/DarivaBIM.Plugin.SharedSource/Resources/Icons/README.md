@@ -15,6 +15,12 @@ Ribbon/Resources/Icons/<nome>_32.png   # ícone grande
 - Ícones grandes (`*_32.png`): preferencialmente **32x32 px**.
 - Ícones pequenos (`*_16.png`): preferencialmente **16x16 px**.
 - Formato: PNG com canal alfa (transparência).
+- Resolução: **96 DPI** (chunk `pHYs` = 3780 px/m). Exportadores que
+  defaultam para 72 DPI (Figma, Photoshop "Save for Web", etc.) fazem
+  o WPF tratar a imagem como ~33% maior em unidades lógicas, cortando
+  o ícone no slot 32x32 da ribbon do Revit. Para conferir/corrigir use
+  `magick mogrify -density 96 -units PixelsPerInch *.png` ou exporte
+  já a 96 DPI no editor de origem.
 
 ## Nomes esperados
 
