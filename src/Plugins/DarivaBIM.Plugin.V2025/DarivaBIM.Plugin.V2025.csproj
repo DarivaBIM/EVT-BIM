@@ -25,10 +25,7 @@
     <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
     <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Adapters.V2025\DarivaBIM.Revit.Adapters.V2025.csproj" />
     <ProjectReference Include="..\..\Presentation\DarivaBIM.Presentation.Wpf\DarivaBIM.Presentation.Wpf.csproj" />
-    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Api\DarivaBIM.Infrastructure.Api.csproj" />
-    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Persistence\DarivaBIM.Infrastructure.Persistence.csproj" />
-    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Licensing\DarivaBIM.Infrastructure.Licensing.csproj" />
-    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure.Telemetry\DarivaBIM.Infrastructure.Telemetry.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure\DarivaBIM.Infrastructure.csproj" />
   </ItemGroup>
 
   <!--
