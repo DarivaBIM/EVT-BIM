@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
 using DarivaBIM.Revit.Abstractions.Ribbon;
@@ -95,23 +97,36 @@ namespace DarivaBIM.Revit.Hosting.Ribbon
                     frame = decoder.Frames[0];
                 }
 
-                // Revit's ribbon sizes icons in DPI-aware logical units. PNGs
-                // exported at 72 DPI render ~33% larger than their pixel size
-                // and get cropped in the 32x32 button slot, so re-emit the
-                // bitmap at 96 DPI (logical size == pixel size).
-                int stride = (frame.PixelWidth * frame.Format.BitsPerPixel + 7) / 8;
-                byte[] pixels = new byte[stride * frame.PixelHeight];
-                frame.CopyPixels(pixels, stride, 0);
+                // Source PNGs fill the canvas edge-to-edge. Native Revit
+                // ribbon icons reserve ~12.5% transparent padding (24x24 art
+                // in a 32x32 slot), so without an inset our icons look
+                // "zoomed in" next to the rest of the ribbon. Render the
+                // decoded frame into a centered region at 96 DPI to both
+                // normalize DPI and add the missing padding.
+                const double InsetRatio = 0.125;
+                int width = frame.PixelWidth;
+                int height = frame.PixelHeight;
+                double insetX = width * InsetRatio;
+                double insetY = height * InsetRatio;
+                Rect artRect = new Rect(
+                    insetX,
+                    insetY,
+                    width - 2 * insetX,
+                    height - 2 * insetY);
 
-                BitmapSource image = BitmapSource.Create(
-                    frame.PixelWidth,
-                    frame.PixelHeight,
+                DrawingVisual visual = new DrawingVisual();
+                using (DrawingContext ctx = visual.RenderOpen())
+                {
+                    ctx.DrawImage(frame, artRect);
+                }
+
+                RenderTargetBitmap image = new RenderTargetBitmap(
+                    width,
+                    height,
                     96,
                     96,
-                    frame.Format,
-                    frame.Palette,
-                    pixels,
-                    stride);
+                    PixelFormats.Pbgra32);
+                image.Render(visual);
                 image.Freeze();
                 return image;
             }
