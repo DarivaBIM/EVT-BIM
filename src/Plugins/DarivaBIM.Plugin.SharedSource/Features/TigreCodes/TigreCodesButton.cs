@@ -6,7 +6,7 @@ namespace DarivaBIM.Plugin.Features.TigreCodes
     {
         public static RibbonButtonDefinition Definition => new RibbonButtonDefinition(
             internalName: "TigreCodes",
-            text: "Códigos\nTigre",
+            text: "Codificar\nTubos",
             commandId: RibbonCommandId.WriteTigreCodes,
             toolTip: "Atribui o parâmetro 'Tigre: Código' a cada tubo conforme descrição/segmento e diâmetro.",
             longDescription:

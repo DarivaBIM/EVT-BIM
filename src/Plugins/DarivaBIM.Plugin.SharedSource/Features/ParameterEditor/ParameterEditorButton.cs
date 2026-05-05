@@ -6,7 +6,7 @@ namespace DarivaBIM.Plugin.Features.ParameterEditor
     {
         public static RibbonButtonDefinition Definition => new RibbonButtonDefinition(
             internalName: "ParameterEditor",
-            text: "Editor de\nParâmetros",
+            text: "Parâmetros\nem Lote",
             commandId: RibbonCommandId.OpenParameterEditor,
             toolTip: "Atribui um valor a um parâmetro comum a vários elementos (incluindo famílias aninhadas).",
             longDescription:

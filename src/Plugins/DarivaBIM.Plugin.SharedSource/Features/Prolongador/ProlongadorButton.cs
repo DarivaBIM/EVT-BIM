@@ -6,7 +6,7 @@ namespace DarivaBIM.Plugin.Features.Prolongador
     {
         public static RibbonButtonDefinition Definition => new RibbonButtonDefinition(
             internalName: "Prolongador",
-            text: "Prolongador\nem caixas",
+            text: "Adicionar\nProlongadores",
             commandId: RibbonCommandId.OpenProlongador,
             toolTip: "Cria prolongadores (tubos verticais) acima de caixas sifonadas/secas.",
             longDescription:

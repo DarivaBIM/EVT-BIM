@@ -6,7 +6,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
     {
         public static RibbonButtonDefinition Definition => new RibbonButtonDefinition(
             internalName: "FamiliesImporterHub",
-            text: "Families\nImporter Hub",
+            text: "Biblioteca\nTigre",
             commandId: RibbonCommandId.ShowFamiliesPane,
             toolTip: "Abre o painel de importação de famílias da Tigre.",
             longDescription: "Abre um painel lateral no Revit para listar e importar famílias.",

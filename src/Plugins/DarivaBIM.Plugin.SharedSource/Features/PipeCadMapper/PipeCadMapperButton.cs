@@ -6,7 +6,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
     {
         public static RibbonButtonDefinition Definition => new RibbonButtonDefinition(
             internalName: "PipeConverter",
-            text: "PipeCADMapper",
+            text: "Converter\nTubos CAD",
             commandId: RibbonCommandId.OpenPipeConverter,
             toolTip: "PipeCADMapper — converte linhas de vínculo CAD em tubos Revit com conexões automáticas.",
             longDescription:
