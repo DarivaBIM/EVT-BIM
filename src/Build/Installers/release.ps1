@@ -248,4 +248,4 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "===== Release $Tag publicado =====" -ForegroundColor Green
-& gh release view $Tag --web 2>$null
+& gh release view $Tag --web
