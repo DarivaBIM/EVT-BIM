@@ -2,7 +2,7 @@
 <RevitAddIns>
   <AddIn Type="Application">
     <Name>EVT-BIM</Name>
-    <Assembly>C:\ProgramData\Autodesk\Revit\Addins\2026\EVT-BIM\DarivaBIM.Plugin.V2026.dll</Assembly>
+    <Assembly>EVT-BIM\DarivaBIM.Plugin.V2026.dll</Assembly>
     <AddInId>A3611EB7-FCA8-4B88-9C36-60DCF0490E78</AddInId>
     <FullClassName>DarivaBIM.Plugin.V2026.App</FullClassName>
     <VendorId>EVT-BIM</VendorId>
