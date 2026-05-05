@@ -32,6 +32,7 @@ namespace DarivaBIM.Infrastructure.Api.Clients
         public async Task<string> DownloadToCacheAsync(
             ImportFamilyRequest request,
             FamilyCacheService cacheService,
+            IProgress<DownloadProgress>? progress = null,
             CancellationToken cancellationToken = default)
         {
             if (request == null)
@@ -54,6 +55,7 @@ namespace DarivaBIM.Infrastructure.Api.Clients
 
                 if (fileInfo.Length > 0)
                 {
+                    progress?.Report(new DownloadProgress(fileInfo.Length, fileInfo.Length));
                     return cachedFilePath;
                 }
             }
@@ -76,10 +78,13 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                 {
                     response.EnsureSuccessStatusCode();
 
-                    // netstandard2.0 doesn't expose a CancellationToken overload
-                    // of ReadAsStreamAsync; the GetAsync above already honours
-                    // the token while reading headers, and CopyToAsync below
-                    // covers cancellation during the body transfer.
+                    long? totalBytes = response.Content.Headers.ContentLength;
+                    progress?.Report(new DownloadProgress(0, totalBytes));
+
+                    // Manual read loop instead of CopyToAsync so we can emit
+                    // progress notifications. Buffer size matches what the
+                    // previous CopyToAsync used so behavior is unchanged for
+                    // the no-progress case.
                     using (Stream inputStream = await response.Content
                                .ReadAsStreamAsync()
                                .ConfigureAwait(false))
@@ -91,9 +96,21 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                                bufferSize: 81920,
                                useAsync: true))
                     {
-                        await inputStream
-                            .CopyToAsync(outputStream, bufferSize: 81920, cancellationToken)
-                            .ConfigureAwait(false);
+                        byte[] buffer = new byte[81920];
+                        long totalRead = 0;
+                        int read;
+
+                        while ((read = await inputStream
+                                   .ReadAsync(buffer, 0, buffer.Length, cancellationToken)
+                                   .ConfigureAwait(false)) > 0)
+                        {
+                            await outputStream
+                                .WriteAsync(buffer, 0, read, cancellationToken)
+                                .ConfigureAwait(false);
+
+                            totalRead += read;
+                            progress?.Report(new DownloadProgress(totalRead, totalBytes));
+                        }
 
                         await outputStream
                             .FlushAsync(cancellationToken)

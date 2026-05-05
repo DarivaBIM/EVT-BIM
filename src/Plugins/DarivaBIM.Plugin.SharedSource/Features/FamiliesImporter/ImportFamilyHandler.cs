@@ -62,6 +62,27 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                     return;
                 }
 
+                View? activeView = projectDoc.ActiveView;
+
+                if (!IsViewSupportedForPlacement(activeView))
+                {
+                    string viewTypeLabel = activeView?.ViewType.ToString() ?? "desconhecida";
+                    string viewNameLabel = string.IsNullOrWhiteSpace(activeView?.Name)
+                        ? string.Empty
+                        : $" \"{activeView!.Name}\"";
+
+                    TaskDialog.Show(
+                        "FamiliesImporterHub",
+                        "Não é possível posicionar famílias na vista atual.\n\n" +
+                        $"Vista{viewNameLabel}: {viewTypeLabel}" +
+                        (activeView?.IsTemplate == true ? " (template de vista)" : string.Empty) +
+                        "\n\n" +
+                        "Abra uma vista de planta, corte, elevação, vista 3D ou detalhe " +
+                        "e tente novamente.");
+
+                    return;
+                }
+
                 if (!File.Exists(cachedFilePath))
                 {
                     throw new FileNotFoundException(
@@ -122,6 +143,31 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
         public string GetName()
         {
             return "FamiliesImporterHub.ImportFamilyHandler";
+        }
+
+        // Allowlist instead of denylist: a future ViewType added to the Revit
+        // API will fail closed (blocked) rather than silently slipping through
+        // and producing a confusing PromptForFamilyInstancePlacement failure.
+        private static bool IsViewSupportedForPlacement(View? view)
+        {
+            if (view == null || view.IsTemplate)
+            {
+                return false;
+            }
+
+            return view.ViewType switch
+            {
+                ViewType.FloorPlan => true,
+                ViewType.CeilingPlan => true,
+                ViewType.EngineeringPlan => true,
+                ViewType.AreaPlan => true,
+                ViewType.Elevation => true,
+                ViewType.Section => true,
+                ViewType.Detail => true,
+                ViewType.ThreeD => true,
+                ViewType.DraftingView => true,
+                _ => false,
+            };
         }
 
         private static Family? OpenAndLoadFamilyFromFile(

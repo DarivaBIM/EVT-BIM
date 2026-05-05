@@ -6,6 +6,7 @@ using DarivaBIM.Plugin.Features.FamiliesImporter;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -16,32 +17,45 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace DarivaBIM.Plugin.Ui
 {
     public partial class FamiliesPage : Page, IDockablePaneProvider
     {
-        private const int PageSize = 30;
         private const int SearchDebounceMilliseconds = 120;
+        private const int ResizeDebounceMilliseconds = 80;
+        private const int SkeletonCardCount = 6;
+
+        // Card width 176 + horizontal margin 6+6 from CardContainerStyle.
+        private const double CardCellWidth = 188d;
 
         private readonly ApiClient _apiClient = new();
         private readonly ImportFamilyExternalEvent _importFamilyExternalEvent = new();
         private readonly FamilyCacheService _familyCacheService = new();
         private readonly FamilyDownloadService _familyDownloadService = new();
         private readonly List<FamilyItem> _allFamilies = new();
-        private readonly ObservableCollection<FamilyItem> _visibleFamilies = new();
+        private readonly ObservableCollection<FamilyRow> _rows = new();
+        private readonly ObservableCollection<TagFilterOption> _tagFilters = new();
+        private readonly HashSet<string> _selectedTagKeys = new(StringComparer.Ordinal);
         private readonly DispatcherTimer _searchDebounceTimer;
+        private readonly DispatcherTimer _resizeDebounceTimer;
 
         private List<FamilyItem> _filteredFamilies = new();
         private CancellationTokenSource? _searchCancellationTokenSource;
+        private CancellationTokenSource? _currentDownloadCts;
         private bool _hasLoaded;
+        private bool _lastLoadFailed;
+        private int _itemsPerRow = 1;
 
         public FamiliesPage()
         {
             InitializeComponent();
 
-            FamiliesItemsControl.ItemsSource = _visibleFamilies;
+            GalleryList.ItemsSource = _rows;
+            TagFiltersHost.ItemsSource = _tagFilters;
+            SkeletonHost.ItemsSource = Enumerable.Range(0, SkeletonCardCount).ToArray();
 
             _searchDebounceTimer = new DispatcherTimer
             {
@@ -49,6 +63,13 @@ namespace DarivaBIM.Plugin.Ui
             };
 
             _searchDebounceTimer.Tick += OnSearchDebounceTimerTick;
+
+            _resizeDebounceTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(ResizeDebounceMilliseconds)
+            };
+
+            _resizeDebounceTimer.Tick += OnResizeDebounceTimerTick;
         }
 
         public void SetupDockablePane(DockablePaneProviderData data)
@@ -118,12 +139,25 @@ namespace DarivaBIM.Plugin.Ui
                 return;
             }
 
+            CancellationTokenSource cts = new CancellationTokenSource();
+            _currentDownloadCts = cts;
+
+            ShowDownloadOverlay(family.Name);
+
+            Progress<DownloadProgress> progress = new Progress<DownloadProgress>(OnDownloadProgress);
+
             try
             {
                 SetBusyState(true);
                 localFilePath = await _familyDownloadService.DownloadToCacheAsync(
                     request,
-                    _familyCacheService);
+                    _familyCacheService,
+                    progress,
+                    cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
             }
             catch (Exception ex)
             {
@@ -138,6 +172,14 @@ namespace DarivaBIM.Plugin.Ui
             finally
             {
                 SetBusyState(false);
+                HideDownloadOverlay();
+
+                if (ReferenceEquals(_currentDownloadCts, cts))
+                {
+                    _currentDownloadCts = null;
+                }
+
+                cts.Dispose();
             }
 
             try
@@ -152,9 +194,43 @@ namespace DarivaBIM.Plugin.Ui
             }
         }
 
-        private void OnLoadMoreClicked(object sender, RoutedEventArgs e)
+        private void OnGallerySizeChanged(object sender, SizeChangedEventArgs e)
         {
-            AppendNextPage();
+            if (!e.WidthChanged)
+            {
+                return;
+            }
+
+            _resizeDebounceTimer.Stop();
+            _resizeDebounceTimer.Start();
+        }
+
+        private void OnResizeDebounceTimerTick(object? sender, EventArgs e)
+        {
+            _resizeDebounceTimer.Stop();
+
+            int newItemsPerRow = ComputeItemsPerRow();
+
+            if (newItemsPerRow == _itemsPerRow)
+            {
+                return;
+            }
+
+            _itemsPerRow = newItemsPerRow;
+            RebuildRows();
+        }
+
+        private int ComputeItemsPerRow()
+        {
+            double available = GalleryList.ActualWidth;
+
+            if (available <= 0d)
+            {
+                return Math.Max(_itemsPerRow, 1);
+            }
+
+            int count = (int)Math.Floor(available / CardCellWidth);
+            return Math.Max(1, count);
         }
 
         private async Task LoadFamiliesAsync()
@@ -162,6 +238,7 @@ namespace DarivaBIM.Plugin.Ui
             try
             {
                 SetBusyState(true);
+                _lastLoadFailed = false;
 
                 List<FamilyItem> families = await _apiClient.GetFamiliesAsync();
 
@@ -182,13 +259,17 @@ namespace DarivaBIM.Plugin.Ui
                     _allFamilies.Add(family);
                 }
 
+                RebuildTagFilters();
+
                 await ApplySearchAsync(SearchTextBox.Text, scrollToTop: true);
             }
             catch (Exception ex)
             {
+                _lastLoadFailed = true;
                 _allFamilies.Clear();
                 _filteredFamilies = new List<FamilyItem>();
-                _visibleFamilies.Clear();
+                _rows.Clear();
+                RebuildTagFilters();
                 UpdateVisualState();
 
                 TaskDialog.Show(
@@ -198,7 +279,67 @@ namespace DarivaBIM.Plugin.Ui
             finally
             {
                 SetBusyState(false);
+                SetInitialLoadingVisuals(isLoading: false);
             }
+        }
+
+        private void SetInitialLoadingVisuals(bool isLoading)
+        {
+            SkeletonHost.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
+            GalleryList.Visibility = isLoading ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void ShowDownloadOverlay(string familyName)
+        {
+            DownloadingFamilyName.Text = familyName ?? string.Empty;
+            DownloadProgressBar.IsIndeterminate = true;
+            DownloadProgressBar.Value = 0d;
+            DownloadProgressLabel.Text = "Conectando...";
+            CancelDownloadButton.IsEnabled = true;
+            DownloadOverlay.Visibility = Visibility.Visible;
+        }
+
+        private void HideDownloadOverlay()
+        {
+            DownloadOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void OnDownloadProgress(DownloadProgress progress)
+        {
+            if (progress.Fraction is double fraction)
+            {
+                DownloadProgressBar.IsIndeterminate = false;
+                DownloadProgressBar.Value = fraction;
+                DownloadProgressLabel.Text =
+                    $"{(int)(fraction * 100)}% • {FormatBytes(progress.BytesDownloaded)} / {FormatBytes(progress.TotalBytes!.Value)}";
+            }
+            else
+            {
+                DownloadProgressBar.IsIndeterminate = true;
+                DownloadProgressLabel.Text = FormatBytes(progress.BytesDownloaded);
+            }
+        }
+
+        private void OnCancelDownloadClicked(object sender, RoutedEventArgs e)
+        {
+            CancelDownloadButton.IsEnabled = false;
+            DownloadProgressLabel.Text = "Cancelando...";
+            _currentDownloadCts?.Cancel();
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes < 1024L)
+            {
+                return $"{bytes} B";
+            }
+
+            if (bytes < 1024L * 1024L)
+            {
+                return $"{bytes / 1024d:F0} KB";
+            }
+
+            return $"{bytes / 1024d / 1024d:F1} MB";
         }
 
         private async Task ApplySearchAsync(string? rawSearch, bool scrollToTop)
@@ -213,6 +354,10 @@ namespace DarivaBIM.Plugin.Ui
             string[] searchTokens = Tokenize(normalizedSearch).ToArray();
 
             List<FamilyItem> snapshot = _allFamilies.ToList();
+            HashSet<string> selectedTagsSnapshot = new HashSet<string>(_selectedTagKeys, StringComparer.Ordinal);
+
+            bool hasSearch = !string.IsNullOrWhiteSpace(normalizedSearch);
+            bool hasTagFilter = selectedTagsSnapshot.Count > 0;
 
             try
             {
@@ -220,13 +365,15 @@ namespace DarivaBIM.Plugin.Ui
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    if (string.IsNullOrWhiteSpace(normalizedSearch))
+                    if (!hasSearch && !hasTagFilter)
                     {
                         return snapshot;
                     }
 
                     return snapshot
-                        .Where(family => MatchesFast(family, normalizedSearch, compactSearch, searchTokens))
+                        .Where(family =>
+                            (!hasSearch || MatchesFast(family, normalizedSearch, compactSearch, searchTokens)) &&
+                            (!hasTagFilter || MatchesTags(family, selectedTagsSnapshot)))
                         .ToList();
                 }, cancellationToken);
 
@@ -236,11 +383,11 @@ namespace DarivaBIM.Plugin.Ui
                 }
 
                 _filteredFamilies = result;
-                ResetVisibleFamilies();
+                RebuildRows();
 
-                if (scrollToTop)
+                if (scrollToTop && _rows.Count > 0)
                 {
-                    GalleryScrollViewer.ScrollToHome();
+                    GalleryList.ScrollIntoView(_rows[0]);
                 }
             }
             catch (OperationCanceledException)
@@ -248,29 +395,26 @@ namespace DarivaBIM.Plugin.Ui
             }
         }
 
-        private void ResetVisibleFamilies()
+        private void RebuildRows()
         {
-            _visibleFamilies.Clear();
+            int perRow = _itemsPerRow > 0 ? _itemsPerRow : ComputeItemsPerRow();
+            _itemsPerRow = perRow;
 
-            int takeCount = Math.Min(PageSize, _filteredFamilies.Count);
+            _rows.Clear();
 
-            for (int i = 0; i < takeCount; i++)
+            int total = _filteredFamilies.Count;
+
+            for (int i = 0; i < total; i += perRow)
             {
-                _visibleFamilies.Add(_filteredFamilies[i]);
-            }
+                int take = Math.Min(perRow, total - i);
+                FamilyItem[] items = new FamilyItem[take];
 
-            UpdateVisualState();
-        }
+                for (int j = 0; j < take; j++)
+                {
+                    items[j] = _filteredFamilies[i + j];
+                }
 
-        private void AppendNextPage()
-        {
-            int currentCount = _visibleFamilies.Count;
-            int remainingCount = _filteredFamilies.Count - currentCount;
-            int nextCount = Math.Min(PageSize, remainingCount);
-
-            for (int i = 0; i < nextCount; i++)
-            {
-                _visibleFamilies.Add(_filteredFamilies[currentCount + i]);
+                _rows.Add(new FamilyRow(items));
             }
 
             UpdateVisualState();
@@ -278,13 +422,251 @@ namespace DarivaBIM.Plugin.Ui
 
         private void UpdateVisualState()
         {
-            EmptyStateTextBlock.Visibility = _filteredFamilies.Count == 0
+            if (_filteredFamilies.Count > 0)
+            {
+                SetEmptyState(EmptyStateKind.Hidden);
+                return;
+            }
+
+            if (_lastLoadFailed)
+            {
+                SetEmptyState(EmptyStateKind.ApiError);
+            }
+            else if (_allFamilies.Count == 0)
+            {
+                SetEmptyState(EmptyStateKind.NoFamiliesAvailable);
+            }
+            else
+            {
+                SetEmptyState(EmptyStateKind.FilteredOut);
+            }
+        }
+
+        private enum EmptyStateKind
+        {
+            Hidden,
+            ApiError,
+            NoFamiliesAvailable,
+            FilteredOut,
+        }
+
+        private void SetEmptyState(EmptyStateKind kind)
+        {
+            if (kind == EmptyStateKind.Hidden)
+            {
+                EmptyStatePanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            string icon;
+            Color iconColor;
+            string title;
+            string hint;
+
+            switch (kind)
+            {
+                case EmptyStateKind.ApiError:
+                    icon = ""; // Segoe MDL2: Warning triangle
+                    iconColor = Color.FromRgb(0xD9, 0x77, 0x06);
+                    title = "Não foi possível carregar a biblioteca";
+                    hint = "Verifique sua conexão e feche/reabra o painel para tentar novamente.";
+                    break;
+
+                case EmptyStateKind.NoFamiliesAvailable:
+                    icon = ""; // Segoe MDL2: Info
+                    iconColor = Color.FromRgb(0x94, 0xA3, 0xB8);
+                    title = "Nenhuma família disponível";
+                    hint = "A biblioteca Tigre não retornou famílias no momento.";
+                    break;
+
+                case EmptyStateKind.FilteredOut:
+                default:
+                    icon = ""; // Segoe MDL2: Search
+                    iconColor = Color.FromRgb(0x94, 0xA3, 0xB8);
+                    title = "Nenhum resultado";
+                    hint = BuildFilteredOutHint();
+                    break;
+            }
+
+            EmptyStateIcon.Text = icon;
+            EmptyStateIcon.Foreground = new SolidColorBrush(iconColor);
+            EmptyStateTitle.Text = title;
+            EmptyStateHint.Text = hint;
+            EmptyStatePanel.Visibility = Visibility.Visible;
+        }
+
+        private string BuildFilteredOutHint()
+        {
+            bool hasSearch = !string.IsNullOrWhiteSpace(SearchTextBox.Text);
+            bool hasTags = _selectedTagKeys.Count > 0;
+
+            if (hasSearch && hasTags)
+            {
+                return "Ajuste a busca ou limpe os filtros aplicados.";
+            }
+
+            if (hasSearch)
+            {
+                return "Nenhuma família corresponde à sua busca.";
+            }
+
+            if (hasTags)
+            {
+                return "Nenhuma família corresponde aos filtros selecionados.";
+            }
+
+            return "Nenhuma família corresponde aos critérios atuais.";
+        }
+
+        private void RebuildTagFilters()
+        {
+            foreach (TagFilterOption existing in _tagFilters)
+            {
+                existing.PropertyChanged -= OnTagFilterChanged;
+            }
+
+            _tagFilters.Clear();
+            _selectedTagKeys.Clear();
+
+            // Distinct by normalized description, taking the first original
+            // casing as the chip label so "PVC" stays "PVC" instead of "pvc".
+            Dictionary<string, string> distinct = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (FamilyItem family in _allFamilies)
+            {
+                if (family.Tags == null)
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < family.Tags.Count; i++)
+                {
+                    FamilyTag tag = family.Tags[i];
+
+                    if (tag == null || string.IsNullOrWhiteSpace(tag.Description))
+                    {
+                        continue;
+                    }
+
+                    string description = tag.Description.Trim();
+                    string key = NormalizeForSearch(description);
+
+                    if (string.IsNullOrEmpty(key))
+                    {
+                        continue;
+                    }
+
+                    if (!distinct.ContainsKey(key))
+                    {
+                        distinct[key] = description;
+                    }
+                }
+            }
+
+            IEnumerable<TagFilterOption> ordered = distinct
+                .Select(kvp => new TagFilterOption(kvp.Value, kvp.Key))
+                .OrderBy(opt => opt.Description, StringComparer.OrdinalIgnoreCase);
+
+            foreach (TagFilterOption opt in ordered)
+            {
+                opt.PropertyChanged += OnTagFilterChanged;
+                _tagFilters.Add(opt);
+            }
+
+            TagFiltersCard.Visibility = _tagFilters.Count > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-            LoadMoreButton.Visibility = _visibleFamilies.Count < _filteredFamilies.Count
+            UpdateClearTagsButton();
+        }
+
+        private void OnTagFilterChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(TagFilterOption.IsSelected) ||
+                sender is not TagFilterOption opt)
+            {
+                return;
+            }
+
+            if (opt.IsSelected)
+            {
+                _selectedTagKeys.Add(opt.Key);
+            }
+            else
+            {
+                _selectedTagKeys.Remove(opt.Key);
+            }
+
+            UpdateClearTagsButton();
+            _ = ApplySearchAsync(SearchTextBox.Text, scrollToTop: true);
+        }
+
+        private void OnClearTagsClicked(object sender, RoutedEventArgs e)
+        {
+            if (_selectedTagKeys.Count == 0)
+            {
+                return;
+            }
+
+            // IsSelected = false fires PropertyChanged → OnTagFilterChanged →
+            // ApplySearchAsync. Setting many at once produces N filter passes;
+            // for the typical handful of chips this is harmless, and keeping
+            // the path uniform avoids a parallel "skip-event" code branch.
+            foreach (TagFilterOption opt in _tagFilters)
+            {
+                if (opt.IsSelected)
+                {
+                    opt.IsSelected = false;
+                }
+            }
+        }
+
+        private void UpdateClearTagsButton()
+        {
+            ClearTagsButton.Visibility = _selectedTagKeys.Count > 0
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        }
+
+        private static bool MatchesTags(FamilyItem family, IReadOnlyCollection<string> selectedKeys)
+        {
+            if (selectedKeys.Count == 0)
+            {
+                return true;
+            }
+
+            if (family.Tags == null || family.Tags.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (string requiredKey in selectedKeys)
+            {
+                bool matched = false;
+
+                for (int i = 0; i < family.Tags.Count; i++)
+                {
+                    FamilyTag tag = family.Tags[i];
+
+                    if (tag == null || string.IsNullOrWhiteSpace(tag.Description))
+                    {
+                        continue;
+                    }
+
+                    if (NormalizeForSearch(tag.Description) == requiredKey)
+                    {
+                        matched = true;
+                        break;
+                    }
+                }
+
+                if (!matched)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool MatchesFast(
@@ -410,7 +792,16 @@ namespace DarivaBIM.Plugin.Ui
         private void SetBusyState(bool isBusy)
         {
             SearchTextBox.IsEnabled = !isBusy;
-            LoadMoreButton.IsEnabled = !isBusy;
         }
+    }
+
+    public sealed class FamilyRow
+    {
+        public FamilyRow(IReadOnlyList<FamilyItem> items)
+        {
+            Items = items;
+        }
+
+        public IReadOnlyList<FamilyItem> Items { get; }
     }
 }
