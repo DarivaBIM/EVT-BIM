@@ -1,7 +1,7 @@
 # EVT-BIM — Plugin Revit para Engenharia de Valor Tigre
 
-Plugin Revit 2026 desenvolvido para uso interno da Tigre, no contexto do
-programa Engenharia de Valor Tigre (EVT). Compartilha a base arquitetural
+Plugin Revit 2025 / 2026 desenvolvido para uso interno da Tigre, no contexto
+do programa Engenharia de Valor Tigre (EVT). Compartilha a base arquitetural
 que servirá de origem para a versão 2 do produto comercial DarivaBIM.
 
 ## Stack
@@ -26,18 +26,40 @@ Os nomes internos (`DarivaBIM.sln`, projetos `DarivaBIM.*`, namespaces
 `DarivaBIM.*`, assembly `DarivaBIM.Plugin.V2026.dll`) são mantidos para
 preservar a base como origem reaproveitável do DarivaBIM V2.
 
-## Deploy
+## Deploy local (dev)
 
-O target `DeployAddin` (em
-`src/Plugins/DarivaBIM.Plugin.V2026/DarivaBIM.Plugin.V2026.csproj`)
-executa o script `build/deploy_revit_2026.cmd` ao final do build e instala
-o add-in em:
+O target `DeployAddin` nos csproj dos plugins executa o script
+`build/deploy_revit_<ano>.cmd` ao final do build e instala o add-in em:
 
 ```
-%ProgramData%\Autodesk\Revit\Addins\2026\EVT-BIM\
+%ProgramData%\Autodesk\Revit\Addins\<ano>\EVT-BIM\
 ```
 
-O manifest `EVT-BIM.V2026.addin` é copiado para
-`%ProgramData%\Autodesk\Revit\Addins\2026\` e referencia o assembly
-`DarivaBIM.Plugin.V2026.dll` na subpasta `EVT-BIM`. Após reabrir o Revit,
+O manifest `EVT-BIM.V<ano>.addin` é copiado para
+`%ProgramData%\Autodesk\Revit\Addins\<ano>\` e referencia o assembly
+`DarivaBIM.Plugin.V<ano>.dll` na subpasta `EVT-BIM`. Após reabrir o Revit,
 a aba "EVT-BIM" aparece na ribbon.
+
+Para evitar o deploy local (ex.: em CI ou ao gerar instalador), rodar
+`dotnet build` ou `dotnet publish` com `-p:SkipRevitDeploy=true`.
+
+## Distribuição (instalador único)
+
+Para gerar um `.exe` instalador que outras pessoas podem rodar nas próprias
+máquinas (Revit 2025 e/ou 2026):
+
+```cmd
+src\Build\Installers\build_installer.cmd
+```
+
+Saída: `artifacts\installer\EVT-BIM-Setup-v<versão>.exe`.
+
+O instalador detecta automaticamente quais versões do Revit estão presentes
+na máquina e oferece dois modos:
+
+- **Recomendado**: instala para todas as versões detectadas.
+- **Personalizado**: usuário escolhe quais versões receberão o plugin.
+
+Pré-requisito da máquina dev: [Inno Setup 6](https://jrsoftware.org/isinfo.php)
+(o `build_installer.cmd` chama o `ISCC.exe`). Documentação completa do pipeline
+em [`src/Build/Installers/README.md`](src/Build/Installers/README.md).
