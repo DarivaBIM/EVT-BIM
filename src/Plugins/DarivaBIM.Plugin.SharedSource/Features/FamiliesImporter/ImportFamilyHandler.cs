@@ -201,7 +201,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
 
         private static FamilySymbol? GetFirstFamilySymbol(Document doc, Family family)
         {
-            ElementId symbolId = family
+            ElementId? symbolId = family
                 .GetFamilySymbolIds()
                 .FirstOrDefault();
 

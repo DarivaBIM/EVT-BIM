@@ -97,7 +97,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 // feitas no WPF entre uma seleção e outra entram em vigor.
                 if (!PipeConversionConfigFactory.TryCreate(vm, out PipeConversionConfig? config, out string? configError))
                 {
-                    vm.StatusMessage = configError;
+                    vm.StatusMessage = configError!;
                     return;
                 }
 

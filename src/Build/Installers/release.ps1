@@ -87,12 +87,26 @@ function Die ([string]$Msg) { Write-Host "[ERRO] $Msg" -ForegroundColor Red; exi
 # ---------------------------------------------------------------------------
 Step "Validando pre-requisitos"
 
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Die "GitHub CLI (gh) nao encontrado no PATH. Instale: https://cli.github.com/"
+# Em dry-run, gh nao e usado — vira warning. Em release real, e bloqueante.
+$ghMissing = -not (Get-Command gh -ErrorAction SilentlyContinue)
+if ($ghMissing) {
+    if ($DryRun) {
+        Write-Host "[AVISO] gh nao encontrado. Em release real seria bloqueante: https://cli.github.com/" -ForegroundColor Yellow
+    } else {
+        Die "GitHub CLI (gh) nao encontrado no PATH. Instale: https://cli.github.com/"
+    }
+} else {
+    gh auth status 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        if ($DryRun) {
+            Write-Host "[AVISO] gh nao autenticado. Em release real seria bloqueante. Rode: gh auth login" -ForegroundColor Yellow
+        } else {
+            Die "gh nao esta autenticado. Rode: gh auth login"
+        }
+    } else {
+        Ok "gh autenticado"
+    }
 }
-gh auth status 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) { Die "gh nao esta autenticado. Rode: gh auth login" }
-Ok "gh autenticado"
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Die ".NET SDK (dotnet) nao encontrado no PATH."

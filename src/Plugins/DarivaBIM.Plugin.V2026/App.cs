@@ -78,7 +78,7 @@ namespace DarivaBIM.Plugin.V2026
             return new PluginHost(services);
         }
 
-        private void OnViewActivated(object sender, ViewActivatedEventArgs e)
+        private void OnViewActivated(object? sender, ViewActivatedEventArgs e)
         {
             // ViewActivated dispara em qualquer troca de view; só recarrega
             // quando o documento ativo muda de fato.
