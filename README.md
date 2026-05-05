@@ -45,21 +45,27 @@ Para evitar o deploy local (ex.: em CI ou ao gerar instalador), rodar
 
 ## Distribuição (instalador único)
 
-Para gerar um `.exe` instalador que outras pessoas podem rodar nas próprias
-máquinas (Revit 2025 e/ou 2026):
+O plugin é distribuído como `.exe` instalador único, gerado com Inno Setup.
+Detecta automaticamente quais versões do Revit (2025/2026) estão presentes
+e oferece modo **Recomendado** (todas detectadas) ou **Personalizado**.
+
+**Build local apenas** (gera só o `.exe`, sem publicar):
 
 ```cmd
 src\Build\Installers\build_installer.cmd
 ```
 
-Saída: `artifacts\installer\EVT-BIM-Setup-v<versão>.exe`.
+**Release pública no GitHub** (bumpa versão, builda, taga, faz push e
+publica Release com o `.exe` anexado — tudo num comando):
 
-O instalador detecta automaticamente quais versões do Revit estão presentes
-na máquina e oferece dois modos:
+```powershell
+src\Build\Installers\release.ps1 -Version 0.1.1
+```
 
-- **Recomendado**: instala para todas as versões detectadas.
-- **Personalizado**: usuário escolhe quais versões receberão o plugin.
-
-Pré-requisito da máquina dev: [Inno Setup 6](https://jrsoftware.org/isinfo.php)
-(o `build_installer.cmd` chama o `ISCC.exe`). Documentação completa do pipeline
-em [`src/Build/Installers/README.md`](src/Build/Installers/README.md).
+Pré-requisitos da máquina dev:
+[Inno Setup 6](https://jrsoftware.org/isinfo.php) (compilador) e — para o
+`release.ps1` — [GitHub CLI](https://cli.github.com/) autenticado.
+Documentação completa em
+[`src/Build/Installers/README.md`](src/Build/Installers/README.md). A
+arquitetura do pipeline e o roadmap para CI hospedado estão no
+[ADR-0018](src/docs/adr/ADR-0018-release-pipeline.md).
