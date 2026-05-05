@@ -70,8 +70,13 @@
              Link="Hosting\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!--
+    Sem ContinueOnError: falha de deploy (Revit aberto, permissao, manifesto
+    faltando) deve quebrar o build. Caso contrario o VS reporta "Build
+    succeeded" e a DLL no Revit fica desatualizada silenciosamente.
+  -->
   <Target Name="DeployAddin" AfterTargets="PostBuildEvent" Condition="Exists('$(ProjectDir)build\deploy_revit_2026.cmd') AND '$(SkipRevitDeploy)' != 'true'">
-    <Exec Command="call &quot;$(ProjectDir)build\deploy_revit_2026.cmd&quot; &quot;$(ProjectDir)&quot; &quot;$(TargetDir)&quot;" ContinueOnError="true" />
+    <Exec Command="call &quot;$(ProjectDir)build\deploy_revit_2026.cmd&quot; &quot;$(ProjectDir)&quot; &quot;$(TargetDir)&quot;" />
   </Target>
 
 </Project>

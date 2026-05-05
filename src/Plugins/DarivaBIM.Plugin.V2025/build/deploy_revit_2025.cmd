@@ -14,6 +14,14 @@ if "%TARGET_DIR%"=="" (
     exit /b 1
 )
 
+REM Aborta cedo se o Revit estiver aberto: as DLLs do add-in ficam travadas
+REM e o copy falha no meio do build com mensagem criptica.
+tasklist /FI "IMAGENAME eq Revit.exe" 2>NUL | find /I "Revit.exe" >NUL
+if not errorlevel 1 (
+    echo ERRO: Revit.exe esta em execucao. Feche o Revit antes de buildar/deploy.
+    exit /b 1
+)
+
 set "ADDIN_NAME=EVT-BIM"
 set "ASSEMBLY_NAME=DarivaBIM.Plugin.V2025"
 set "ADDIN_FILE=EVT-BIM.V2025.addin"
@@ -80,9 +88,28 @@ if exist "%TARGET_DIR%%ASSEMBLY_NAME%.runtimeconfig.json" (
 )
 
 REM Copy referenced project DLLs and resources next to the plugin assembly.
-xcopy /Y /D /I "%TARGET_DIR%DarivaBIM.*.dll" "%ADDIN_SUBFOLDER%\" >nul 2>&1
-xcopy /Y /D /I "%TARGET_DIR%Resources" "%ADDIN_SUBFOLDER%\Resources\" >nul 2>&1
-xcopy /Y /D /I /E "%TARGET_DIR%Ribbon" "%ADDIN_SUBFOLDER%\Ribbon\" >nul 2>&1
+REM Sem redirecionar para nul: erros precisam aparecer no log de build.
+xcopy /Y /D /I "%TARGET_DIR%DarivaBIM.*.dll" "%ADDIN_SUBFOLDER%\"
+if errorlevel 1 (
+    echo ERRO: falha ao copiar DLLs de dependencia.
+    exit /b 1
+)
+
+if exist "%TARGET_DIR%Resources" (
+    xcopy /Y /D /I "%TARGET_DIR%Resources" "%ADDIN_SUBFOLDER%\Resources\"
+    if errorlevel 1 (
+        echo ERRO: falha ao copiar Resources.
+        exit /b 1
+    )
+)
+
+if exist "%TARGET_DIR%Ribbon" (
+    xcopy /Y /D /I /E "%TARGET_DIR%Ribbon" "%ADDIN_SUBFOLDER%\Ribbon\"
+    if errorlevel 1 (
+        echo ERRO: falha ao copiar Ribbon.
+        exit /b 1
+    )
+)
 
 echo Deploy concluido com sucesso.
 exit /b 0
