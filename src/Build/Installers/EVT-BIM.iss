@@ -1,5 +1,5 @@
-; ============================================================================
-;  EVT-BIM — Inno Setup script
+﻿; ============================================================================
+;  EVT-BIM â€” Inno Setup script
 ;
 ;  Gera um instalador unico (.exe) que distribui o plugin EVT-BIM para Revit
 ;  2025 e/ou 2026. Modo "Recomendado" instala automaticamente para todas as
@@ -9,12 +9,12 @@
 ;    1. Inno Setup 6 (https://jrsoftware.org/isinfo.php) com ISCC.exe no PATH
 ;       ou em "C:\Program Files (x86)\Inno Setup 6\ISCC.exe".
 ;    2. Os binarios publicados precisam estar em
-;       artifacts/installer/v2025 e artifacts/installer/v2026 — use
+;       artifacts/installer/v2025 e artifacts/installer/v2026 â€” use
 ;       build_installer.cmd para gerar o staging e compilar tudo.
 ; ============================================================================
 
 #define AppName        "EVT-BIM"
-#define AppVersion     "0.1.0"
+#define AppVersion     "0.1.1"
 #define AppPublisher   "Engenharia de Valor Tigre"
 #define AppURL         "https://github.com/darivabim/evt-bim"
 ; AppId fixo: garante que reinstalacoes futuras desinstalem a versao anterior.
@@ -133,7 +133,7 @@ end;
 // Modo "Personalizado": preserva a escolha do usuario sem interferir.
 //
 // As constantes c_RecommendedTypeIndex e c_*ComponentIndex refletem a ordem
-// de declaracao em [Types] e [Components] acima — se essa ordem mudar,
+// de declaracao em [Types] e [Components] acima â€” se essa ordem mudar,
 // atualizar os indices.
 // --------------------------------------------------------------------------
 
@@ -156,7 +156,7 @@ end;
 
 // --------------------------------------------------------------------------
 // Avisa se o usuario, em modo Personalizado, marcou uma versao do Revit que
-// nao esta instalada — pode ser intencional, mas e bom confirmar.
+// nao esta instalada â€” pode ser intencional, mas e bom confirmar.
 // --------------------------------------------------------------------------
 
 function NextButtonClick(CurPageID: Integer): Boolean;
