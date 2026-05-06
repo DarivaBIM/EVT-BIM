@@ -125,6 +125,11 @@ namespace DarivaBIM.Application.DTOs.Family
             return Name;
         }
 
+        // Mantida em sincronia com TagFilterOption.ResolvePalette (chip de
+        // filtro). Background = pastel da categoria; Foreground = stroke
+        // (cor de marca). Quando o usuario seleciona "Agua Fria" no filtro,
+        // o badge azul claro do card e o chip clicado leem como o mesmo
+        // sistema visual.
         private static TagBadge CreateTagBadge(string tag)
         {
             string key = NormalizeKey(tag);
@@ -132,46 +137,50 @@ namespace DarivaBIM.Application.DTOs.Family
             switch (key)
             {
                 case "agua fria":
-                    return new TagBadge(tag, "#DBEAFE", "#1D4ED8");
+                    return new TagBadge(tag, "#EEF6FF", "#1565C0");
 
                 case "agua quente":
-                    return new TagBadge(tag, "#FEE2E2", "#DC2626");
+                    return new TagBadge(tag, "#FDEEEE", "#D84343");
 
                 case "esgoto":
-                    return new TagBadge(tag, "#E7E5E4", "#7C2D12");
+                    return new TagBadge(tag, "#EEF8EF", "#2E7D32");
 
                 case "pluvial":
-                    return new TagBadge(tag, "#CFFAFE", "#0F766E");
+                    return new TagBadge(tag, "#F0F0FF", "#5E60CE");
 
                 case "caixas e ralos":
-                    return new TagBadge(tag, "#E2E8F0", "#334155");
+                    return new TagBadge(tag, "#F0F5F7", "#546E7A");
 
                 case "reservatorio":
-                    return new TagBadge(tag, "#E0E7FF", "#4338CA");
+                    return new TagBadge(tag, "#EAFBFF", "#0E7490");
 
                 case "sted":
                     return new TagBadge(tag, "#DCFCE7", "#15803D");
 
                 case "piscina":
-                    return new TagBadge(tag, "#E0F2FE", "#0369A1");
+                    return new TagBadge(tag, "#EDF9FF", "#039BE5");
 
                 case "irrigacao":
-                    return new TagBadge(tag, "#ECFCCB", "#4D7C0F");
+                    return new TagBadge(tag, "#F5FAEA", "#6B8E23");
 
                 case "poco":
-                    return new TagBadge(tag, "#FEF3C7", "#B45309");
+                    return new TagBadge(tag, "#FFF8E6", "#C88719");
 
                 case "bombas":
-                    return new TagBadge(tag, "#FFEDD5", "#C2410C");
+                    return new TagBadge(tag, "#FFF1E6", "#EF6C00");
 
                 case "valvula":
-                    return new TagBadge(tag, "#F3E8FF", "#7E22CE");
+                    return new TagBadge(tag, "#EAF9F7", "#00796B");
 
                 case "utilitario":
-                    return new TagBadge(tag, "#F3F4F6", "#4B5563");
+                case "ponto de utilizacao":
+                    return new TagBadge(tag, "#F7F7F7", "#616161");
 
                 case "combate a incendio":
-                    return new TagBadge(tag, "#FEE2E2", "#B91C1C");
+                    return new TagBadge(tag, "#FCEAEA", "#B71C1C");
+
+                case "tratamento de esgoto":
+                    return new TagBadge(tag, "#F7F1EE", "#6D4C41");
 
                 default:
                     return new TagBadge(tag, "#EEF2FF", "#4338CA");

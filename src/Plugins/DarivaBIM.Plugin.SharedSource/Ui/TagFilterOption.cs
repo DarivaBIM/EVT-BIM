@@ -36,12 +36,6 @@ namespace DarivaBIM.Plugin.Ui
         private static readonly Dictionary<string, BitmapImage?> IconCache =
             new(StringComparer.OrdinalIgnoreCase);
 
-        // Neutral fill for the unchecked state — every chip shares the same
-        // gray so selection reads as a *color reveal* (gray → category pastel).
-        // Frozen once, reused across instances.
-        private static readonly SolidColorBrush SharedUnselectedBackgroundBrush =
-            CreateFrozenBrush("#EEF1F5");
-
         private bool _isSelected;
 
         public TagFilterOption(string description, string key)
@@ -64,15 +58,11 @@ namespace DarivaBIM.Plugin.Ui
         // pay normalization cost per family.
         public string Key { get; }
 
-        // Active/checked-state fill for the chip — the category pastel from
-        // the curated palette. The unchecked state uses
-        // <see cref="UnselectedBackgroundBrush"/> instead.
+        // Pastel category color used as the chip background in every state
+        // — selection is signaled by a colored stroke around it (the
+        // <see cref="ForegroundBrush"/>), not by swapping the fill, so the
+        // chip's identity stays readable whether it's checked or not.
         public Brush BackgroundBrush { get; }
-
-        // Shared neutral gray rendered when the chip is *not* selected.
-        // Exposed as an instance property so the WPF binding path stays
-        // consistent with <see cref="BackgroundBrush"/>.
-        public Brush UnselectedBackgroundBrush => SharedUnselectedBackgroundBrush;
 
         public Brush ForegroundBrush { get; }
 
@@ -166,7 +156,7 @@ namespace DarivaBIM.Plugin.Ui
                 case "caixas e ralos":
                     return new Palette("#F0F5F7", "#546E7A", "", "caixas_e_ralos.png");
                 case "reservatorio":
-                    return new Palette("#EAFBFF", "#3949AB", "", "reservatorio.png");
+                    return new Palette("#EAFBFF", "#0E7490", "", "reservatorio.png");
                 case "sted":
                     return new Palette("#DCFCE7", "#15803D", "", null);
                 case "piscina":

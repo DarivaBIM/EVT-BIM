@@ -28,8 +28,8 @@ namespace DarivaBIM.Plugin.Ui
         private const int ResizeDebounceMilliseconds = 80;
         private const int SkeletonCardCount = 6;
 
-        // Card width 176 + horizontal margin 6+6 from CardContainerStyle.
-        private const double CardCellWidth = 188d;
+        // Card width 156 + horizontal margin 6+6 from CardContainerStyle.
+        private const double CardCellWidth = 168d;
 
         private readonly ApiClient _apiClient = new();
         private readonly ImportFamilyExternalEvent _importFamilyExternalEvent = new();

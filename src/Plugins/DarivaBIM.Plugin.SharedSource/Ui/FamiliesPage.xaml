@@ -76,10 +76,18 @@
         </Style>
 
         <Style x:Key="TitleTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontSize" Value="10" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
+            <!--
+                Multi-line ellipsis: with TextWrapping=Wrap + TextTrimming
+                + a hard MaxHeight on the consumer, WPF clips the last
+                visible line and appends "..." so card heights stay
+                uniform regardless of family-name length.
+            -->
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="LineHeight" Value="13" />
         </Style>
 
         <Style x:Key="InfoLabelStyle" TargetType="TextBlock">
@@ -136,19 +144,19 @@
 
         <!--
             Tag dot: a 28px circular ToggleButton that visually represents
-            one system (água fria, esgoto, pluvial, ...). Selection is
-            communicated by a *fill swap* — neutral gray (UnselectedBackgroundBrush)
-            when off, the category pastel (BackgroundBrush) when on — instead
-            of an extra ring around the chip. Removing that outer ring also
-            fixes the icon-clipping that happened when hover scaled the
-            checked chip past its parent's bounds.
+            one system (água fria, esgoto, pluvial, ...). The chip ALWAYS
+            shows the category pastel (BackgroundBrush) so each system reads
+            at a glance whether it's selected or not. Selection is signaled
+            by a 2px colored ring around the chip (ForegroundBrush — the
+            category accent), which is unambiguous without competing with
+            the fill.
 
             Visual states:
-              · Default — neutral gray fill, no ring.
-              · Hover (unchecked) — same fill, hairline gray ring +
-                tiny scale-up so the dot feels interactive without a label.
-              · Checked — fill swaps to the category pastel; no ring needed
-                because the color reveal carries the signal.
+              · Default — pastel fill, no ring.
+              · Hover (unchecked) — pastel fill, hairline gray ring +
+                tiny scale-up so the dot feels interactive.
+              · Checked — pastel fill, 2px ring in the category accent
+                color (e.g., #1565C0 around an Água Fria chip).
 
             Accessibility: the system name is exposed both as ToolTip and
             AutomationProperties.Name so screen readers can announce the
@@ -178,7 +186,7 @@
                             <Ellipse x:Name="DotFill"
                                      Width="28"
                                      Height="28"
-                                     Fill="{Binding UnselectedBackgroundBrush}" />
+                                     Fill="{Binding BackgroundBrush}" />
 
                             <Ellipse x:Name="DotRing"
                                      Width="28"
@@ -223,7 +231,8 @@
                             </MultiTrigger>
 
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="DotFill" Property="Fill" Value="{Binding BackgroundBrush}" />
+                                <Setter TargetName="DotRing" Property="Stroke" Value="{Binding ForegroundBrush}" />
+                                <Setter TargetName="DotRing" Property="StrokeThickness" Value="2" />
                             </Trigger>
 
                             <DataTrigger Binding="{Binding HasIcon}" Value="True">
@@ -323,7 +332,7 @@
         </Style>
 
         <DataTemplate x:Key="SkeletonCardTemplate">
-            <Border Width="176"
+            <Border Width="156"
                     Background="White"
                     BorderBrush="{StaticResource SoftBorderBrush}"
                     BorderThickness="1"
@@ -332,22 +341,22 @@
                     Margin="6">
                 <StackPanel>
                     <Border Style="{StaticResource SkeletonShape}"
-                            Width="110"
-                            Height="110"
-                            CornerRadius="14"
+                            Width="92"
+                            Height="92"
+                            CornerRadius="12"
                             HorizontalAlignment="Center" />
 
                     <Border Style="{StaticResource SkeletonShape}"
-                            Height="10"
-                            Width="140"
+                            Height="9"
+                            Width="120"
                             HorizontalAlignment="Left"
-                            Margin="0,12,0,4" />
+                            Margin="0,10,0,4" />
 
                     <Border Style="{StaticResource SkeletonShape}"
-                            Height="10"
-                            Width="100"
+                            Height="9"
+                            Width="84"
                             HorizontalAlignment="Left"
-                            Margin="0,0,0,12" />
+                            Margin="0,0,0,10" />
 
                     <StackPanel Orientation="Horizontal">
                         <Border Style="{StaticResource SkeletonShape}"
@@ -363,9 +372,9 @@
 
                     <Border Style="{StaticResource SkeletonShape}"
                             Height="8"
-                            Width="90"
+                            Width="84"
                             HorizontalAlignment="Left"
-                            Margin="0,12,0,0" />
+                            Margin="0,10,0,0" />
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -473,12 +482,13 @@
                             <TextBlock x:Name="FilterSectionChevron"
                                        Text="&#xE76C;"
                                        FontFamily="Segoe MDL2 Assets"
-                                       FontSize="10"
+                                       FontSize="11"
                                        Foreground="#94A3B8"
                                        VerticalAlignment="Center"
                                        Margin="0,0,8,0" />
                             <TextBlock Text="Filtrar por sistema"
                                        Style="{StaticResource InfoLabelStyle}"
+                                       FontSize="12"
                                        VerticalAlignment="Center" />
                         </StackPanel>
                     </ToggleButton>
@@ -574,7 +584,7 @@
 
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="176"
+                                        <Border Width="156"
                                                 Style="{StaticResource CardContainerStyle}"
                                                 Tag="{Binding}"
                                                 MouseLeftButtonUp="OnFamilyCardClicked">
@@ -582,39 +592,38 @@
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="2" />
-                                                    <RowDefinition Height="35" />
+                                                    <RowDefinition Height="28" />
                                                     <RowDefinition Height="2" />
                                                     <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="20" />
+                                                    <RowDefinition Height="14" />
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
 
                                                 <!-- Imagem -->
                                                 <Grid Grid.Row="0"
-                                                      Height="110">
+                                                      Height="92">
                                                     <Image ui:CachedImage.SourceUrl="{Binding UrlImg}"
-                                                           Width="110"
-                                                           Height="110"
+                                                           Width="92"
+                                                           Height="92"
                                                            Stretch="Uniform"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center"
                                                            SnapsToDevicePixels="True"
                                                            RenderOptions.BitmapScalingMode="HighQuality">
                                                         <Image.Clip>
-                                                            <RectangleGeometry Rect="0,0,110,110"
-                                                                               RadiusX="14"
-                                                                               RadiusY="14" />
+                                                            <RectangleGeometry Rect="0,0,92,92"
+                                                                               RadiusX="12"
+                                                                               RadiusY="12" />
                                                         </Image.Clip>
                                                     </Image>
                                                 </Grid>
 
-                                                <!-- Título -->
+                                                <!-- Título — máx 2 linhas com ellipsis ("..." no fim) -->
                                                 <TextBlock Grid.Row="2"
-                                                           VerticalAlignment="Center"
+                                                           VerticalAlignment="Top"
                                                            Style="{StaticResource TitleTextStyle}"
                                                            Text="{Binding Name}"
-                                                           LineHeight="15"
-                                                           MaxHeight="30" />
+                                                           MaxHeight="26" />
 
                                                 <!-- Sistemas -->
                                                 <ItemsControl Grid.Row="4"
