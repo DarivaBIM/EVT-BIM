@@ -1,8 +1,13 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace DarivaBIM.Plugin.Ui
 {
@@ -19,6 +24,24 @@ namespace DarivaBIM.Plugin.Ui
     /// </summary>
     public sealed class TagFilterOption : INotifyPropertyChanged
     {
+        // Filter chip PNGs live next to the plugin assembly, mirroring the
+        // ribbon icons. Loading happens via Assembly.Location + Path.Combine
+        // so the same code path works for V2025 and V2026 without WPF
+        // pack-uri assembly-name juggling.
+        private const string FilterIconsRelativeFolder = "Ribbon\\Resources\\FilterIcons";
+
+        // Single shared cache: each PNG is decoded once per process, then
+        // every TagFilterOption referencing the same key reuses the frozen
+        // BitmapImage. Missing files cache as null so we don't re-stat them.
+        private static readonly Dictionary<string, BitmapImage?> IconCache =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        // Neutral fill for the unchecked state — every chip shares the same
+        // gray so selection reads as a *color reveal* (gray → category pastel).
+        // Frozen once, reused across instances.
+        private static readonly SolidColorBrush SharedUnselectedBackgroundBrush =
+            CreateFrozenBrush("#EEF1F5");
+
         private bool _isSelected;
 
         public TagFilterOption(string description, string key)
@@ -31,6 +54,7 @@ namespace DarivaBIM.Plugin.Ui
             BackgroundBrush = palette.Background;
             ForegroundBrush = palette.Foreground;
             Glyph = palette.Glyph;
+            Icon = LoadIcon(palette.IconFileName);
         }
 
         public string Description { get; }
@@ -40,14 +64,33 @@ namespace DarivaBIM.Plugin.Ui
         // pay normalization cost per family.
         public string Key { get; }
 
+        // Active/checked-state fill for the chip — the category pastel from
+        // the curated palette. The unchecked state uses
+        // <see cref="UnselectedBackgroundBrush"/> instead.
         public Brush BackgroundBrush { get; }
+
+        // Shared neutral gray rendered when the chip is *not* selected.
+        // Exposed as an instance property so the WPF binding path stays
+        // consistent with <see cref="BackgroundBrush"/>.
+        public Brush UnselectedBackgroundBrush => SharedUnselectedBackgroundBrush;
 
         public Brush ForegroundBrush { get; }
 
         // Single Segoe MDL2 Assets glyph that visually hints at the system
         // (water drop, flame, cloud, etc.). Falls back to the description's
-        // first letter if the system isn't in the curated palette.
+        // first letter if the system isn't in the curated palette. Rendered
+        // only when <see cref="Icon"/> is null (no PNG dropped in
+        // Resources/FilterIcons).
         public string Glyph { get; }
+
+        // Custom PNG icon for the chip. When non-null the WPF template
+        // renders an <Image> bound to this; when null it falls back to the
+        // Segoe MDL2 glyph above. Drop a PNG named after the palette's
+        // IconFileName into Plugin.SharedSource/Resources/FilterIcons to
+        // light this up — see the README in that folder.
+        public BitmapImage? Icon { get; }
+
+        public bool HasIcon => Icon != null;
 
         public bool IsSelected
         {
@@ -73,63 +116,125 @@ namespace DarivaBIM.Plugin.Ui
 
         private readonly struct Palette
         {
-            public Palette(string background, string foreground, string glyph)
+            public Palette(string background, string foreground, string glyph, string? iconFileName)
             {
-                Background = (SolidColorBrush)new BrushConverter().ConvertFromString(background)!;
-                Foreground = (SolidColorBrush)new BrushConverter().ConvertFromString(foreground)!;
-                Background.Freeze();
-                Foreground.Freeze();
+                Background = CreateFrozenBrush(background);
+                Foreground = CreateFrozenBrush(foreground);
                 Glyph = glyph;
+                IconFileName = iconFileName;
             }
 
             public SolidColorBrush Background { get; }
             public SolidColorBrush Foreground { get; }
             public string Glyph { get; }
+            public string? IconFileName { get; }
+        }
+
+        private static SolidColorBrush CreateFrozenBrush(string hex)
+        {
+            SolidColorBrush brush = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
+            brush.Freeze();
+            return brush;
         }
 
         private static Palette ResolvePalette(string description)
         {
             string key = NormalizeKey(description);
 
-            // Glyphs are Segoe MDL2 Assets code points (Windows 10+). Picked
-            // for shape recognizability at 14–16px; tooltip carries the
-            // literal system name so users never depend on glyph reading.
+            // Background HEX is the *checked-state* pastel chosen by the
+            // user (lighter than the previous Material 50 tints, so the
+            // PNG icon stays the focal element). Foreground HEX is the
+            // category accent — used by the Segoe MDL2 fallback glyph and
+            // available to any future text/badge that wants the brand
+            // color of the system. Backgrounds and foregrounds documented
+            // in Resources/FilterIcons/README.md.
+            //
+            // Glyphs are Segoe MDL2 Assets code points, kept as fallback for
+            // when the PNG file isn't present yet — picked for shape
+            // recognizability at 14–16px; tooltip carries the literal system
+            // name so users never depend on glyph reading.
             switch (key)
             {
                 case "agua fria":
-                    return new Palette("#DBEAFE", "#1D4ED8", ""); // Drop
+                    return new Palette("#EEF6FF", "#1565C0", "", "agua_fria.png");
                 case "agua quente":
-                    return new Palette("#FEE2E2", "#DC2626", ""); // Important / heat
+                    return new Palette("#FDEEEE", "#D84343", "", "agua_quente.png");
                 case "esgoto":
-                    return new Palette("#E7E5E4", "#7C2D12", ""); // Down arrow
+                    return new Palette("#EEF8EF", "#2E7D32", "", "esgoto.png");
                 case "pluvial":
-                    return new Palette("#CFFAFE", "#0F766E", ""); // Cloud / rain
+                    return new Palette("#F0F0FF", "#5E60CE", "", "pluvial.png");
                 case "caixas e ralos":
-                    return new Palette("#E2E8F0", "#334155", ""); // Package
+                    return new Palette("#F0F5F7", "#546E7A", "", "caixas_e_ralos.png");
                 case "reservatorio":
-                    return new Palette("#E0E7FF", "#4338CA", ""); // Box
+                    return new Palette("#EAFBFF", "#3949AB", "", "reservatorio.png");
                 case "sted":
-                    return new Palette("#DCFCE7", "#15803D", ""); // Pipe-like
+                    return new Palette("#DCFCE7", "#15803D", "", null);
                 case "piscina":
-                    return new Palette("#E0F2FE", "#0369A1", ""); // Wave
+                    return new Palette("#EDF9FF", "#039BE5", "", "piscina.png");
                 case "irrigacao":
-                    return new Palette("#ECFCCB", "#4D7C0F", ""); // Plant / leaf
+                    return new Palette("#F5FAEA", "#6B8E23", "", "irrigacao.png");
                 case "poco":
-                    return new Palette("#FEF3C7", "#B45309", ""); // Hole
+                    return new Palette("#FFF8E6", "#C88719", "", "poco.png");
                 case "bombas":
-                    return new Palette("#FFEDD5", "#C2410C", ""); // Speedometer
+                    return new Palette("#FFF1E6", "#EF6C00", "", "bombas.png");
                 case "valvula":
-                    return new Palette("#F3E8FF", "#7E22CE", ""); // Settings/gear
+                    return new Palette("#EAF9F7", "#00796B", "", "valvula.png");
                 case "utilitario":
-                    return new Palette("#F3F4F6", "#4B5563", ""); // Settings
+                case "ponto de utilizacao":
+                    return new Palette("#F7F7F7", "#616161", "", "ponto_de_utilizacao.png");
                 case "combate a incendio":
-                    return new Palette("#FEE2E2", "#B91C1C", ""); // Fire
+                    return new Palette("#FCEAEA", "#B71C1C", "", "combate_a_incendio.png");
+                case "tratamento de esgoto":
+                    return new Palette("#F7F1EE", "#6D4C41", "", "tratamento_de_esgoto.png");
                 default:
                     return new Palette(
                         "#EEF2FF",
                         "#4338CA",
-                        FirstLetterGlyph(description));
+                        FirstLetterGlyph(description),
+                        null);
             }
+        }
+
+        private static BitmapImage? LoadIcon(string? fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return null;
+            }
+
+            if (IconCache.TryGetValue(fileName, out BitmapImage? cached))
+            {
+                return cached;
+            }
+
+            BitmapImage? image = null;
+            try
+            {
+                string assemblyLocation = typeof(TagFilterOption).Assembly.Location;
+                string baseDir = Path.GetDirectoryName(assemblyLocation) ?? string.Empty;
+                string fullPath = Path.Combine(baseDir, FilterIconsRelativeFolder, fileName!);
+
+                if (File.Exists(fullPath))
+                {
+                    image = new BitmapImage();
+                    image.BeginInit();
+                    image.CacheOption = BitmapCacheOption.OnLoad;
+                    // 28px chip * 2 covers HiDPI without holding a full-resolution decode.
+                    image.DecodePixelWidth = 56;
+                    image.UriSource = new Uri(fullPath, UriKind.Absolute);
+                    image.EndInit();
+                    image.Freeze();
+                }
+            }
+            catch
+            {
+                // Missing/corrupt PNG falls back to the Segoe MDL2 glyph —
+                // surfacing the failure to the user adds nothing actionable.
+                image = null;
+            }
+
+            IconCache[fileName] = image;
+            return image;
         }
 
         private static string FirstLetterGlyph(string description)

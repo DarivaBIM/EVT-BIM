@@ -232,11 +232,6 @@ namespace DarivaBIM.Plugin.Ui
         {
             _resizeDebounceTimer.Stop();
 
-            // The number of dot-rows depends on the dock width, so a resize
-            // can cross the overflow threshold even when the gallery row
-            // count doesn't change.
-            ScheduleExpandToggleVisibilityRefresh();
-
             int newItemsPerRow = ComputeItemsPerRow();
 
             if (newItemsPerRow == _itemsPerRow)
@@ -624,75 +619,32 @@ namespace DarivaBIM.Plugin.Ui
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-            // Reset expansion when the catalog reloads — otherwise a fresh
-            // tag set could open expanded with a stale "Ver menos" caption.
-            ExpandFiltersToggle.IsChecked = false;
-            ApplyExpandedFiltersState();
-            ScheduleExpandToggleVisibilityRefresh();
+            // Reset section visibility when the catalog reloads. Default
+            // is collapsed so the gallery starts with maximum room; the
+            // user opts into filters by clicking the chevron.
+            FilterSectionToggle.IsChecked = false;
+            ApplyFilterSectionState();
 
             UpdateClearTagsButton();
         }
 
-        private void OnExpandFiltersToggled(object sender, RoutedEventArgs e)
+        private void OnFilterSectionToggled(object sender, RoutedEventArgs e)
         {
-            ApplyExpandedFiltersState();
+            ApplyFilterSectionState();
         }
 
-        private void ApplyExpandedFiltersState()
+        private void ApplyFilterSectionState()
         {
-            bool isExpanded = ExpandFiltersToggle.IsChecked == true;
+            bool isExpanded = FilterSectionToggle.IsChecked == true;
 
-            // 40px holds one row of 32px dots with 8px bottom margin; lifting
-            // the cap to PositiveInfinity lets the WrapPanel grow naturally
-            // when expanded, so the layout system clips/extends in one move.
-            TagFiltersClip.MaxHeight = isExpanded
-                ? double.PositiveInfinity
-                : 40d;
-
-            ExpandFiltersLabel.Text = isExpanded ? "Ver menos" : "Ver mais";
-
-            // ChevronDown (E70D) → ChevronUp (E70E).
-            ExpandFiltersChevron.Text = isExpanded ? "" : "";
-        }
-
-        private void ScheduleExpandToggleVisibilityRefresh()
-        {
-            // The WrapPanel hasn't measured its real desired size yet at the
-            // moment RebuildTagFilters runs — we have to wait for the next
-            // layout pass before we can decide whether to expose "Ver mais".
-            Dispatcher.BeginInvoke(
-                new Action(RefreshExpandToggleVisibility),
-                DispatcherPriority.Loaded);
-        }
-
-        private void RefreshExpandToggleVisibility()
-        {
-            if (_tagFilters.Count == 0)
-            {
-                ExpandFiltersToggle.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            // The clip border caps the host at 40px while collapsed, so
-            // ActualHeight is useless for detecting overflow. Re-measure
-            // the host against the available width with no height cap and
-            // compare its DESIRED height to the cap. This correctly fires
-            // even when the panel is currently collapsed.
-            double availableWidth = TagFiltersClip.ActualWidth > 0
-                ? TagFiltersClip.ActualWidth
-                : double.PositiveInfinity;
-
-            TagFiltersHost.Measure(new Size(availableWidth, double.PositiveInfinity));
-            double naturalHeight = TagFiltersHost.DesiredSize.Height;
-
-            ExpandFiltersToggle.Visibility = naturalHeight > 40d
+            TagFiltersHost.Visibility = isExpanded
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
-            // Re-trigger a layout pass so the host returns to whatever the
-            // visual tree actually wants — measuring with infinity above
-            // would otherwise leave a stale arrangement on the next render.
-            TagFiltersHost.InvalidateMeasure();
+            // ChevronRight (E76C) when collapsed -> ChevronDown (E70D) when
+            // expanded; matches the rotation users expect from disclosure
+            // triangles in tree views and accordion panels.
+            FilterSectionChevron.Text = isExpanded ? "" : "";
         }
 
         private void OnTagFilterChanged(object? sender, PropertyChangedEventArgs e)
@@ -743,6 +695,10 @@ namespace DarivaBIM.Plugin.Ui
                 : Visibility.Collapsed;
         }
 
+        // OR-semantics: a família aparece se casar com QUALQUER uma das
+        // tags marcadas. Sem nenhuma marcada, todas passam (sem filtro).
+        // Antes era AND (todas precisavam casar), o que rapidamente zerava
+        // a galeria quando o usuário marcava 2+ chips.
         private static bool MatchesTags(FamilyItem family, IReadOnlyCollection<string> selectedKeys)
         {
             if (selectedKeys.Count == 0)
@@ -755,33 +711,22 @@ namespace DarivaBIM.Plugin.Ui
                 return false;
             }
 
-            foreach (string requiredKey in selectedKeys)
+            for (int i = 0; i < family.Tags.Count; i++)
             {
-                bool matched = false;
+                FamilyTag tag = family.Tags[i];
 
-                for (int i = 0; i < family.Tags.Count; i++)
+                if (tag == null || string.IsNullOrWhiteSpace(tag.Description))
                 {
-                    FamilyTag tag = family.Tags[i];
-
-                    if (tag == null || string.IsNullOrWhiteSpace(tag.Description))
-                    {
-                        continue;
-                    }
-
-                    if (NormalizeForSearch(tag.Description) == requiredKey)
-                    {
-                        matched = true;
-                        break;
-                    }
+                    continue;
                 }
 
-                if (!matched)
+                if (selectedKeys.Contains(NormalizeForSearch(tag.Description)))
                 {
-                    return false;
+                    return true;
                 }
             }
 
-            return true;
+            return false;
         }
 
         private static bool MatchesFast(

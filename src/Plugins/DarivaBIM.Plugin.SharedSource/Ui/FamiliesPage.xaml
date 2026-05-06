@@ -136,17 +136,19 @@
 
         <!--
             Tag dot: a 28px circular ToggleButton that visually represents
-            one system (água fria, esgoto, pluvial, ...). The colored fill
-            and glyph come from the bound TagFilterOption (its palette
-            mirrors the tag badges drawn on each family card, so a blue
-            dot here means a blue "Água Fria" badge there).
+            one system (água fria, esgoto, pluvial, ...). Selection is
+            communicated by a *fill swap* — neutral gray (UnselectedBackgroundBrush)
+            when off, the category pastel (BackgroundBrush) when on — instead
+            of an extra ring around the chip. Removing that outer ring also
+            fixes the icon-clipping that happened when hover scaled the
+            checked chip past its parent's bounds.
 
             Visual states:
-              · Default — soft pastel fill, no border.
-              · Hover (unchecked) — same fill, gray hairline ring + slight
-                scale-up so the dot feels interactive without a label.
-              · Checked — dark navy ring + a subtle inner glow so selection
-                is unambiguous against any pastel.
+              · Default — neutral gray fill, no ring.
+              · Hover (unchecked) — same fill, hairline gray ring +
+                tiny scale-up so the dot feels interactive without a label.
+              · Checked — fill swaps to the category pastel; no ring needed
+                because the color reveal carries the signal.
 
             Accessibility: the system name is exposed both as ToolTip and
             AutomationProperties.Name so screen readers can announce the
@@ -176,7 +178,7 @@
                             <Ellipse x:Name="DotFill"
                                      Width="28"
                                      Height="28"
-                                     Fill="{Binding BackgroundBrush}" />
+                                     Fill="{Binding UnselectedBackgroundBrush}" />
 
                             <Ellipse x:Name="DotRing"
                                      Width="28"
@@ -184,12 +186,23 @@
                                      Stroke="Transparent"
                                      StrokeThickness="1.5" />
 
-                            <Ellipse x:Name="DotCheckGlow"
-                                     Width="32"
-                                     Height="32"
-                                     Stroke="#0F172A"
-                                     StrokeThickness="1.5"
-                                     Opacity="0" />
+                            <!--
+                                Icon image: visible when TagFilterOption.HasIcon is true
+                                (PNG file present in Resources/FilterIcons). Otherwise
+                                the Segoe MDL2 glyph below is shown as fallback. Sizing
+                                stays inside the 28px ellipse so the chip shape reads
+                                first; the icon adds the system-specific cue.
+                            -->
+                            <Image x:Name="DotIcon"
+                                   Source="{Binding Icon}"
+                                   Width="20"
+                                   Height="20"
+                                   Stretch="Uniform"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   SnapsToDevicePixels="True"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   Visibility="Collapsed" />
 
                             <TextBlock x:Name="DotGlyph"
                                        Text="{Binding Glyph}"
@@ -210,8 +223,13 @@
                             </MultiTrigger>
 
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="DotCheckGlow" Property="Opacity" Value="1" />
+                                <Setter TargetName="DotFill" Property="Fill" Value="{Binding BackgroundBrush}" />
                             </Trigger>
+
+                            <DataTrigger Binding="{Binding HasIcon}" Value="True">
+                                <Setter TargetName="DotIcon" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="DotGlyph" Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -220,22 +238,29 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="RenderTransform">
                         <Setter.Value>
-                            <ScaleTransform ScaleX="1.08" ScaleY="1.08" />
+                            <ScaleTransform ScaleX="1.04" ScaleY="1.04" />
                         </Setter.Value>
                     </Setter>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="ExpandFiltersButtonStyle" TargetType="ToggleButton">
+        <!--
+            Section header toggle for the entire filter panel. Clicking the
+            chevron + "Filtrar por sistema" label expands/collapses the dots
+            area below. Default = collapsed so the gallery reclaims vertical
+            space until the user actively wants to filter.
+        -->
+        <Style x:Key="FilterSectionToggleStyle" TargetType="ToggleButton">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Padding" Value="0,3" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="#475569" />
             <Setter Property="FontSize" Value="10.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
@@ -243,7 +268,7 @@
                                 Padding="{TemplateBinding Padding}"
                                 CornerRadius="8">
                             <ContentPresenter VerticalAlignment="Center"
-                                              HorizontalAlignment="Center"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               RecognizesAccessKey="False" />
                         </Border>
                     </ControlTemplate>
@@ -251,7 +276,6 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F1F5F9" />
                     <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
                 </Trigger>
             </Style.Triggers>
@@ -418,11 +442,12 @@
         <!--
             Filtros por sistema/tag.
 
-            The dot grid is hosted inside a clipped Border whose MaxHeight
-            is bound to the "expanded" toggle. Collapsed = a single row of
-            dots (Tigre's catalog has ~14 systems, which would otherwise
-            consume two-three rows on narrow docks). Users open the full
-            list with the "Ver mais" toggle below.
+            Whole panel collapses behind the FilterSectionToggle in the
+            header — chevron on the left plus "Filtrar por sistema" label.
+            Default = collapsed (cards reclaim space). When the user opens
+            it, the WrapPanel below shows every chip without inner clipping
+            (no row-cap) so the icon scale-on-hover never overflows into
+            cropped neighbors.
         -->
         <Border x:Name="TagFiltersCard"
                 Grid.Row="3"
@@ -431,16 +456,32 @@
                 Margin="0,0,0,12"
                 Visibility="Collapsed">
             <StackPanel>
-                <Grid Margin="0,0,0,6">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0"
-                               Text="Filtrar por sistema"
-                               Style="{StaticResource InfoLabelStyle}"
-                               VerticalAlignment="Center" />
+                    <ToggleButton x:Name="FilterSectionToggle"
+                                  Grid.Column="0"
+                                  Style="{StaticResource FilterSectionToggleStyle}"
+                                  IsChecked="False"
+                                  Checked="OnFilterSectionToggled"
+                                  Unchecked="OnFilterSectionToggled">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- ChevronRight (E76C) when collapsed → ChevronDown (E70D) when expanded. -->
+                            <TextBlock x:Name="FilterSectionChevron"
+                                       Text="&#xE76C;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="10"
+                                       Foreground="#94A3B8"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0" />
+                            <TextBlock Text="Filtrar por sistema"
+                                       Style="{StaticResource InfoLabelStyle}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
 
                     <Button x:Name="ClearTagsButton"
                             Grid.Column="1"
@@ -450,44 +491,25 @@
                             Visibility="Collapsed" />
                 </Grid>
 
-                <Border x:Name="TagFiltersClip"
-                        ClipToBounds="True"
-                        MaxHeight="40">
-                    <ItemsControl x:Name="TagFiltersHost">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <ToggleButton IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                              Style="{StaticResource TagDotStyle}"
-                                              ToolTip="{Binding Description}"
-                                              ToolTipService.InitialShowDelay="200"
-                                              ToolTipService.ShowDuration="8000"
-                                              AutomationProperties.Name="{Binding Description}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </Border>
-
-                <ToggleButton x:Name="ExpandFiltersToggle"
-                              Style="{StaticResource ExpandFiltersButtonStyle}"
-                              Margin="0,4,0,0"
-                              Checked="OnExpandFiltersToggled"
-                              Unchecked="OnExpandFiltersToggled"
+                <ItemsControl x:Name="TagFiltersHost"
+                              Margin="0,10,0,0"
                               Visibility="Collapsed">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="ExpandFiltersLabel" Text="Ver mais" VerticalAlignment="Center" />
-                        <TextBlock x:Name="ExpandFiltersChevron"
-                                   Text="&#xE70D;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="9"
-                                   Margin="6,1,0,0"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-                </ToggleButton>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ToggleButton IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                          Style="{StaticResource TagDotStyle}"
+                                          ToolTip="{Binding Description}"
+                                          ToolTipService.InitialShowDelay="200"
+                                          ToolTipService.ShowDuration="8000"
+                                          AutomationProperties.Name="{Binding Description}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
         </Border>
 
