@@ -126,7 +126,7 @@ declaração `SharedParameterDefinition` muda.
 
 ## Anti-padrões corrigidos pelo refator
 
-A feature `TigreCodes` antes vivia em
+A feature `PipeCodes` (catálogo Tigre) antes vivia em
 `Adapter/Parameters/TigreSharedParameter.cs` com toda a lógica embutida.
 Após esta refatoração, ela virou:
 

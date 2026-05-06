@@ -64,7 +64,7 @@ que substituem esses tipos quando o Core precisa falar com o host.
 Usuário clica botão da Ribbon
     │
     ▼
-Revit instancia a IExternalCommand (ex.: ApplyTigreCodesCommand)
+Revit instancia a IExternalCommand (ex.: ApplyPipeCodesCommand)
     │
     ▼
 Command.Execute → App.Executor.Execute(commandData, ref message, ctx => ...)
@@ -93,13 +93,13 @@ DarivaBimRibbonDefinition (agregador)
 │   └── TigrePanelDefinition.cs
 └── Features/<Tool>/<Tool>Button.cs (botão ao lado da feature)
 
-RibbonButtonDefinition (commandId: RibbonCommandId.WriteTigreCodes)
+RibbonButtonDefinition (commandId: RibbonCommandId.WritePipeCodes)
                   │
                   ▼
        ICommandRegistry (Plugin.Vxxxx)
                   │
                   ▼
-       typeof(ApplyTigreCodesCommand)
+       typeof(ApplyPipeCodesCommand)
 ```
 
 Adicionar uma ferramenta nova significa (ver também
@@ -136,11 +136,11 @@ DarivaBIM.Plugin.V2026/
 │   ├── PresentationServiceRegistration.cs
 │   └── PluginFeatureServiceRegistration.cs   (agrega Feature.AddServices)
 ├── Features/                     (uma pasta por ferramenta)
-│   ├── TigreCodes/
-│   │   ├── TigreCodesButton.cs
-│   │   ├── TigreCodesFeature.cs
-│   │   ├── ApplyTigreCodesCommand.cs
-│   │   └── ApplyTigreCodesTool.cs
+│   ├── PipeCodes/
+│   │   ├── PipeCodesButton.cs
+│   │   ├── PipeCodesFeature.cs
+│   │   ├── ApplyPipeCodesCommand.cs
+│   │   └── ApplyPipeCodesTool.cs
 │   ├── PipeCadMapper/
 │   │   ├── PipeCadMapperButton.cs
 │   │   ├── PipeCadMapperFeature.cs
@@ -149,8 +149,8 @@ DarivaBIM.Plugin.V2026/
 │   │   ├── PipeInsertionHandler.cs
 │   │   ├── PipeConverterDataLoadExternalEvent.cs
 │   │   └── PipeConverterDataLoadHandler.cs
-│   ├── Prolongador/
-│   ├── ParameterEditor/
+│   ├── FloorDrainExtension/
+│   ├── BatchParameterEditor/
 │   └── FamiliesImporter/
 ├── Tools/                        (helpers reutilizáveis entre features)
 │   └── PipeCadMapper/
@@ -162,7 +162,7 @@ Cada `IExternalCommand` faz apenas:
 1. Abre escopo do executor (`App.Executor.Execute`).
 2. Valida `Document` (existe? não-família?).
 3. Resolve dependências do `ctx.Services`.
-4. Delega a execução para a Tool da feature (ex.: `ApplyTigreCodesTool`).
+4. Delega a execução para a Tool da feature (ex.: `ApplyPipeCodesTool`).
 5. Traduz o resultado em `Result.Succeeded/Cancelled/Failed`.
 
 ## 4.1.1. Organização por Feature no Plugin
@@ -250,8 +250,8 @@ DarivaBIM.Revit.Adapters.V2026/
     ├── TigreCodes/
     │   └── SharedParameters/
     ├── PipeCadMapper/
-    ├── Prolongador/
-    ├── ParameterEditor/
+    ├── FloorDrainExtension/
+    ├── BatchParameterEditor/
     └── FamiliesImporter/
 ```
 
@@ -261,7 +261,7 @@ Princípios:
   (`SharedParameterService`, `RevitParameterReader`, `RevitTransactionRunner`,
   `RevitUnitConverter`, `CadCurveSelectionFilter`, `PipeConnectorService` etc.).
 - **Features**: classes que respondem a "como esta ferramenta funciona?"
-  (`TigreCodeApplier`, `PipeCreator`, `ProlongadorCreator`, `RevitFamilyLoadOptions`,
+  (`TigreCodeApplier`, `PipeCreator`, `FloorDrainExtensionCreator`, `RevitFamilyLoadOptions`,
   `Discipline*`).
 
 Detalhes em `src/docs/guides/adapter-anatomy.md` e
@@ -286,7 +286,7 @@ Etiquetas do roteiro: `[INPUT]`, `[SELECTION]`, `[COLLECT]`, `[READ_PARAM]`,
 `[TRANSACTION]`, `[RESULT]`, `[UI]`. Guia completo em
 `src/docs/guides/dynamo-to-plugin-migration.md`; template em
 `src/docs/dynamo-migration/_template.md`; exemplos prontos em
-`src/docs/dynamo-migration/{tigre-codes,pipe-cad-mapper,prolongador}.md`.
+`src/docs/dynamo-migration/{tigre-codes,pipe-cad-mapper,floor-drain-extension}.md`.
 
 ## 5. Multi-versão Revit
 
@@ -354,7 +354,7 @@ Resumo (passo a passo completo em
    - **Específica de uma ferramenta** → `Adapters.V2026/Features/<Nome>/`
      com sufixos `Collector`, `Reader`, `Writer`, `Creator`, `Resolver`,
      `Finder`, `Applier` (exemplos: `Features/TigreCodes/TigreCodeApplier.cs`,
-     `Features/Prolongador/VerticalConnectorFinder.cs`).
+     `Features/FloorDrainExtension/VerticalConnectorFinder.cs`).
 2. Se implementa um contrato de Application (`I*Service`/`I*Repository`/
    `I*Provider`), recebe `Document` (ou `IRevitDocumentContext`) por
    construtor.

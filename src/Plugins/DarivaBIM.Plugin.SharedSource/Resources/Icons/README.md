@@ -26,9 +26,9 @@ permanece reservado para quando a arte for adicionada.
 | ------------------------ | ---------------------------------- | ---------------------------------- |
 | Families Importer Hub    | `families_importer_hub_32.png`     | `families_importer_hub_16.png`     |
 | PipeCADMapper            | `pipe_cad_mapper_32.png`           | `pipe_cad_mapper_16.png`           |
-| Códigos Tigre            | `tigre_codes_32.png`               | `tigre_codes_16.png`               |
-| Prolongador em caixas    | `prolongador_32.png`               | `prolongador_16.png`               |
-| Editor de Parâmetros     | `parameter_editor_32.png`          | `parameter_editor_16.png`          |
+| Codificar Tubos          | `pipe_codes_32.png`                | `pipe_codes_16.png`                |
+| Adicionar Prolongadores  | `floor_drain_extension_32.png`     | `floor_drain_extension_16.png`     |
+| Parâmetros em Lote       | `batch_parameter_editor_32.png`    | `batch_parameter_editor_16.png`    |
 
 ## Cópia para a saída do build
 

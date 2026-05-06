@@ -11,12 +11,12 @@ namespace DarivaBIM.Revit.Abstractions.Ribbon
         CalculatePressure,
         SizePump,
         GenerateReport,
-        WriteTigreCodes,
+        WritePipeCodes,
         OpenSupportMap,
         OpenSettings,
         ShowFamiliesPane,
         OpenPipeConverter,
-        OpenProlongador,
-        OpenParameterEditor,
+        OpenFloorDrainExtension,
+        OpenBatchParameterEditor,
     }
 }

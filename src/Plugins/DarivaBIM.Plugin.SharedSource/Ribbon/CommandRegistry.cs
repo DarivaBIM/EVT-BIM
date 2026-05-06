@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using DarivaBIM.Plugin.Features.BatchParameterEditor;
 using DarivaBIM.Plugin.Features.FamiliesImporter;
-using DarivaBIM.Plugin.Features.ParameterEditor;
+using DarivaBIM.Plugin.Features.FloorDrainExtension;
 using DarivaBIM.Plugin.Features.PipeCadMapper;
-using DarivaBIM.Plugin.Features.Prolongador;
-using DarivaBIM.Plugin.Features.TigreCodes;
+using DarivaBIM.Plugin.Features.PipeCodes;
 using DarivaBIM.Revit.Abstractions.Ribbon;
 
 namespace DarivaBIM.Plugin.Ribbon
@@ -19,11 +19,11 @@ namespace DarivaBIM.Plugin.Ribbon
     {
         private readonly Dictionary<RibbonCommandId, Type> _commands = new Dictionary<RibbonCommandId, Type>
         {
-            { TigreCodesFeature.CommandId,        TigreCodesFeature.CommandType },
+            { PipeCodesFeature.CommandId,         PipeCodesFeature.CommandType },
             { FamiliesImporterFeature.CommandId,  FamiliesImporterFeature.CommandType },
             { PipeCadMapperFeature.CommandId,     PipeCadMapperFeature.CommandType },
-            { ProlongadorFeature.CommandId,       ProlongadorFeature.CommandType },
-            { ParameterEditorFeature.CommandId,   ParameterEditorFeature.CommandType },
+            { FloorDrainExtensionFeature.CommandId, FloorDrainExtensionFeature.CommandType },
+            { BatchParameterEditorFeature.CommandId, BatchParameterEditorFeature.CommandType },
         };
 
         public Type GetCommandType(RibbonCommandId commandId)

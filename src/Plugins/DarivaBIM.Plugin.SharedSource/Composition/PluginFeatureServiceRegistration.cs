@@ -1,8 +1,8 @@
+using DarivaBIM.Plugin.Features.BatchParameterEditor;
 using DarivaBIM.Plugin.Features.FamiliesImporter;
-using DarivaBIM.Plugin.Features.ParameterEditor;
+using DarivaBIM.Plugin.Features.FloorDrainExtension;
 using DarivaBIM.Plugin.Features.PipeCadMapper;
-using DarivaBIM.Plugin.Features.Prolongador;
-using DarivaBIM.Plugin.Features.TigreCodes;
+using DarivaBIM.Plugin.Features.PipeCodes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DarivaBIM.Plugin.Composition
@@ -16,10 +16,10 @@ namespace DarivaBIM.Plugin.Composition
     {
         public static IServiceCollection AddPluginFeatures(this IServiceCollection services)
         {
-            TigreCodesFeature.AddServices(services);
+            PipeCodesFeature.AddServices(services);
             PipeCadMapperFeature.AddServices(services);
-            ProlongadorFeature.AddServices(services);
-            ParameterEditorFeature.AddServices(services);
+            FloorDrainExtensionFeature.AddServices(services);
+            BatchParameterEditorFeature.AddServices(services);
             FamiliesImporterFeature.AddServices(services);
 
             return services;

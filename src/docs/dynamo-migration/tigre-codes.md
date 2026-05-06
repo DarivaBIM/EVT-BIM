@@ -1,4 +1,4 @@
-# Migração Dynamo → Plugin: TigreCodes
+# Migração Dynamo → Plugin: PipeCodes (Códigos Tigre)
 
 ## 1. Objetivo da ferramenta
 
@@ -28,7 +28,7 @@ segmento, tipo e diâmetro de cada tubo.
 |--------------------------------------|--------------------|----------------------------------------------|
 | Quantos tubos foram atualizados      | int                | `Application.DTOs.Tigre.TigreCodeApplyResult.PipesUpdated` |
 | Lista de tubos sem match no catálogo | list[UnmatchedPipe] | `TigreCodeApplyResult.Unmatched`             |
-| Mensagem para o usuário              | TaskDialog          | `ApplyTigreCodesUseCase.FormatReport` + `TaskDialog` em `ApplyTigreCodesTool` |
+| Mensagem para o usuário              | TaskDialog          | `ApplyTigreCodesUseCase.FormatReport` + `TaskDialog` em `ApplyPipeCodesTool` |
 
 ## 5. Etapas do script original
 
@@ -48,16 +48,16 @@ segmento, tipo e diâmetro de cada tubo.
 | 12    | Escrever código (Integer/String) e atualizar contadores     | `[WRITE_PARAM]`     | `Adapter/Features/TigreCodes/TigreCodeWriter`                                  |
 | 13    | Registrar tubos sem match                                   | `[RESULT]`          | `TigreCodeApplier.RegisterNoMatch` + `Application.DTOs.Tigre.UnmatchedPipe`     |
 | 14    | Compor relatório                                            | `[RESULT]`          | `Application.DTOs.Tigre.TigreCodeApplyResult` + `ApplyTigreCodesUseCase.FormatReport` |
-| 15    | Mostrar TaskDialog                                          | `[UI]`              | `Plugin.Features.TigreCodes.ApplyTigreCodesTool.Execute`                        |
+| 15    | Mostrar TaskDialog                                          | `[UI]`              | `Plugin.Features.PipeCodes.ApplyPipeCodesTool.Execute`                          |
 
 ## 6. Arquivos criados
 
 ### Plugin
 
-- `Plugins/DarivaBIM.Plugin.V2026/Features/TigreCodes/TigreCodesButton.cs`
-- `Plugins/DarivaBIM.Plugin.V2026/Features/TigreCodes/TigreCodesFeature.cs`
-- `Plugins/DarivaBIM.Plugin.V2026/Features/TigreCodes/ApplyTigreCodesCommand.cs`
-- `Plugins/DarivaBIM.Plugin.V2026/Features/TigreCodes/ApplyTigreCodesTool.cs`
+- `Plugins/DarivaBIM.Plugin.V2026/Features/PipeCodes/PipeCodesButton.cs`
+- `Plugins/DarivaBIM.Plugin.V2026/Features/PipeCodes/PipeCodesFeature.cs`
+- `Plugins/DarivaBIM.Plugin.V2026/Features/PipeCodes/ApplyPipeCodesCommand.cs`
+- `Plugins/DarivaBIM.Plugin.V2026/Features/PipeCodes/ApplyPipeCodesTool.cs`
 
 ### Application
 
@@ -94,9 +94,9 @@ segmento, tipo e diâmetro de cada tubo.
 ## 7. Fluxo final
 
 ```
-RibbonButton "Códigos Tigre"
-   → ApplyTigreCodesCommand (Plugin Feature, casca fina)
-   → ApplyTigreCodesTool (Plugin Feature, resolvido via DI)
+RibbonButton "Codificar Tubos"
+   → ApplyPipeCodesCommand (Plugin Feature, casca fina)
+   → ApplyPipeCodesTool (Plugin Feature, resolvido via DI)
        → ApplyTigreCodesUseCase (Application)
            → TigreCodeApplier (Adapter Feature, implementa ITigreCodeApplyService)
                → SharedParameterService.Ensure (Common)

@@ -44,10 +44,11 @@ Rebrand parcial, com a seguinte fronteira:
 - Classes `DarivaBimRibbonDefinition` e `TigrePanelDefinition` mantêm os
   nomes (impacto técnico de renomear é desproporcional ao ganho de
   cosmética).
-- A feature `TigreCodes` e o parâmetro contratual `Tigre: Código`
-  permanecem com esses nomes — são específicos do domínio Tigre, e não
-  bate com a marca EVT-BIM (Tigre é a empresa cliente; EVT-BIM é o nome
-  do entregável).
+- A camada Plugin da feature foi posteriormente renomeada para `PipeCodes`
+  (botão genérico que pode receber outros catálogos no V2). O catálogo
+  específico, o use case `ApplyTigreCodesUseCase`, o adapter
+  `TigreCodeApplier` e o parâmetro contratual `Tigre: Código` permanecem
+  com nome Tigre — são específicos desse domínio.
 
 **Vira EVT-BIM (identidade externa):**
 

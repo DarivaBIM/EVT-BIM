@@ -24,7 +24,7 @@ testar partes em isolamento.
      `RevitAdapterServiceRegistration`, `PresentationServiceRegistration`).
    - `Commands/` com `IExternalCommand` em forma de **casca fina**
      (validação + resolução de DI + delegação para `Tools/`).
-   - `Tools/` com a glue por ferramenta (ex.: `ApplyTigreCodesTool`,
+   - `Tools/` com a glue por ferramenta (ex.: `ApplyPipeCodesTool`,
      `PipeCadMapper/PipeConversionConfigFactory`,
      `PipeCadMapper/PipeInsertionStatusFormatter`,
      `PipeCadMapper/RevitElementIdConversions`).
@@ -68,7 +68,7 @@ testar partes em isolamento.
 
 ## Pendências reconhecidas
 
-- `ParameterEditorViewModel` ainda usa `StorageType` (RevitAPI) e o enum
+- `BatchParameterEditorViewModel` ainda usa `StorageType` (RevitAPI) e o enum
   `Discipline` (Adapter); migrá-lo para `Presentation.Wpf` exige extrair
   esses tipos para um espaço neutro. Trabalho da próxima leva.
 - `PipeCreator` continua sendo uma fachada estática com transação. A

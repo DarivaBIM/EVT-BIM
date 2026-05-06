@@ -30,7 +30,7 @@ qual `ExternalEvent.cs`.
    - `<Nome>Button.cs` — `RibbonButtonDefinition`.
    - `<Nome>Command.cs` — `IExternalCommand` (casca fina).
    - `<Nome>Tool.cs` — orquestração Adapter↔UseCase quando faz sentido (ex.:
-     `ApplyTigreCodesTool`).
+     `ApplyPipeCodesTool`).
    - `<Nome>ExternalEvent.cs` / `<Nome>Handler.cs` — `ExternalEvent` e seu
      `IExternalEventHandler` quando a ferramenta tem ciclo modeless.
    - `<Nome>Feature.cs` — manifesto que expõe `CommandId`, `Button`,
@@ -82,7 +82,7 @@ qual `ExternalEvent.cs`.
   churn em arquivos consumidos por handlers já no novo lugar.
 - `Ui/` ainda hospeda Views/ViewModels que poderiam ser repartidos entre
   `Presentation.Wpf` e as features. ADR-0010 já trata da pendência de mover
-  o `ParameterEditorViewModel` (que vaza `StorageType`/`Discipline`) para
+  o `BatchParameterEditorViewModel` (que vaza `StorageType`/`Discipline`) para
   Presentation.Wpf.
 
 ## Referências

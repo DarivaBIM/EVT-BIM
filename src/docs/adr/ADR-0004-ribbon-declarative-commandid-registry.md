@@ -12,7 +12,7 @@ a ribbon por licença/cliente.
 
 ## Decisão
 1. Definir um **enum estável** `RibbonCommandId` em `Revit.Abstractions`
-   (`ImportFamilies`, `CalculatePressure`, `WriteTigreCodes`, etc.). Esse enum
+   (`ImportFamilies`, `CalculatePressure`, `WritePipeCodes`, etc.). Esse enum
    nunca muda nome para um id já existente — só ganha novos valores.
 2. Cada plugin de versão fornece um `CommandRegistry : ICommandRegistry` que
    mapeia `RibbonCommandId → Type` (a classe `IExternalCommand` daquela

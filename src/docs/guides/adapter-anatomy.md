@@ -54,7 +54,7 @@ específico dela. As classes seguem a convenção:
 | `Collector`          | Faz `FilteredElementCollector` com a categoria/tipo certos.    |
 | `Reader`             | Lê dados específicos do projeto (descrição, segmento etc.).    |
 | `Writer`             | Escreve um valor específico em um parâmetro.                   |
-| `Creator`            | Cria elementos novos (tubo, prolongador, placeholder).         |
+| `Creator`            | Cria elementos novos (tubo, extension, placeholder).           |
 | `Applier`            | Orquestrador da feature (implementa `I<Nome>Service`).         |
 | `Resolver`           | Resolve uma escolha do projeto (PipeType, Level, SystemType).  |
 | `Finder`             | Encontra um elemento específico (ex.: conector vertical).      |
@@ -76,15 +76,15 @@ Features/
 │   ├── PipeConversionConfig.cs
 │   ├── PipePlaceholderCreator.cs
 │   └── PipePlaceholderConverter.cs
-├── Prolongador/
-│   ├── ProlongadorCreator.cs
-│   ├── ProlongadorResult.cs
+├── FloorDrainExtension/
+│   ├── FloorDrainExtensionCreator.cs
+│   ├── FloorDrainExtensionResult.cs
 │   ├── VerticalConnectorFinder.cs
-│   ├── ProlongadorPipeTypeResolver.cs
-│   ├── ProlongadorSystemTypeResolver.cs
-│   ├── ProlongadorLevelResolver.cs
-│   └── ProlongadorPipeConnector.cs
-├── ParameterEditor/
+│   ├── FloorDrainExtensionPipeTypeResolver.cs
+│   ├── FloorDrainExtensionSystemTypeResolver.cs
+│   ├── FloorDrainExtensionLevelResolver.cs
+│   └── FloorDrainExtensionPipeConnector.cs
+├── BatchParameterEditor/
 │   └── DisciplineFilters.cs
 └── FamiliesImporter/
     └── RevitFamilyLoadOptions.cs

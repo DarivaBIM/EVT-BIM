@@ -40,7 +40,7 @@ Organizar `DarivaBIM.Revit.Adapters.V2026` em duas grandes pastas:
 
 2. **`Features/<Nome>/`** — implementação Revit específica de cada
    ferramenta:
-   - `TigreCodes/`, `PipeCadMapper/`, `Prolongador/`, `ParameterEditor/`,
+   - `TigreCodes/`, `PipeCadMapper/`, `FloorDrainExtension/`, `BatchParameterEditor/`,
      `FamiliesImporter/`.
    - Sufixos canônicos por papel: `Collector`, `Reader`, `Writer`,
      `Creator`, `Applier`, `Resolver`, `Finder`.

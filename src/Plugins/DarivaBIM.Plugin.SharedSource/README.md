@@ -46,7 +46,7 @@ Princípio (ADR-0015 + ADR-0008):
 Use namespace **neutro** (sem `V2025`/`V2026`):
 
 ```csharp
-namespace DarivaBIM.Plugin.Features.TigreCodes
+namespace DarivaBIM.Plugin.Features.PipeCodes
 namespace DarivaBIM.Plugin.Ribbon
 namespace DarivaBIM.Plugin.Ui
 ```

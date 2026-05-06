@@ -40,7 +40,7 @@ Use o nome da responsabilidade — nunca `Utils`, `Helpers`, `Manager`,
   conforme o papel.
 - ExternalEvent + Handler par (`PipeInsertionExternalEvent`,
   `PipeInsertionHandler`).
-- Comandos Revit: terminam com `Command` (`ApplyTigreCodesCommand`).
+- Comandos Revit: terminam com `Command` (`ApplyPipeCodesCommand`).
 - Definições de ribbon: terminam com `Definition`.
 - Registros: terminam com `Registry`.
 

@@ -14,8 +14,8 @@ namespace DarivaBIM.Revit.Hosting.Commands
     /// commands derive from this and inherit a working <c>Execute</c>:
     /// <code>
     /// [Transaction(TransactionMode.Manual)]
-    /// public sealed class ApplyTigreCodesCommand
-    ///     : RevitCommandBase&lt;ApplyTigreCodesTool&gt; { }
+    /// public sealed class ApplyPipeCodesCommand
+    ///     : RevitCommandBase&lt;ApplyPipeCodesTool&gt; { }
     /// </code>
     /// </summary>
     public abstract class RevitCommandBase<TTool> : IExternalCommand
