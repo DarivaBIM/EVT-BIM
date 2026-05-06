@@ -118,14 +118,8 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                     }
                 }
 
-                if (File.Exists(cachedFilePath))
-                {
-                    File.Delete(cachedFilePath);
-                }
-
-                File.Move(tempFilePath, cachedFilePath);
-
-                return cachedFilePath;
+                return await ReplaceCachedFileAsync(tempFilePath, cachedFilePath, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch
             {
@@ -142,6 +136,51 @@ namespace DarivaBIM.Infrastructure.Api.Clients
 
                 throw;
             }
+        }
+
+        // Atomically swap the freshly-downloaded temp file into the canonical
+        // cache path. The cache file may be transiently locked by antivirus
+        // post-write scanning or by Revit holding the previously-loaded .rfa
+        // open in the current session — both surface as IOException. We retry
+        // a handful of times, then fall back to a sibling unique path so the
+        // import can proceed instead of the user having to close the panel
+        // and try again.
+        private static async Task<string> ReplaceCachedFileAsync(
+            string tempFilePath,
+            string cachedFilePath,
+            CancellationToken cancellationToken)
+        {
+            const int maxAttempts = 5;
+
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                try
+                {
+                    if (File.Exists(cachedFilePath))
+                    {
+                        File.Delete(cachedFilePath);
+                    }
+
+                    File.Move(tempFilePath, cachedFilePath);
+                    return cachedFilePath;
+                }
+                catch (Exception ex) when (
+                    (ex is IOException || ex is UnauthorizedAccessException)
+                    && attempt < maxAttempts - 1)
+                {
+                    int delayMs = 120 * (attempt + 1);
+                    await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            string fallbackPath = Path.Combine(
+                Path.GetDirectoryName(cachedFilePath)!,
+                Path.GetFileNameWithoutExtension(cachedFilePath)
+                    + "_" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff")
+                    + Path.GetExtension(cachedFilePath));
+
+            File.Move(tempFilePath, fallbackPath);
+            return fallbackPath;
         }
 
         private static void HealLegacyFileIfNeeded(string legacyPathWithoutExtension, string correctRfaPath)

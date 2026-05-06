@@ -47,6 +47,7 @@ namespace DarivaBIM.Plugin.Ui
         private CancellationTokenSource? _currentDownloadCts;
         private bool _hasLoaded;
         private bool _lastLoadFailed;
+        private bool _suppressDownloadProgress;
         private int _itemsPerRow = 1;
 
         public FamiliesPage()
@@ -157,10 +158,21 @@ namespace DarivaBIM.Plugin.Ui
             }
             catch (OperationCanceledException)
             {
+                SetBusyState(false);
+                HideDownloadOverlay();
+                ReleaseDownloadCts(cts);
                 return;
             }
             catch (Exception ex)
             {
+                // Hide the overlay BEFORE surfacing the error dialog —
+                // otherwise the dialog stacks on top of a "stuck" progress
+                // bar and the panel looks frozen until the user dismisses
+                // it. Also release busy state so the search box re-enables.
+                SetBusyState(false);
+                HideDownloadOverlay();
+                ReleaseDownloadCts(cts);
+
                 TaskDialog.Show(
                     "FamiliesImporterHub",
                     "Não foi possível baixar o arquivo da família.\n\n" +
@@ -169,18 +181,19 @@ namespace DarivaBIM.Plugin.Ui
                     $"Erro: {ex.Message}");
                 return;
             }
-            finally
-            {
-                SetBusyState(false);
-                HideDownloadOverlay();
 
-                if (ReferenceEquals(_currentDownloadCts, cts))
-                {
-                    _currentDownloadCts = null;
-                }
+            // Snap the bar to 100% and show a brief "concluído" state so the
+            // user sees a clean completion before the overlay closes. Without
+            // this, the bar can stop a hair short of the end (last chunk
+            // smaller than buffer, or the last Progress<T> report still in
+            // flight on the dispatcher queue) and the overlay vanishes
+            // mid-frame, which reads as "it froze and crashed".
+            ShowDownloadComplete();
+            await Task.Delay(220);
 
-                cts.Dispose();
-            }
+            SetBusyState(false);
+            HideDownloadOverlay();
+            ReleaseDownloadCts(cts);
 
             try
             {
@@ -192,6 +205,16 @@ namespace DarivaBIM.Plugin.Ui
                     "FamiliesImporterHub",
                     $"Não foi possível agendar a importação da família.\n\n{ex.Message}");
             }
+        }
+
+        private void ReleaseDownloadCts(CancellationTokenSource cts)
+        {
+            if (ReferenceEquals(_currentDownloadCts, cts))
+            {
+                _currentDownloadCts = null;
+            }
+
+            cts.Dispose();
         }
 
         private void OnGallerySizeChanged(object sender, SizeChangedEventArgs e)
@@ -208,6 +231,11 @@ namespace DarivaBIM.Plugin.Ui
         private void OnResizeDebounceTimerTick(object? sender, EventArgs e)
         {
             _resizeDebounceTimer.Stop();
+
+            // The number of dot-rows depends on the dock width, so a resize
+            // can cross the overflow threshold even when the gallery row
+            // count doesn't change.
+            ScheduleExpandToggleVisibilityRefresh();
 
             int newItemsPerRow = ComputeItemsPerRow();
 
@@ -291,6 +319,7 @@ namespace DarivaBIM.Plugin.Ui
 
         private void ShowDownloadOverlay(string familyName)
         {
+            _suppressDownloadProgress = false;
             DownloadingFamilyName.Text = familyName ?? string.Empty;
             DownloadProgressBar.IsIndeterminate = true;
             DownloadProgressBar.Value = 0d;
@@ -304,8 +333,26 @@ namespace DarivaBIM.Plugin.Ui
             DownloadOverlay.Visibility = Visibility.Collapsed;
         }
 
+        private void ShowDownloadComplete()
+        {
+            // Latch out late Progress<T> reports — Progress<T> dispatches via
+            // SyncContext.Post, so the last few byte-count updates may still
+            // be queued behind us when the download finishes. Without this
+            // flag they would race in and overwrite the "Concluído!" text.
+            _suppressDownloadProgress = true;
+            DownloadProgressBar.IsIndeterminate = false;
+            DownloadProgressBar.Value = DownloadProgressBar.Maximum;
+            DownloadProgressLabel.Text = "Concluído!";
+            CancelDownloadButton.IsEnabled = false;
+        }
+
         private void OnDownloadProgress(DownloadProgress progress)
         {
+            if (_suppressDownloadProgress)
+            {
+                return;
+            }
+
             if (progress.Fraction is double fraction)
             {
                 DownloadProgressBar.IsIndeterminate = false;
@@ -577,7 +624,75 @@ namespace DarivaBIM.Plugin.Ui
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
+            // Reset expansion when the catalog reloads — otherwise a fresh
+            // tag set could open expanded with a stale "Ver menos" caption.
+            ExpandFiltersToggle.IsChecked = false;
+            ApplyExpandedFiltersState();
+            ScheduleExpandToggleVisibilityRefresh();
+
             UpdateClearTagsButton();
+        }
+
+        private void OnExpandFiltersToggled(object sender, RoutedEventArgs e)
+        {
+            ApplyExpandedFiltersState();
+        }
+
+        private void ApplyExpandedFiltersState()
+        {
+            bool isExpanded = ExpandFiltersToggle.IsChecked == true;
+
+            // 40px holds one row of 32px dots with 8px bottom margin; lifting
+            // the cap to PositiveInfinity lets the WrapPanel grow naturally
+            // when expanded, so the layout system clips/extends in one move.
+            TagFiltersClip.MaxHeight = isExpanded
+                ? double.PositiveInfinity
+                : 40d;
+
+            ExpandFiltersLabel.Text = isExpanded ? "Ver menos" : "Ver mais";
+
+            // ChevronDown (E70D) → ChevronUp (E70E).
+            ExpandFiltersChevron.Text = isExpanded ? "" : "";
+        }
+
+        private void ScheduleExpandToggleVisibilityRefresh()
+        {
+            // The WrapPanel hasn't measured its real desired size yet at the
+            // moment RebuildTagFilters runs — we have to wait for the next
+            // layout pass before we can decide whether to expose "Ver mais".
+            Dispatcher.BeginInvoke(
+                new Action(RefreshExpandToggleVisibility),
+                DispatcherPriority.Loaded);
+        }
+
+        private void RefreshExpandToggleVisibility()
+        {
+            if (_tagFilters.Count == 0)
+            {
+                ExpandFiltersToggle.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // The clip border caps the host at 40px while collapsed, so
+            // ActualHeight is useless for detecting overflow. Re-measure
+            // the host against the available width with no height cap and
+            // compare its DESIRED height to the cap. This correctly fires
+            // even when the panel is currently collapsed.
+            double availableWidth = TagFiltersClip.ActualWidth > 0
+                ? TagFiltersClip.ActualWidth
+                : double.PositiveInfinity;
+
+            TagFiltersHost.Measure(new Size(availableWidth, double.PositiveInfinity));
+            double naturalHeight = TagFiltersHost.DesiredSize.Height;
+
+            ExpandFiltersToggle.Visibility = naturalHeight > 40d
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            // Re-trigger a layout pass so the host returns to whatever the
+            // visual tree actually wants — measuring with infinity above
+            // would otherwise leave a stale arrangement on the next render.
+            TagFiltersHost.InvalidateMeasure();
         }
 
         private void OnTagFilterChanged(object? sender, PropertyChangedEventArgs e)
