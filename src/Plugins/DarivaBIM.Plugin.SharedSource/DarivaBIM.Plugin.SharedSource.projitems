@@ -15,6 +15,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)**\*.cs" Exclude="$(MSBuildThisFileDirectory)**\bin\**;$(MSBuildThisFileDirectory)**\obj\**" />
     <Page Include="$(MSBuildThisFileDirectory)Ui\**\*.xaml" />
+    <Page Include="$(MSBuildThisFileDirectory)Themes\**\*.xaml" />
   </ItemGroup>
   <!--
     Icons must be copied to "Ribbon\Resources\Icons\" in the output folder —

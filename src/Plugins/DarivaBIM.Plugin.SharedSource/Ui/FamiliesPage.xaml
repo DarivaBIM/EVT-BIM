@@ -4,18 +4,30 @@
       xmlns:ui="clr-namespace:DarivaBIM.Plugin.Ui"
       Title="FamiliesPage"
       Loaded="OnPageLoaded"
-      Background="#F4F7FB"
+      Background="{DynamicResource Paper}"
       UseLayoutRounding="True"
       SnapsToDevicePixels="True">
 
     <Page.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/DarivaTokens.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="SoftBorderBrush" Color="#D8E0EA" />
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#64748B" />
-        <SolidColorBrush x:Key="SearchIconBrush" Color="#94A3B8" />
+            <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
+        <!--
+            Brushes legados redirecionados aos novos tokens. Mantidos por
+            ainda serem referenciados por estilos da galeria/overlay que
+            sobreviveram ao redesign (DownloadOverlay, OverlayButtonStyle,
+            ClearTagsButtonStyle, etc.). Reapontar aqui é mais barato do
+            que renomear todas as referências espalhadas pelo XAML.
+        -->
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource SurfaceColor}" />
+        <SolidColorBrush x:Key="SoftBorderBrush" Color="{StaticResource LineColor}" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource InkColor}" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource InkSoftColor}" />
+        <SolidColorBrush x:Key="SearchIconBrush" Color="{StaticResource InkFaintColor}" />
 
         <Style x:Key="SectionCardStyle" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
@@ -163,10 +175,10 @@
             filter; the glyph is decorative.
         -->
         <Style x:Key="TagDotStyle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="32" />
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="Margin" Value="0,0,4,4" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -183,28 +195,40 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Grid SnapsToDevicePixels="True">
-                            <Ellipse x:Name="DotFill"
-                                     Width="28"
-                                     Height="28"
-                                     Fill="{Binding BackgroundBrush}" />
-
-                            <Ellipse x:Name="DotRing"
-                                     Width="28"
-                                     Height="28"
-                                     Stroke="Transparent"
-                                     StrokeThickness="1.5" />
-
                             <!--
-                                Icon image: visible when TagFilterOption.HasIcon is true
-                                (PNG file present in Resources/FilterIcons). Otherwise
-                                the Segoe MDL2 glyph below is shown as fallback. Sizing
-                                stays inside the 28px ellipse so the chip shape reads
-                                first; the icon adds the system-specific cue.
+                                Estados:
+                                  · Inativo: bolinha Surface (branca) + borda
+                                    hairline. Ícone do sistema sempre visível.
+                                  · Hover (inativo): borda escurece para InkFaint.
+                                  · Ativo: bolinha colorida no pastel do sistema,
+                                    borda 2px na cor de marca, e um anel externo
+                                    (DotGlow) translúcido na cor de marca que
+                                    estende o feedback além da borda — emulando
+                                    o "halo" da spec, sem usar DropShadow (que
+                                    seria mais caro de animar).
+
+                                A geometria: a bolinha principal mede 40 e o
+                                glow externo 48 (= Width do ToggleButton),
+                                então a margem entre eles é 4px de cada lado.
+                                Ícone 26px dá respiro generoso pra acomodar
+                                os PNGs sem espremer.
                             -->
+                            <Ellipse x:Name="DotGlow"
+                                     Width="48"
+                                     Height="48"
+                                     Fill="Transparent" />
+
+                            <Ellipse x:Name="DotFill"
+                                     Width="40"
+                                     Height="40"
+                                     Fill="{DynamicResource Surface}"
+                                     Stroke="{DynamicResource Line}"
+                                     StrokeThickness="1" />
+
                             <Image x:Name="DotIcon"
                                    Source="{Binding Icon}"
-                                   Width="20"
-                                   Height="20"
+                                   Width="26"
+                                   Height="26"
                                    Stretch="Uniform"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
@@ -215,7 +239,7 @@
                             <TextBlock x:Name="DotGlyph"
                                        Text="{Binding Glyph}"
                                        FontFamily="Segoe MDL2 Assets"
-                                       FontSize="13"
+                                       FontSize="16"
                                        FontWeight="SemiBold"
                                        Foreground="{Binding ForegroundBrush}"
                                        HorizontalAlignment="Center"
@@ -227,12 +251,15 @@
                                     <Condition Property="IsMouseOver" Value="True" />
                                     <Condition Property="IsChecked" Value="False" />
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="DotRing" Property="Stroke" Value="#94A3B8" />
+                                <Setter TargetName="DotFill" Property="Stroke" Value="{DynamicResource InkFaint}" />
                             </MultiTrigger>
 
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="DotRing" Property="Stroke" Value="{Binding ForegroundBrush}" />
-                                <Setter TargetName="DotRing" Property="StrokeThickness" Value="2" />
+                                <Setter TargetName="DotGlow" Property="Fill" Value="{Binding BackgroundBrush}" />
+                                <Setter TargetName="DotGlow" Property="Opacity" Value="0.55" />
+                                <Setter TargetName="DotFill" Property="Fill" Value="{Binding BackgroundBrush}" />
+                                <Setter TargetName="DotFill" Property="Stroke" Value="{Binding ForegroundBrush}" />
+                                <Setter TargetName="DotFill" Property="StrokeThickness" Value="2" />
                             </Trigger>
 
                             <DataTrigger Binding="{Binding HasIcon}" Value="True">
@@ -265,7 +292,7 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0,3" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="#475569" />
+            <Setter Property="Foreground" Value="{DynamicResource InkSoft}" />
             <Setter Property="FontSize" Value="10.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -285,7 +312,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -295,7 +322,7 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="6,0" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="#64748B" />
+            <Setter Property="Foreground" Value="{DynamicResource InkSoft}" />
             <Setter Property="FontSize" Value="10.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -312,7 +339,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Foreground" Value="#0F172A" />
+                    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -331,203 +358,785 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
 
+        <!--
+            Skeleton card. Espelha as proporções do FamilyCardStyle para que
+            o load não dê "salto" visual quando o ListBox real toma o lugar
+            do skeleton: largura 168, thumb 150, body com 2 linhas de texto
+            e bolinhas de sistema.
+        -->
         <DataTemplate x:Key="SkeletonCardTemplate">
-            <Border Width="156"
-                    Background="White"
-                    BorderBrush="{StaticResource SoftBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="18"
-                    Padding="9"
-                    Margin="6">
+            <Border Width="168"
+                    Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource Line}"
+                    BorderThickness="0.5"
+                    CornerRadius="10"
+                    Margin="5"
+                    ClipToBounds="True">
                 <StackPanel>
+                    <!-- Thumb -->
                     <Border Style="{StaticResource SkeletonShape}"
-                            Width="92"
-                            Height="92"
-                            CornerRadius="12"
-                            HorizontalAlignment="Center" />
+                            Height="150"
+                            CornerRadius="10,10,0,0" />
 
-                    <Border Style="{StaticResource SkeletonShape}"
-                            Height="9"
-                            Width="120"
-                            HorizontalAlignment="Left"
-                            Margin="0,10,0,4" />
-
-                    <Border Style="{StaticResource SkeletonShape}"
-                            Height="9"
-                            Width="84"
-                            HorizontalAlignment="Left"
-                            Margin="0,0,0,10" />
-
-                    <StackPanel Orientation="Horizontal">
+                    <!-- Body -->
+                    <StackPanel Margin="10,8,10,10">
                         <Border Style="{StaticResource SkeletonShape}"
-                                Height="14"
-                                Width="40"
-                                CornerRadius="9"
-                                Margin="0,0,4,0" />
+                                Height="11"
+                                Width="120"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,5" />
+
                         <Border Style="{StaticResource SkeletonShape}"
-                                Height="14"
-                                Width="55"
-                                CornerRadius="9" />
+                                Height="9"
+                                Width="80"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,10" />
+
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource SkeletonShape}"
+                                    Height="20"
+                                    Width="20"
+                                    CornerRadius="10"
+                                    Margin="0,0,4,0" />
+                            <Border Style="{StaticResource SkeletonShape}"
+                                    Height="20"
+                                    Width="20"
+                                    CornerRadius="10"
+                                    Margin="0,0,4,0" />
+                            <Border Style="{StaticResource SkeletonShape}"
+                                    Height="20"
+                                    Width="20"
+                                    CornerRadius="10" />
+                        </StackPanel>
                     </StackPanel>
-
-                    <Border Style="{StaticResource SkeletonShape}"
-                            Height="8"
-                            Width="84"
-                            HorizontalAlignment="Left"
-                            Margin="0,10,0,0" />
                 </StackPanel>
             </Border>
         </DataTemplate>
+
+        <!--
+            ===== Modo lista =====
+            Template alternativo para a galeria. Cada "linha" é um card único
+            full-width com layout horizontal (thumb 64×64 à esquerda, texto
+            no meio, coração à direita). Usado quando o usuário troca o
+            toggle do toolbar para o ícone de lista; em código a página
+            faz GalleryList.ItemTemplate = FindResource("GalleryRowListTemplate")
+            e força _itemsPerRow=1 para que cada FamilyRow tenha exatamente
+            um card.
+        -->
+        <DataTemplate x:Key="GalleryRowListTemplate">
+            <ItemsControl ItemsSource="{Binding Cards}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Vertical" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,0,8"
+                                Style="{StaticResource FamilyCardStyle}"
+                                Tag="{Binding}"
+                                MouseLeftButtonUp="OnFamilyCardClicked">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="76" />
+                                    <ColumnDefinition Width="*" />
+                                    <!-- Heart com largura fixa pra que o body
+                                         (col 1) tenha espaço determinístico
+                                         para os badges de sistema; com Auto
+                                         a col 2 podia disputar pixel com o
+                                         body em painéis estreitos. -->
+                                    <ColumnDefinition Width="34" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Thumb: 76×76, raio só nos cantos esquerdos. -->
+                                <Border Grid.Column="0"
+                                        Background="{DynamicResource ThumbBg}"
+                                        CornerRadius="10,0,0,10">
+                                    <Image ui:CachedImage.SourceUrl="{Binding UrlImg}"
+                                           Width="64"
+                                           Height="64"
+                                           Stretch="Uniform"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           SnapsToDevicePixels="True"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                </Border>
+
+                                <!-- Body: nome (top), data, sistemas (bottom).
+                                     Margin direito 0 — col 2 (heart) já dá
+                                     o respiro visual. -->
+                                <StackPanel Grid.Column="1"
+                                            Margin="12,8,0,8"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontFamily="{DynamicResource BodyFont}"
+                                               FontSize="12.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Ink}"
+                                               LineHeight="15"
+                                               LineStackingStrategy="BlockLineHeight"
+                                               TextWrapping="NoWrap"
+                                               TextTrimming="CharacterEllipsis" />
+
+                                    <TextBlock Text="{Binding UpdatedAtLabel, StringFormat='Atualizado em {0}'}"
+                                               FontFamily="{DynamicResource BodyFont}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource InkSoft}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Margin="0,3,0,6" />
+
+                                    <!-- WrapPanel para os badges quebrarem para
+                                         a próxima linha se a col 1 ficar
+                                         estreita demais (em vez de extrapolar
+                                         a coluna e ser cortado pelo ClipToBounds
+                                         do FamilyCardStyle). -->
+                                    <ItemsControl ItemsSource="{Binding SistemaBadges}"
+                                                  HorizontalAlignment="Left">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="18"
+                                                        Height="18"
+                                                        Background="{Binding BackgroundBrush}"
+                                                        BorderBrush="{Binding BorderBrush}"
+                                                        BorderThickness="0.5"
+                                                        CornerRadius="9"
+                                                        Margin="0,0,3,0"
+                                                        ToolTip="{Binding Label}"
+                                                        ToolTipService.InitialShowDelay="200"
+                                                        AutomationProperties.Name="{Binding Label}">
+                                                    <Image Source="{Binding Icon}"
+                                                           Width="11"
+                                                           Height="11"
+                                                           Stretch="Uniform"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           SnapsToDevicePixels="True"
+                                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!-- Heart: top-right. Mesma lógica do grid card. -->
+                                <ToggleButton Grid.Column="2"
+                                              VerticalAlignment="Top"
+                                              Margin="0,8,8,0"
+                                              Width="26"
+                                              Height="26"
+                                              Cursor="Hand"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              IsChecked="{Binding IsFavorita, Mode=OneWay}"
+                                              Click="OnFavoriteHeartClick"
+                                              ToolTip="Favoritar"
+                                              AutomationProperties.Name="Favoritar">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border CornerRadius="13"
+                                                    Background="{TemplateBinding Background}">
+                                                <TextBlock x:Name="HeartIcon"
+                                                           Text="♡"
+                                                           FontSize="14"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource InkSoft}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="HeartIcon" Property="Text" Value="♥" />
+                                                    <Setter TargetName="HeartIcon" Property="Foreground" Value="{DynamicResource Heart}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DataTemplate>
+
+        <!--
+            ===== Rail =====
+            Aba do rail à esquerda. Selecionada: fundo `RailActive`, ícone Ink.
+            Inativa: transparente, ícone InkSoft. Hover (inativa): LineSoft.
+            36×36 com raio 9 — tamanho-alvo confortável para click sem
+            ocupar muito espaço vertical num painel estreito.
+        -->
+        <Style x:Key="RailTabStyle" TargetType="RadioButton">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource InkSoft}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bd"
+                                CornerRadius="9"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource LineSoft}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource RailActive}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+                                <Setter TargetName="bd" Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect ShadowDepth="0" BlurRadius="6" Opacity="0.06" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            Botão só-ícone do rail (engrenagem). Mesmo template do
+            RailTabStyle sem o trigger de IsChecked, para que o hover
+            funcione mas o estado "ativo" só pertença às abas.
+        -->
+        <Style x:Key="RailIconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource InkSoft}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                CornerRadius="9"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource LineSoft}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            ===== Toolbar =====
+            Botão de sort do toolbar. Hover deixa o fundo `LineSoft` e
+            promove o texto para `Ink` para feedback claro.
+        -->
+        <Style x:Key="ToolbarSortButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource InkSoft}" />
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFont}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                CornerRadius="6"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource LineSoft}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Item do popup de sort. Estende o ToolbarSortButtonStyle para
+             ficar largura total e alinhar à esquerda. -->
+        <Style x:Key="SortMenuItemStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource ToolbarSortButtonStyle}">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="MinWidth" Value="140" />
+            <Setter Property="Padding" Value="10,6" />
+        </Style>
+
+        <!--
+            Toggle de modo de exibição (grade/lista). RadioButton agrupado
+            em "ViewMode". Quando checked, ganha fundo Paper + sombra leve
+            para destacar do trilho cinza atrás.
+        -->
+        <Style x:Key="ViewToggleButtonStyle" TargetType="RadioButton">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource InkSoft}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bd"
+                                CornerRadius="5"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Paper}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+                                <Setter TargetName="bd" Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect ShadowDepth="0" BlurRadius="2" Opacity="0.10" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Texto do footer (status + versão). -->
+        <Style x:Key="FooterTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFont}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource InkSoft}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Estilo do "v X.Y.Z" — usa InkFaint pra dar hierarquia em
+             relação ao "Sincronizado" (que é InkSoft). -->
+        <Style x:Key="FooterVersionStyle"
+               TargetType="TextBlock"
+               BasedOn="{StaticResource FooterTextStyle}">
+            <Setter Property="Foreground" Value="{DynamicResource InkFaint}" />
+        </Style>
+
+        </ResourceDictionary>
     </Page.Resources>
 
-    <Grid Margin="14">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="56" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <!-- Logo Tigre -->
-        <Grid Grid.Row="0"
-              Margin="0,0,0,15"
-              UseLayoutRounding="True"
-              SnapsToDevicePixels="True">
-            <Image ui:CachedImage.SourceUrl="https://darivabim.s3.sa-east-1.amazonaws.com/manufacturers/ImgLarge/tigre-logo.png"
-                   Height="65"
-                   Stretch="Uniform"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   SnapsToDevicePixels="True"
-                   RenderOptions.BitmapScalingMode="HighQuality" />
-        </Grid>
+        <!--
+            ===== RAIL =====
+            Coluna fixa de 56px à esquerda. Logo DarivaBIM no topo, abas de
+            navegação no meio, settings + avatar embaixo. Borda hairline
+            direita para separar visualmente do painel principal.
+        -->
+        <Border Grid.Column="0"
+                Background="{DynamicResource Rail}"
+                BorderBrush="{DynamicResource Line}"
+                BorderThickness="0,0,0.5,0">
+            <DockPanel LastChildFill="False">
 
-        <!-- Powered by DarivaBIM -->
-        <StackPanel Grid.Row="1"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Margin="0,0,0,10">
-            <TextBlock Text="Powered by"
-                       FontSize="15"
-                       Foreground="#94A3B8"
-                       VerticalAlignment="Center"
-                       Margin="0,0,6,0" />
+                <!--
+                    Logo DarivaBIM (rail superior). Path SVG da marca
+                    convertido para XAML — viewBox 256×256 com 6 subpaths
+                    que formam o cubo logotipo. Renderiza nítido em qualquer
+                    DPI porque é vetor; Viewbox cuida do downscale para
+                    o tile 36×36 sem perda.
+                -->
+                <Border DockPanel.Dock="Top"
+                        Width="36"
+                        Height="36"
+                        CornerRadius="9"
+                        Background="{DynamicResource LogoTile}"
+                        Margin="10,12,10,14">
+                    <Viewbox Margin="5"
+                             SnapsToDevicePixels="True"
+                             UseLayoutRounding="True">
+                        <Canvas Width="256" Height="256">
+                            <Path Fill="White"
+                                  Data="M87.3412 108.871L53 89.242V168.973L87.3412 149.345V108.871Z M169.054 108.911L203.394 89.283V169.014L169.054 149.385V108.911Z M203.45 82.1898L203.338 82.1266V80.6797V64.202V43L165.769 65.2644L130.249 44.9614V84.3453L165.655 104.582L203.45 82.1898Z M130.249 173.87V213L199.885 173.198L165.655 153.633L130.249 173.87Z M89.8419 104.582L125.248 84.3453V44.9614L55.3903 84.8905L89.8419 104.582Z M55.6124 173.198L125.248 213V173.87L89.8414 153.633L55.6124 173.198Z" />
+                        </Canvas>
+                    </Viewbox>
+                </Border>
 
-            <Image ui:CachedImage.SourceUrl="https://darivabim.s3.sa-east-1.amazonaws.com/manufacturers/ImgLarge/logo_darivabim_semfundo.png"
-                   Height="35"
-                   Stretch="Uniform"
-                   VerticalAlignment="Center" />
-        </StackPanel>
+                <!-- 5 abas (RadioButton agrupado em MainNav: só uma checked
+                     por vez). Tag carrega o id da aba pra OnRailTabChecked
+                     ler em vez de switch nominal. -->
+                <StackPanel DockPanel.Dock="Top"
+                            HorizontalAlignment="Center">
+                    <RadioButton x:Name="TabAll"
+                                 Style="{StaticResource RailTabStyle}"
+                                 GroupName="MainNav"
+                                 IsChecked="True"
+                                 Tag="all"
+                                 Checked="OnRailTabChecked"
+                                 ToolTip="Todas"
+                                 AutomationProperties.Name="Todas">
+                        <TextBlock Text="&#xE7B8;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="17" />
+                    </RadioButton>
+                    <RadioButton x:Name="TabFavorites"
+                                 Style="{StaticResource RailTabStyle}"
+                                 GroupName="MainNav"
+                                 Tag="fav"
+                                 Checked="OnRailTabChecked"
+                                 ToolTip="Favoritas"
+                                 AutomationProperties.Name="Favoritas">
+                        <TextBlock Text="&#xEB52;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="17" />
+                    </RadioButton>
+                    <RadioButton x:Name="TabRecent"
+                                 Style="{StaticResource RailTabStyle}"
+                                 GroupName="MainNav"
+                                 Tag="recent"
+                                 Checked="OnRailTabChecked"
+                                 ToolTip="Recentes"
+                                 AutomationProperties.Name="Recentes">
+                        <TextBlock Text="&#xE823;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="17" />
+                    </RadioButton>
+                    <RadioButton x:Name="TabPopular"
+                                 Style="{StaticResource RailTabStyle}"
+                                 GroupName="MainNav"
+                                 Tag="popular"
+                                 Checked="OnRailTabChecked"
+                                 ToolTip="Populares"
+                                 AutomationProperties.Name="Populares">
+                        <TextBlock Text="&#xEB05;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="17" />
+                    </RadioButton>
+                    <RadioButton x:Name="TabCollections"
+                                 Style="{StaticResource RailTabStyle}"
+                                 GroupName="MainNav"
+                                 Tag="collections"
+                                 Checked="OnRailTabChecked"
+                                 ToolTip="Coleções"
+                                 AutomationProperties.Name="Coleções">
+                        <TextBlock Text="&#xE8B7;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="17" />
+                    </RadioButton>
+                </StackPanel>
 
-        <!-- Busca -->
-        <Border Grid.Row="2"
-                Style="{StaticResource SectionCardStyle}"
-                Padding="10"
-                Margin="0,0,0,12">
-            <Grid Height="22">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                <!-- Avatar circular (placeholder). Gradient coral espelha o
+                     accent — encaixa no tema sem precisar de PNG. -->
+                <Border DockPanel.Dock="Bottom"
+                        Width="30"
+                        Height="30"
+                        CornerRadius="15"
+                        Margin="13,8,13,12">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="{StaticResource AccentColor}" Offset="0" />
+                            <GradientStop Color="#E68A56" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <TextBlock Text="MA"
+                               Foreground="White"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Border>
 
-                <TextBlock Grid.Column="0"
-                           Text="&#xE721;"
-                           FontFamily="Segoe MDL2 Assets"
-                           FontSize="13"
-                           Foreground="{StaticResource SearchIconBrush}"
-                           VerticalAlignment="Center"
-                           HorizontalAlignment="Center" />
+                <!-- Settings (placeholder; clique não wireado ainda). -->
+                <Button DockPanel.Dock="Bottom"
+                        Style="{StaticResource RailIconButtonStyle}"
+                        HorizontalAlignment="Center"
+                        Margin="0,0,0,4"
+                        ToolTip="Configurações"
+                        AutomationProperties.Name="Configurações">
+                    <TextBlock Text="&#xE713;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="17" />
+                </Button>
 
-                <TextBox x:Name="SearchTextBox"
-                         Grid.Column="1"
-                         Style="{StaticResource SearchTextBoxStyle}"
-                         TextChanged="OnSearchTextChanged"
-                         ToolTip="Pesquise por nome, fabricante, tags e palavras-chave" />
-            </Grid>
+            </DockPanel>
         </Border>
 
         <!--
-            Filtros por sistema/tag.
-
-            Whole panel collapses behind the FilterSectionToggle in the
-            header — chevron on the left plus "Filtrar por sistema" label.
-            Default = collapsed (cards reclaim space). When the user opens
-            it, the WrapPanel below shows every chip without inner clipping
-            (no row-cap) so the icon scale-on-hover never overflows into
-            cropped neighbors.
+            ===== CONTENT =====
+            Painel direito: header (eyebrow + título + busca), filtros
+            colapsáveis, toolbar (count/sort/view), galeria, footer status.
         -->
-        <Border x:Name="TagFiltersCard"
-                Grid.Row="3"
-                Style="{StaticResource SectionCardStyle}"
-                Padding="10"
-                Margin="0,0,0,12"
-                Visibility="Collapsed">
-            <StackPanel>
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="44" />
+            </Grid.RowDefinitions>
+
+            <!-- HEADER -->
+            <Border Grid.Row="0"
+                    BorderBrush="{DynamicResource Line}"
+                    BorderThickness="0,0,0,1">
+                <StackPanel Margin="20,16,20,16">
+                    <TextBlock Text="IMPORTAR FAMÍLIAS"
+                               Style="{StaticResource EyebrowTextStyle}"
+                               Margin="0,0,0,2" />
+                    <TextBlock x:Name="HeaderTitleText"
+                               Text="Tigre"
+                               Style="{StaticResource HeaderTitleStyle}"
+                               Margin="0,0,0,10" />
+
+                    <!-- SearchBar — borda hairline, raio 10, lupa Segoe MDL2.
+                         Glow no foco será polido depois com FocusVisualStyle. -->
+                    <Border Background="{DynamicResource Surface}"
+                            BorderBrush="{DynamicResource Line}"
+                            BorderThickness="0.5"
+                            CornerRadius="10"
+                            Height="36">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="&#xE721;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource InkFaint}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+
+                            <TextBox x:Name="SearchTextBox"
+                                     Grid.Column="1"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     Foreground="{DynamicResource Ink}"
+                                     FontSize="12"
+                                     VerticalContentAlignment="Center"
+                                     Padding="0,0,10,0"
+                                     TextChanged="OnSearchTextChanged"
+                                     ToolTip="Buscar família, código, tag…" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!--
+                FILTROS por sistema. Sempre visível (14 chips fixos, mesmo
+                com 0 famílias na categoria). Chevron à esquerda recolhe
+                a área dos chips para liberar espaço vertical à galeria.
+            -->
+            <Border x:Name="TagFiltersCard"
+                    Grid.Row="1"
+                    BorderBrush="{DynamicResource Line}"
+                    BorderThickness="0,0,0,1"
+                    Padding="20,12,20,12">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ToggleButton x:Name="FilterSectionToggle"
+                                      Grid.Column="0"
+                                      Style="{StaticResource FilterSectionToggleStyle}"
+                                      IsChecked="False"
+                                      Checked="OnFilterSectionToggled"
+                                      Unchecked="OnFilterSectionToggled">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="FilterSectionChevron"
+                                           Text="&#xE76C;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource InkFaint}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0" />
+                                <TextBlock Text="Filtrar por sistema"
+                                           FontFamily="{DynamicResource BodyFont}"
+                                           FontSize="11.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource InkSoft}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ToggleButton>
+
+                        <Button x:Name="ClearTagsButton"
+                                Grid.Column="1"
+                                Content="Limpar"
+                                Style="{StaticResource ClearTagsButtonStyle}"
+                                Click="OnClearTagsClicked"
+                                Visibility="Collapsed" />
+                    </Grid>
+
+                    <ItemsControl x:Name="TagFiltersHost"
+                                  Margin="0,10,0,0"
+                                  Visibility="Collapsed">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ToggleButton IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                              Style="{StaticResource TagDotStyle}"
+                                              ToolTip="{Binding Description}"
+                                              ToolTipService.InitialShowDelay="200"
+                                              ToolTipService.ShowDuration="8000"
+                                              AutomationProperties.Name="{Binding Description}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- TOOLBAR: contador à esquerda, sort + view-toggle à direita. -->
+            <Border Grid.Row="2"
+                    BorderBrush="{DynamicResource Line}"
+                    BorderThickness="0,0,0,1"
+                    Padding="20,12">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <ToggleButton x:Name="FilterSectionToggle"
-                                  Grid.Column="0"
-                                  Style="{StaticResource FilterSectionToggleStyle}"
-                                  IsChecked="False"
-                                  Checked="OnFilterSectionToggled"
-                                  Unchecked="OnFilterSectionToggled">
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock x:Name="ToolbarCountNumber"
+                                   Text="0"
+                                   FontFamily="{DynamicResource BodyFont}"
+                                   FontSize="11.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Ink}" />
+                        <TextBlock x:Name="ToolbarCountLabel"
+                                   Text=" famílias"
+                                   FontFamily="{DynamicResource BodyFont}"
+                                   FontSize="11.5"
+                                   Foreground="{DynamicResource InkSoft}"
+                                   Margin="2,0,0,0" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            x:Name="SortButton"
+                            Style="{StaticResource ToolbarSortButtonStyle}"
+                            Margin="0,0,8,0"
+                            Click="OnSortButtonClicked">
                         <StackPanel Orientation="Horizontal">
-                            <!-- ChevronRight (E76C) when collapsed → ChevronDown (E70D) when expanded. -->
-                            <TextBlock x:Name="FilterSectionChevron"
-                                       Text="&#xE76C;"
+                            <TextBlock Text="&#xE8CB;"
                                        FontFamily="Segoe MDL2 Assets"
                                        FontSize="11"
-                                       Foreground="#94A3B8"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,8,0" />
-                            <TextBlock Text="Filtrar por sistema"
-                                       Style="{StaticResource InfoLabelStyle}"
-                                       FontSize="12"
+                                       Margin="0,0,5,0"
+                                       VerticalAlignment="Center" />
+                            <TextBlock x:Name="SortLabel"
+                                       Text="Atualização"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="&#xE70D;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="9"
+                                       Margin="6,0,0,0"
                                        VerticalAlignment="Center" />
                         </StackPanel>
-                    </ToggleButton>
+                    </Button>
+                    <Popup x:Name="SortPopup"
+                           PlacementTarget="{Binding ElementName=SortButton}"
+                           Placement="Bottom"
+                           StaysOpen="False"
+                           AllowsTransparency="True">
+                        <Border Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource Line}"
+                                BorderThickness="0.5"
+                                CornerRadius="8"
+                                Padding="4"
+                                Margin="0,4,0,0">
+                            <Border.Effect>
+                                <DropShadowEffect ShadowDepth="2"
+                                                  BlurRadius="12"
+                                                  Opacity="0.10" />
+                            </Border.Effect>
+                            <StackPanel>
+                                <Button Style="{StaticResource SortMenuItemStyle}"
+                                        Tag="updated"
+                                        Click="OnSortItemClicked"
+                                        Content="Atualização" />
+                                <Button Style="{StaticResource SortMenuItemStyle}"
+                                        Tag="name"
+                                        Click="OnSortItemClicked"
+                                        Content="Nome A–Z" />
+                                <Button Style="{StaticResource SortMenuItemStyle}"
+                                        Tag="newest"
+                                        Click="OnSortItemClicked"
+                                        Content="Mais novas" />
+                            </StackPanel>
+                        </Border>
+                    </Popup>
 
-                    <Button x:Name="ClearTagsButton"
-                            Grid.Column="1"
-                            Content="Limpar"
-                            Style="{StaticResource ClearTagsButtonStyle}"
-                            Click="OnClearTagsClicked"
-                            Visibility="Collapsed" />
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource LineSoft}"
+                            CornerRadius="6"
+                            Padding="2">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="ViewGrid"
+                                         GroupName="ViewMode"
+                                         IsChecked="True"
+                                         Style="{StaticResource ViewToggleButtonStyle}"
+                                         Tag="grid"
+                                         Checked="OnViewModeChanged"
+                                         ToolTip="Grade"
+                                         AutomationProperties.Name="Grade">
+                                <TextBlock Text="&#xF0E2;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11" />
+                            </RadioButton>
+                            <RadioButton x:Name="ViewList"
+                                         GroupName="ViewMode"
+                                         Style="{StaticResource ViewToggleButtonStyle}"
+                                         Tag="list"
+                                         Checked="OnViewModeChanged"
+                                         ToolTip="Lista"
+                                         AutomationProperties.Name="Lista">
+                                <TextBlock Text="&#xE8FD;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11" />
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
                 </Grid>
+            </Border>
 
-                <ItemsControl x:Name="TagFiltersHost"
-                              Margin="0,10,0,0"
-                              Visibility="Collapsed">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <ToggleButton IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                          Style="{StaticResource TagDotStyle}"
-                                          ToolTip="{Binding Description}"
-                                          ToolTipService.InitialShowDelay="200"
-                                          ToolTipService.ShowDuration="8000"
-                                          AutomationProperties.Name="{Binding Description}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </Border>
-
-        <!-- Galeria -->
-        <Border Grid.Row="4"
-                Style="{StaticResource SectionCardStyle}"
-                Padding="8">
-            <Grid>
+            <!-- GALLERY (skeleton + listbox + empty + overlay).
+                 Margin 15 + card margin 5 = 20px de respiro lateral
+                 conforme spec da paleta Cromatica. -->
+            <Grid Grid.Row="3" Margin="15,12,15,12">
                 <ItemsControl x:Name="SkeletonHost"
                               Visibility="Visible"
                               IsHitTestVisible="False">
@@ -575,7 +1184,7 @@
 
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <ItemsControl ItemsSource="{Binding Items}">
+                            <ItemsControl ItemsSource="{Binding Cards}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" />
@@ -584,95 +1193,167 @@
 
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="156"
-                                                Style="{StaticResource CardContainerStyle}"
+                                        <!--
+                                            Card 168×~auto. ClipToBounds no
+                                            FamilyCardStyle garante que o
+                                            background do thumb não vaze pelo
+                                            raio externo.
+                                        -->
+                                        <Border Width="168"
+                                                Margin="5"
+                                                Style="{StaticResource FamilyCardStyle}"
                                                 Tag="{Binding}"
                                                 MouseLeftButtonUp="OnFamilyCardClicked">
                                             <Grid>
                                                 <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="2" />
-                                                    <RowDefinition Height="28" />
-                                                    <RowDefinition Height="2" />
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="14" />
+                                                    <RowDefinition Height="150" />
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
 
-                                                <!-- Imagem -->
-                                                <Grid Grid.Row="0"
-                                                      Height="92">
-                                                    <Image ui:CachedImage.SourceUrl="{Binding UrlImg}"
-                                                           Width="92"
-                                                           Height="92"
-                                                           Stretch="Uniform"
-                                                           HorizontalAlignment="Center"
-                                                           VerticalAlignment="Center"
-                                                           SnapsToDevicePixels="True"
-                                                           RenderOptions.BitmapScalingMode="HighQuality">
-                                                        <Image.Clip>
-                                                            <RectangleGeometry Rect="0,0,92,92"
-                                                                               RadiusX="12"
-                                                                               RadiusY="12" />
-                                                        </Image.Clip>
-                                                    </Image>
-                                                </Grid>
+                                                <!-- Thumb area (ThumbBg pastel + raio só nas pontas de cima). -->
+                                                <Border Grid.Row="0"
+                                                        Background="{DynamicResource ThumbBg}"
+                                                        CornerRadius="10,10,0,0">
+                                                    <Grid>
+                                                        <Image ui:CachedImage.SourceUrl="{Binding UrlImg}"
+                                                               Stretch="Uniform"
+                                                               Margin="14"
+                                                               SnapsToDevicePixels="True"
+                                                               RenderOptions.BitmapScalingMode="HighQuality" />
 
-                                                <!-- Título — máx 2 linhas com ellipsis ("..." no fim) -->
-                                                <TextBlock Grid.Row="2"
-                                                           VerticalAlignment="Top"
-                                                           Style="{StaticResource TitleTextStyle}"
-                                                           Text="{Binding Name}"
-                                                           MaxHeight="26" />
+                                                        <!-- Badge NOVO (visível só pra famílias com CreatedAt recente). -->
+                                                        <Border HorizontalAlignment="Left"
+                                                                VerticalAlignment="Top"
+                                                                Margin="8"
+                                                                Background="{DynamicResource Ink}"
+                                                                CornerRadius="4"
+                                                                Padding="6,2"
+                                                                Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="NOVO"
+                                                                       Foreground="{DynamicResource Paper}"
+                                                                       FontFamily="{DynamicResource BodyFont}"
+                                                                       FontSize="9"
+                                                                       FontWeight="Bold" />
+                                                        </Border>
 
-                                                <!-- Sistemas -->
-                                                <ItemsControl Grid.Row="4"
-                                                              ItemsSource="{Binding DisplayTagBadges}">
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <WrapPanel />
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
+                                                        <!--
+                                                            Coração de favoritar. Two-way bound a
+                                                            FamilyCardViewModel.IsFavorita; a página ouve
+                                                            o PropertyChanged e sincroniza com o
+                                                            FamilyPreferencesService. Ícone Unicode
+                                                            (♥/♡) em vez de Segoe MDL2 — robusto a
+                                                            mudanças de glyph entre versões da fonte.
+                                                        -->
+                                                        <!--
+                                                            Heart: estado visual via OneWay binding (IsChecked
+                                                            só lê IsFavorita, nunca empurra de volta). O
+                                                            toggle real é feito no Click handler — TwoWay
+                                                            aqui causava feedback loop com o
+                                                            FamilyPreferencesService toggle quando havia
+                                                            qualquer dessincronia.
 
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <Border Background="{Binding Background}"
-                                                                    CornerRadius="9"
-                                                                    Padding="7,2"
-                                                                    Margin="0,2,5,2"
-                                                                    ToolTip="{Binding ToolTipText}"
-                                                                    ToolTipService.ShowDuration="15000">
-                                                                <TextBlock Text="{Binding Text}"
-                                                                           FontSize="9"
-                                                                           FontWeight="SemiBold"
-                                                                           Foreground="{Binding Foreground}" />
-                                                            </Border>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
+                                                            Os PreviewMouse handlers param a fase tunneling
+                                                            antes que o ToggleButton dispare o ButtonBase
+                                                            click handling, e marcam Handled=true para
+                                                            que a fase bubbling do evento mouse não suba
+                                                            até OnFamilyCardClicked (que dispararia import).
+                                                        -->
+                                                        <ToggleButton HorizontalAlignment="Right"
+                                                                      VerticalAlignment="Top"
+                                                                      Margin="0,8,8,0"
+                                                                      Width="26"
+                                                                      Height="26"
+                                                                      Cursor="Hand"
+                                                                      Background="#B3FFFFFF"
+                                                                      BorderThickness="0"
+                                                                      IsChecked="{Binding IsFavorita, Mode=OneWay}"
+                                                                      Click="OnFavoriteHeartClick"
+                                                                      ToolTip="Favoritar"
+                                                                      AutomationProperties.Name="Favoritar">
+                                                            <ToggleButton.Template>
+                                                                <ControlTemplate TargetType="ToggleButton">
+                                                                    <Border CornerRadius="13"
+                                                                            Background="{TemplateBinding Background}">
+                                                                        <TextBlock x:Name="HeartIcon"
+                                                                                   Text="♡"
+                                                                                   FontSize="14"
+                                                                                   FontWeight="SemiBold"
+                                                                                   Foreground="{DynamicResource InkSoft}"
+                                                                                   HorizontalAlignment="Center"
+                                                                                   VerticalAlignment="Center" />
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsChecked" Value="True">
+                                                                            <Setter TargetName="HeartIcon" Property="Text" Value="♥" />
+                                                                            <Setter TargetName="HeartIcon" Property="Foreground" Value="{DynamicResource Heart}" />
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </ToggleButton.Template>
+                                                        </ToggleButton>
+                                                    </Grid>
+                                                </Border>
 
-                                                <!-- Data de atualização -->
-                                                <Grid Grid.Row="5"
-                                                      HorizontalAlignment="Left"
-                                                      VerticalAlignment="Center"
-                                                      Margin="0,2,0,0">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="70" />
-                                                        <ColumnDefinition Width="50" />
-                                                    </Grid.ColumnDefinitions>
+                                                <!-- Body: nome + data + bolinhas de sistema. -->
+                                                <StackPanel Grid.Row="1"
+                                                            Margin="10,8,10,10">
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontFamily="{DynamicResource BodyFont}"
+                                                               FontSize="12.5"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource Ink}"
+                                                               LineHeight="15"
+                                                               LineStackingStrategy="BlockLineHeight"
+                                                               TextWrapping="Wrap"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxHeight="32" />
 
-                                                    <TextBlock Grid.Column="0"
-                                                               Text="Atualizado em:"
-                                                               Style="{StaticResource InfoLabelStyle}"
-                                                               VerticalAlignment="Center"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding UpdatedAtLabel, StringFormat='Atualizado em {0}'}"
+                                                               FontFamily="{DynamicResource BodyFont}"
+                                                               FontSize="10.5"
+                                                               Foreground="{DynamicResource InkSoft}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Margin="0,3,0,8" />
 
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{Binding UpdatedAtLabel}"
-                                                               Style="{StaticResource InfoValueStyle}"
-                                                               VerticalAlignment="Center"
-                                                               HorizontalAlignment="Left" />
-                                                </Grid>
+                                                    <!--
+                                                        Bolinhas de sistema (até 3, vindas do mapper). Cada
+                                                        uma é um círculo 20×20 com a cor pastel do sistema
+                                                        de fundo e o ícone PNG no centro. ToolTip mostra o
+                                                        nome cheio.
+                                                    -->
+                                                    <ItemsControl ItemsSource="{Binding SistemaBadges}"
+                                                                  HorizontalAlignment="Left">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Width="20"
+                                                                        Height="20"
+                                                                        Background="{Binding BackgroundBrush}"
+                                                                        BorderBrush="{Binding BorderBrush}"
+                                                                        BorderThickness="0.5"
+                                                                        CornerRadius="10"
+                                                                        Margin="0,0,4,0"
+                                                                        ToolTip="{Binding Label}"
+                                                                        ToolTipService.InitialShowDelay="200"
+                                                                        ToolTipService.ShowDuration="6000"
+                                                                        AutomationProperties.Name="{Binding Label}">
+                                                                    <Image Source="{Binding Icon}"
+                                                                           Width="12"
+                                                                           Height="12"
+                                                                           Stretch="Uniform"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           SnapsToDevicePixels="True"
+                                                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
@@ -717,8 +1398,8 @@
                 -->
                 <Border x:Name="DownloadOverlay"
                         Visibility="Collapsed"
-                        Background="#E6FFFFFF"
-                        CornerRadius="14">
+                        Background="#F2FBFAF7"
+                        CornerRadius="10">
                     <StackPanel VerticalAlignment="Center"
                                 HorizontalAlignment="Center"
                                 Margin="24">
@@ -760,6 +1441,41 @@
                     </StackPanel>
                 </Border>
             </Grid>
-        </Border>
+
+            <!-- FOOTER: status à esquerda + versão à direita.
+                 Padding 20,10 e borda superior 1px conforme spec. -->
+            <Border Grid.Row="4"
+                    Background="{DynamicResource Rail}"
+                    BorderBrush="{DynamicResource Line}"
+                    BorderThickness="0,1,0,0"
+                    Padding="20,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <Ellipse x:Name="FooterStatusDot"
+                                 Width="7"
+                                 Height="7"
+                                 Fill="{DynamicResource Success}"
+                                 Margin="0,0,8,0"
+                                 VerticalAlignment="Center" />
+                        <TextBlock x:Name="FooterStatusText"
+                                   Text="Sincronizado"
+                                   Style="{StaticResource FooterTextStyle}" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="FooterVersionText"
+                               Grid.Column="1"
+                               Text="v 0.0"
+                               Style="{StaticResource FooterVersionStyle}" />
+                </Grid>
+            </Border>
+
+        </Grid>
     </Grid>
 </Page>
