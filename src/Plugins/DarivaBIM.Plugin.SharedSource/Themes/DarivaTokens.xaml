@@ -17,18 +17,19 @@
         - Não use oklch direto — converta para hex; WPF não interpreta oklch.
     -->
 
-    <!-- 2.1 Cores base do tema. Paper foi de #FBFAF7 (creme claro) para
-         #EFEDE8 — mais para o cinza-quente; o creme excessivo deixava o
-         painel parecer "amarelado" sobre o chrome cinza do Revit. As
-         demais cores deslizaram um pouco para o cinza junto, preservando
-         contraste relativo entre Paper/Surface/Rail. -->
-    <Color x:Key="PaperColor">#FCFAF5</Color>     <!-- área de conteúdo -->
+    <!-- 2.1 Cores base do tema. Iteração 3: paleta mantida na família
+         off-white quente, mas ligeiramente mais clara e menos saturada
+         (saturação puxada de ~30% para ~15-20%). Mantém a identidade
+         "cream paper" sem o tom amarelado que ficava pesado contra o
+         chrome cinza do Revit. Histórico: começou em #FBFAF7, oscilou
+         para #EFEDE8 (cinza-quente), e agora estabiliza em #FAF9F5. -->
+    <Color x:Key="PaperColor">#FAF9F5</Color>     <!-- área de conteúdo -->
     <Color x:Key="SurfaceColor">#FFFFFF</Color>   <!-- card / search bg -->
-    <Color x:Key="RailColor">#F4F0E9</Color>      <!-- sidebar / footer -->
+    <Color x:Key="RailColor">#EFEEE6</Color>      <!-- sidebar / footer -->
     <Color x:Key="RailActiveColor">#FFFFFF</Color>
-    <Color x:Key="ThumbBgColor">#F5F1EA</Color>   <!-- thumb area do card -->
-    <Color x:Key="LineColor">#ECE6DA</Color>      <!-- bordas + divisores -->
-    <Color x:Key="LineSoftColor">#EDE7DC</Color>  <!-- borda do search -->
+    <Color x:Key="ThumbBgColor">#EFEDE5</Color>   <!-- thumb area do card -->
+    <Color x:Key="LineColor">#E6E2D6</Color>      <!-- bordas + divisores -->
+    <Color x:Key="LineSoftColor">#E8E4D9</Color>  <!-- borda do search -->
     <Color x:Key="InkColor">#1A1815</Color>
     <Color x:Key="InkSoftColor">#6B6358</Color>
     <Color x:Key="InkFaintColor">#8B8275</Color>
@@ -48,6 +49,17 @@
     <SolidColorBrush x:Key="Rail" Color="{StaticResource RailColor}" />
     <SolidColorBrush x:Key="RailActive" Color="{StaticResource RailActiveColor}" />
     <SolidColorBrush x:Key="ThumbBg" Color="{StaticResource ThumbBgColor}" />
+
+    <!-- Gradient sutil para a thumb area do card. Frozen automaticamente
+         pela engine (sem bindings dinâmicos), reusado entre todos os
+         cards da lista virtualizada — custo único, render barato.
+         Stops alinhados com a paleta de surfaces para integrar visualmente
+         (topo perto do Surface, base perto do Line). -->
+    <LinearGradientBrush x:Key="ThumbBgGradient" StartPoint="0.5,0" EndPoint="0.5,1">
+        <GradientStop Offset="0" Color="#F8F7F2" />
+        <GradientStop Offset="1" Color="#EAE6DB" />
+    </LinearGradientBrush>
+
     <SolidColorBrush x:Key="Line" Color="{StaticResource LineColor}" />
     <SolidColorBrush x:Key="LineSoft" Color="{StaticResource LineSoftColor}" />
     <SolidColorBrush x:Key="Ink" Color="{StaticResource InkColor}" />
