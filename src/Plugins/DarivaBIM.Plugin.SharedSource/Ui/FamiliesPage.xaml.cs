@@ -1,12 +1,12 @@
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.Common;
 using DarivaBIM.Application.DTOs.Family;
-using DarivaBIM.Domain.Tigre;
 using DarivaBIM.Infrastructure.Api.Clients;
 using DarivaBIM.Infrastructure.Persistence.Cache;
 using DarivaBIM.Infrastructure.Persistence.Preferences;
 using DarivaBIM.Plugin.Features.FamiliesImporter;
 using DarivaBIM.Plugin.Ui.Models;
+using DarivaBIM.Plugin.Ui.Search;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -572,8 +572,8 @@ namespace DarivaBIM.Plugin.Ui
 
                 foreach (FamilyItem family in tigreFamilies)
                 {
-                    family.SearchIndex = BuildSearchIndex(family);
-                    family.SearchIndexCompact = Compact(family.SearchIndex);
+                    family.SearchIndex = FamilySearchHelpers.BuildSearchIndex(family);
+                    family.SearchIndexCompact = FamilySearchHelpers.Compact(family.SearchIndex);
 
                     _allFamilies.Add(family);
                     _familySistemas[family.Id] = SistemaCatalog.ResolveSistemaIds(family.Tags);
@@ -688,9 +688,9 @@ namespace DarivaBIM.Plugin.Ui
 
             CancellationToken cancellationToken = _searchCancellationTokenSource.Token;
 
-            string normalizedSearch = NormalizeForSearch(rawSearch ?? string.Empty);
-            string compactSearch = Compact(normalizedSearch);
-            string[] searchTokens = Tokenize(normalizedSearch).ToArray();
+            string normalizedSearch = FamilySearchHelpers.NormalizeForSearch(rawSearch ?? string.Empty);
+            string compactSearch = FamilySearchHelpers.Compact(normalizedSearch);
+            string[] searchTokens = FamilySearchHelpers.Tokenize(normalizedSearch).ToArray();
 
             List<FamilyItem> snapshot = _allFamilies.ToList();
             HashSet<string> selectedSistemasSnapshot = new HashSet<string>(_selectedSistemaIds, StringComparer.Ordinal);
@@ -721,15 +721,15 @@ namespace DarivaBIM.Plugin.Ui
                     {
                         "all" => snapshot,
                         "fav" => snapshot.Where(f => favoritesSnapshot.Contains(f.Id)),
-                        "recent" => OrderByRecency(snapshot, recentsSnapshot),
+                        "recent" => FamilySorter.OrderByRecency(snapshot, recentsSnapshot),
                         _ => Enumerable.Empty<FamilyItem>(),
                     };
 
                     if (hasSearch || hasSistemaFilter)
                     {
                         filtered = filtered.Where(family =>
-                            (!hasSearch || MatchesFast(family, normalizedSearch, compactSearch, searchTokens)) &&
-                            (!hasSistemaFilter || MatchesSistemas(family, selectedSistemasSnapshot, familySistemasSnapshot)));
+                            (!hasSearch || FamilySearchHelpers.MatchesFast(family, normalizedSearch, compactSearch, searchTokens)) &&
+                            (!hasSistemaFilter || FamilySearchHelpers.MatchesSistemas(family, selectedSistemasSnapshot, familySistemasSnapshot)));
                     }
 
                     // "recent" tem ordem natural por timestamp; deixar o sort
@@ -738,7 +738,7 @@ namespace DarivaBIM.Plugin.Ui
                     // sort do toolbar.
                     if (activeTab != "recent")
                     {
-                        filtered = ApplySort(filtered, activeSort);
+                        filtered = FamilySorter.ApplySort(filtered, activeSort);
                     }
 
                     return filtered.ToList();
@@ -819,44 +819,6 @@ namespace DarivaBIM.Plugin.Ui
         {
             ToolbarCountNumber.Text = count.ToString(CultureInfo.InvariantCulture);
             ToolbarCountLabel.Text = count == 1 ? " família" : " famílias";
-        }
-
-        // Aplica a ordenação escolhida no toolbar. UpdatedAt/CreatedAt podem
-        // ser null para famílias antigas — ordenamos null como mais antigo.
-        private static IEnumerable<FamilyItem> ApplySort(IEnumerable<FamilyItem> source, string sort)
-        {
-            return sort switch
-            {
-                "name" => source.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase),
-                "newest" => source.OrderByDescending(f => f.CreatedAt ?? DateTime.MinValue),
-                _ => source.OrderByDescending(f => f.UpdatedAt ?? DateTime.MinValue),
-            };
-        }
-
-        // Empareia famílias do catálogo com entradas do histórico de import,
-        // preservando a ordem do histórico (mais recente primeiro). Famílias
-        // que estavam no histórico mas saíram do catálogo (excluídas no
-        // backend) são silenciosamente ignoradas.
-        private static List<FamilyItem> OrderByRecency(
-            List<FamilyItem> snapshot,
-            IReadOnlyList<RecentFamilyEntry> recents)
-        {
-            Dictionary<int, FamilyItem> byId = new Dictionary<int, FamilyItem>(snapshot.Count);
-            for (int i = 0; i < snapshot.Count; i++)
-            {
-                byId[snapshot[i].Id] = snapshot[i];
-            }
-
-            List<FamilyItem> ordered = new List<FamilyItem>(recents.Count);
-            for (int i = 0; i < recents.Count; i++)
-            {
-                if (byId.TryGetValue(recents[i].FamilyId, out FamilyItem? family))
-                {
-                    ordered.Add(family);
-                }
-            }
-
-            return ordered;
         }
 
         private void UpdateVisualState()
@@ -1070,132 +1032,9 @@ namespace DarivaBIM.Plugin.Ui
             FilterCountText.Text = count.ToString(CultureInfo.InvariantCulture);
         }
 
-        // OR-semantics: a família aparece se casar com QUALQUER um dos
-        // sistemas marcados. Sem nenhum marcado, todas passam (sem filtro).
-        // Antes era AND (todas precisavam casar), o que rapidamente zerava
-        // a galeria quando o usuário marcava 2+ chips.
-        private static bool MatchesSistemas(
-            FamilyItem family,
-            IReadOnlyCollection<string> selectedSistemaIds,
-            IReadOnlyDictionary<int, IReadOnlyList<string>> familySistemas)
-        {
-            if (selectedSistemaIds.Count == 0)
-            {
-                return true;
-            }
-
-            if (!familySistemas.TryGetValue(family.Id, out IReadOnlyList<string>? sistemaIds) ||
-                sistemaIds.Count == 0)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < sistemaIds.Count; i++)
-            {
-                if (selectedSistemaIds.Contains(sistemaIds[i]))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool MatchesFast(
-            FamilyItem family,
-            string normalizedSearch,
-            string compactSearch,
-            IReadOnlyList<string> searchTokens)
-        {
-            if (string.IsNullOrWhiteSpace(family.SearchIndex))
-            {
-                return false;
-            }
-
-            if (family.SearchIndex.Contains(normalizedSearch, StringComparison.Ordinal))
-            {
-                return true;
-            }
-
-            if (!string.IsNullOrWhiteSpace(compactSearch) &&
-                family.SearchIndexCompact.Contains(compactSearch, StringComparison.Ordinal))
-            {
-                return true;
-            }
-
-            for (int i = 0; i < searchTokens.Count; i++)
-            {
-                string token = searchTokens[i];
-
-                bool tokenMatched =
-                    family.SearchIndex.Contains(token, StringComparison.Ordinal) ||
-                    family.SearchIndexCompact.Contains(token, StringComparison.Ordinal);
-
-                if (!tokenMatched)
-                {
-                    return false;
-                }
-            }
-
-            return searchTokens.Count > 0;
-        }
-
-        private static string BuildSearchIndex(FamilyItem family)
-        {
-            var parts = new List<string>
-            {
-                family.Name,
-                family.FileName,
-                family.ManufacturerName
-            };
-
-            if (family.Keywords != null)
-            {
-                parts.AddRange(family.Keywords);
-            }
-
-            if (family.Tags != null)
-            {
-                parts.AddRange(
-                    family.Tags
-                        .Where(tag => tag != null && !string.IsNullOrWhiteSpace(tag.Description))
-                        .Select(tag => tag.Description));
-            }
-
-            return NormalizeForSearch(
-                string.Join(" ", parts.Where(part => !string.IsNullOrWhiteSpace(part))));
-        }
-
-        private static IEnumerable<string> Tokenize(string value)
-        {
-            return value
-                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(token => !string.IsNullOrWhiteSpace(token))
-                .Distinct(StringComparer.Ordinal);
-        }
-
-        private static string Compact(string value)
-        {
-            return string.IsNullOrWhiteSpace(value)
-                ? string.Empty
-                : value.Replace(" ", string.Empty);
-        }
-
-        private static string NormalizeForSearch(string value) => TigreTextUtils.NormalizeForSearch(value);
-
         private void SetBusyState(bool isBusy)
         {
             SearchTextBox.IsEnabled = !isBusy;
         }
-    }
-
-    public sealed class FamilyRow
-    {
-        public FamilyRow(IReadOnlyList<FamilyCardViewModel> cards)
-        {
-            Cards = cards;
-        }
-
-        public IReadOnlyList<FamilyCardViewModel> Cards { get; }
     }
 }
