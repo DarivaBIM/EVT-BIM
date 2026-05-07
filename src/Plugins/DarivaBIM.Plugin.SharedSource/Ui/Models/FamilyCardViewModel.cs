@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using DarivaBIM.Application.DTOs.Family;
 
 namespace DarivaBIM.Plugin.Ui.Models
@@ -96,15 +95,16 @@ namespace DarivaBIM.Plugin.Ui.Models
             Label = sistema.Label;
             BackgroundBrush = CreateFrozenBrush(sistema.BgHex);
             BorderBrush = CreateFrozenBrush(sistema.ColorHex);
-            // 20px lógico × 2 cobre HiDPI nos badges miniaturizados.
-            Icon = SistemaIconLoader.Load(sistema.IconFileName, decodePixelWidth: 40);
+            // Vetor: o mesmo DrawingImage congelado é reusado entre todos os
+            // badges do mesmo sistema (potencialmente centenas de cards).
+            Icon = SistemaIconLoader.Load(sistema.IconFileName);
         }
 
         public Sistema Sistema { get; }
         public string Label { get; }
         public Brush BackgroundBrush { get; }
         public Brush BorderBrush { get; }
-        public BitmapImage? Icon { get; }
+        public ImageSource? Icon { get; }
         public bool HasIcon => Icon != null;
 
         private static SolidColorBrush CreateFrozenBrush(string hex)
