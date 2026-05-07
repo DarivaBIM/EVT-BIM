@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using DarivaBIM.Application.Common;
 
 namespace DarivaBIM.Application.DTOs.Family
 {
@@ -120,29 +121,7 @@ namespace DarivaBIM.Application.DTOs.Family
             return FamilyName;
         }
 
-        private static string SanitizeBaseFileName(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "familia";
-
-            char[] invalidChars = Path.GetInvalidFileNameChars();
-
-            string sanitized = new string(
-                value
-                    .Trim()
-                    .Select(ch => invalidChars.Contains(ch) ? '_' : ch)
-                    .ToArray());
-
-            while (sanitized.Contains("  "))
-            {
-                sanitized = sanitized.Replace("  ", " ");
-            }
-
-            sanitized = sanitized.Trim();
-
-            return string.IsNullOrWhiteSpace(sanitized)
-                ? "familia"
-                : sanitized;
-        }
+        private static string SanitizeBaseFileName(string value) =>
+            FileNameSanitizer.Sanitize(value, "familia");
     }
 }

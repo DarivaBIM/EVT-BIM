@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text;
 using DarivaBIM.Application.DTOs.Family;
+using DarivaBIM.Domain.Tigre;
 
 namespace DarivaBIM.Plugin.Ui.Models
 {
@@ -238,43 +237,6 @@ namespace DarivaBIM.Plugin.Ui.Models
             };
         }
 
-        private static string Normalize(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return string.Empty;
-            }
-
-            string normalized = value
-                .Trim()
-                .ToLowerInvariant()
-                .Normalize(NormalizationForm.FormD);
-
-            var builder = new StringBuilder(normalized.Length);
-
-            foreach (char c in normalized)
-            {
-                UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(c);
-
-                if (category == UnicodeCategory.NonSpacingMark)
-                {
-                    continue;
-                }
-
-                builder.Append(char.IsLetterOrDigit(c) ? c : ' ');
-            }
-
-            string compact = builder
-                .ToString()
-                .Normalize(NormalizationForm.FormC);
-
-            // Colapsa runs de espaço em um só.
-            while (compact.Contains("  ", StringComparison.Ordinal))
-            {
-                compact = compact.Replace("  ", " ");
-            }
-
-            return compact.Trim();
-        }
+        private static string Normalize(string value) => TigreTextUtils.NormalizeForSearch(value);
     }
 }

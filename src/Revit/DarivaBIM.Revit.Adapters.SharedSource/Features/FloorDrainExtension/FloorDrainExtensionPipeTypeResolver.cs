@@ -19,25 +19,15 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
         {
             List<string> fields = new();
 
-            try { fields.Add(fi.Symbol.Family.Name ?? string.Empty); } catch { }
-            try { fields.Add(fi.Symbol.Name ?? string.Empty); } catch { }
-            try { fields.Add(fi.Name ?? string.Empty); } catch { }
-
-            try
-            {
-                Parameter? p = fi.get_Parameter(BuiltInParameter.ALL_MODEL_DESCRIPTION);
-                if (p != null && p.HasValue)
-                    fields.Add(p.AsString() ?? string.Empty);
-            }
-            catch { }
-
-            try
-            {
-                Parameter? p = fi.Symbol.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS);
-                if (p != null && p.HasValue)
-                    fields.Add(p.AsString() ?? string.Empty);
-            }
-            catch { }
+            // A RevitAPI joga exceções variadas em getters quando o elemento
+            // está parcialmente inválido (família corrompida, refresh em
+            // andamento, etc.). Cada origem de texto é independente, então
+            // engolimos a falha e seguimos com o que conseguimos coletar.
+            SafeAdd(fields, () => fi.Symbol.Family.Name);
+            SafeAdd(fields, () => fi.Symbol.Name);
+            SafeAdd(fields, () => fi.Name);
+            SafeAdd(fields, () => ReadStringParameter(fi, BuiltInParameter.ALL_MODEL_DESCRIPTION));
+            SafeAdd(fields, () => ReadStringParameter(fi.Symbol, BuiltInParameter.ALL_MODEL_TYPE_COMMENTS));
 
             foreach (string f in fields)
                 if (Contains(f, "redux"))
@@ -48,6 +38,23 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
                     return "reforcada";
 
             return "serie normal";
+        }
+
+        private static void SafeAdd(List<string> fields, Func<string?> getter)
+        {
+            try
+            {
+                fields.Add(getter() ?? string.Empty);
+            }
+            catch
+            {
+            }
+        }
+
+        private static string? ReadStringParameter(Element element, BuiltInParameter id)
+        {
+            Parameter? p = element.get_Parameter(id);
+            return p != null && p.HasValue ? p.AsString() : null;
         }
 
         public static PipeType? FindPipeType(Document doc, string materialKind)

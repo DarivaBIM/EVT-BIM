@@ -41,6 +41,41 @@ namespace DarivaBIM.Domain.Tigre
             return s.Trim();
         }
 
+        /// <summary>
+        /// Variante mais agressiva da normalização para uso em busca de UI:
+        /// FormD (decompõe acentos), descarta marcas, troca qualquer caractere
+        /// não alfanumérico por espaço, recompõe em FormC e colapsa espaços.
+        /// Distinta de <see cref="Normalize"/> (que usa FormKD e preserva
+        /// pontuação fora da lista de separadores).
+        /// </summary>
+        public static string NormalizeForSearch(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            string decomposed = value!
+                .Trim()
+                .ToLowerInvariant()
+                .Normalize(NormalizationForm.FormD);
+
+            StringBuilder builder = new StringBuilder(decomposed.Length);
+
+            foreach (char ch in decomposed)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+                    continue;
+
+                builder.Append(char.IsLetterOrDigit(ch) ? ch : ' ');
+            }
+
+            string compact = builder.ToString().Normalize(NormalizationForm.FormC);
+
+            while (compact.IndexOf("  ", StringComparison.Ordinal) >= 0)
+                compact = compact.Replace("  ", " ");
+
+            return compact.Trim();
+        }
+
         public static IReadOnlyList<string> Tokenize(string? text)
         {
             string norm = Normalize(text);

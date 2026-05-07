@@ -1,3 +1,4 @@
+using DarivaBIM.Application.Common;
 using DarivaBIM.Revit.Abstractions.Ribbon;
 
 namespace DarivaBIM.Plugin.Features.FamiliesImporter
@@ -5,7 +6,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
     public static class FamiliesImporterHubButton
     {
         public static RibbonButtonDefinition Definition => new RibbonButtonDefinition(
-            internalName: "FamiliesImporterHub",
+            internalName: FeatureNames.FamiliesImporter,
             text: "Biblioteca\nTigre",
             commandId: RibbonCommandId.ShowFamiliesPane,
             toolTip: "Abre o painel de importação de famílias da Tigre.",

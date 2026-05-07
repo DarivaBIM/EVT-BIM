@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using DarivaBIM.Application.Common;
 using DarivaBIM.Application.DTOs.Family;
 
 namespace DarivaBIM.Infrastructure.Api.Clients
@@ -20,7 +21,7 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                 Timeout = TimeSpan.FromSeconds(10)
             };
 
-            client.DefaultRequestHeaders.Add("User-Agent", "FamiliesImporterHub");
+            client.DefaultRequestHeaders.Add("User-Agent", FeatureNames.FamiliesImporter);
 
             return client;
         }

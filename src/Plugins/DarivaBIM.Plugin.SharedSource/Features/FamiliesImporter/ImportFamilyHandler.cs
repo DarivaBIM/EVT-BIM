@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using DarivaBIM.Application.Common;
 using DarivaBIM.Application.DTOs.Family;
 using DarivaBIM.Revit.Adapters.Features.FamiliesImporter;
 
@@ -26,7 +27,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
             if (PendingRequest == null || string.IsNullOrWhiteSpace(PendingLocalFilePath))
             {
                 TaskDialog.Show(
-                    "FamiliesImporterHub",
+                    FeatureNames.FamiliesImporter,
                     "Nenhuma requisição de importação preparada foi recebida.");
 
                 return;
@@ -44,7 +45,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                 if (uiDoc == null)
                 {
                     TaskDialog.Show(
-                        "FamiliesImporterHub",
+                        FeatureNames.FamiliesImporter,
                         "Não há nenhum documento ativo no Revit para carregar a família.");
 
                     return;
@@ -55,7 +56,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                 if (projectDoc.IsFamilyDocument)
                 {
                     TaskDialog.Show(
-                        "FamiliesImporterHub",
+                        FeatureNames.FamiliesImporter,
                         "A importação está sendo executada em um documento de família.\n\n" +
                         "Abra um projeto do Revit (.rvt) para carregar e posicionar a família nele.");
 
@@ -72,7 +73,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                         : $" \"{activeView!.Name}\"";
 
                     TaskDialog.Show(
-                        "FamiliesImporterHub",
+                        FeatureNames.FamiliesImporter,
                         "Não é possível posicionar famílias na vista atual.\n\n" +
                         $"Vista{viewNameLabel}: {viewTypeLabel}" +
                         (activeView?.IsTemplate == true ? " (template de vista)" : string.Empty) +
@@ -96,7 +97,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                 if (family == null)
                 {
                     TaskDialog.Show(
-                        "FamiliesImporterHub",
+                        FeatureNames.FamiliesImporter,
                         "O arquivo foi baixado corretamente, mas a família não pôde ser carregada nem localizada no projeto.\n\n" +
                         $"Arquivo em cache:\n{cachedFilePath}\n\n" +
                         $"Nome solicitado pela API: {request.FamilyName}\n" +
@@ -110,7 +111,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                 if (symbol == null)
                 {
                     TaskDialog.Show(
-                        "FamiliesImporterHub",
+                        FeatureNames.FamiliesImporter,
                         "A família foi carregada, mas nenhum tipo (FamilySymbol) foi encontrado para posicionamento.\n\n" +
                         $"Família: {family.Name}");
 
@@ -132,7 +133,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
             catch (Exception ex)
             {
                 TaskDialog.Show(
-                    "FamiliesImporterHub",
+                    FeatureNames.FamiliesImporter,
                     "Não foi possível carregar e iniciar o posicionamento da família.\n\n" +
                     $"Família: {request.FamilyName}\n" +
                     $"URL: {request.DownloadUrl}\n\n" +
@@ -142,7 +143,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
 
         public string GetName()
         {
-            return "FamiliesImporterHub.ImportFamilyHandler";
+            return FeatureNames.FamiliesImporter + ".ImportFamilyHandler";
         }
 
         // Allowlist instead of denylist: a future ViewType added to the Revit

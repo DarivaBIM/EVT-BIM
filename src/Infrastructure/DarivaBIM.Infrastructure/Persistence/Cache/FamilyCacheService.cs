@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using DarivaBIM.Application.Common;
 using DarivaBIM.Application.DTOs.Family;
 
 namespace DarivaBIM.Infrastructure.Persistence.Cache
@@ -12,7 +13,7 @@ namespace DarivaBIM.Infrastructure.Persistence.Cache
         {
             _rootCacheFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "FamiliesImporterHub",
+                FeatureNames.FamiliesImporter,
                 "Cache");
         }
 
@@ -77,34 +78,7 @@ namespace DarivaBIM.Infrastructure.Persistence.Cache
             return safeName;
         }
 
-        private static string SanitizePathSegment(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "SemNome";
-
-            char[] invalidChars = Path.GetInvalidFileNameChars();
-            char[] chars = value.Trim().ToCharArray();
-
-            for (int i = 0; i < chars.Length; i++)
-            {
-                if (Array.IndexOf(invalidChars, chars[i]) >= 0)
-                {
-                    chars[i] = '_';
-                }
-            }
-
-            string sanitized = new string(chars);
-
-            while (sanitized.Contains("  "))
-            {
-                sanitized = sanitized.Replace("  ", " ");
-            }
-
-            sanitized = sanitized.Trim();
-
-            return string.IsNullOrWhiteSpace(sanitized)
-                ? "SemNome"
-                : sanitized;
-        }
+        private static string SanitizePathSegment(string value) =>
+            FileNameSanitizer.Sanitize(value, "SemNome");
     }
 }
