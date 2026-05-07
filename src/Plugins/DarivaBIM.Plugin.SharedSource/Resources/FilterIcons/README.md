@@ -17,7 +17,7 @@ Não é necessário alterar `.csproj`. Basta rebuild do plugin para o
 
 ## Recomendações de arte
 
-- Tamanho: **32x32 px** (decodificado para 32px; cobre HiDPI até 2x).
+- Tamanho: **64x64 px** (decodificado para 80px no chip; cobre HiDPI até ~3x).
 - Formato: PNG com canal alfa.
 - Estilo: monocromático/glyph, traço leve, alinhado para casar visualmente
   com o tom da cor de fundo do chip.

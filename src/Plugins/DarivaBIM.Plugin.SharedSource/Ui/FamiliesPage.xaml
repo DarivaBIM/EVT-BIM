@@ -17,105 +17,6 @@
             <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
         <!--
-            Brushes legados redirecionados aos novos tokens. Mantidos por
-            ainda serem referenciados por estilos da galeria/overlay que
-            sobreviveram ao redesign (DownloadOverlay, OverlayButtonStyle,
-            ClearTagsButtonStyle, etc.). Reapontar aqui é mais barato do
-            que renomear todas as referências espalhadas pelo XAML.
-        -->
-        <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource SurfaceColor}" />
-        <SolidColorBrush x:Key="SoftBorderBrush" Color="{StaticResource LineColor}" />
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource InkColor}" />
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource InkSoftColor}" />
-        <SolidColorBrush x:Key="SearchIconBrush" Color="{StaticResource InkFaintColor}" />
-
-        <Style x:Key="SectionCardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="18" />
-        </Style>
-
-        <Style x:Key="SearchTextBoxStyle" TargetType="TextBox">
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="8,0,0,0" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
-
-        <Style x:Key="CardContainerStyle" TargetType="Border">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="18" />
-            <Setter Property="Padding" Value="9" />
-            <Setter Property="Margin" Value="6" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
-            <Setter Property="RenderTransform">
-                <Setter.Value>
-                    <ScaleTransform ScaleX="1" ScaleY="1" />
-                </Setter.Value>
-            </Setter>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect BlurRadius="18"
-                                      ShadowDepth="0"
-                                      Opacity="0.09" />
-                </Setter.Value>
-            </Setter>
-
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="BorderBrush" Value="#C7D9F8" />
-                    <Setter Property="RenderTransform">
-                        <Setter.Value>
-                            <ScaleTransform ScaleX="1.02" ScaleY="1.02" />
-                        </Setter.Value>
-                    </Setter>
-                    <Setter Property="Effect">
-                        <Setter.Value>
-                            <DropShadowEffect BlurRadius="24"
-                                              ShadowDepth="0"
-                                              Opacity="0.16" />
-                        </Setter.Value>
-                    </Setter>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="TitleTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="10" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <!--
-                Multi-line ellipsis: with TextWrapping=Wrap + TextTrimming
-                + a hard MaxHeight on the consumer, WPF clips the last
-                visible line and appends "..." so card heights stay
-                uniform regardless of family-name length.
-            -->
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-            <Setter Property="LineHeight" Value="13" />
-        </Style>
-
-        <Style x:Key="InfoLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="10" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#94A3B8" />
-            <Setter Property="TextWrapping" Value="NoWrap" />
-        </Style>
-
-        <Style x:Key="InfoValueStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="9" />
-            <Setter Property="Foreground" Value="#475569" />
-            <Setter Property="TextWrapping" Value="NoWrap" />
-        </Style>
-
-        <!--
             Skeleton/shimmer resources. x:Shared="False" forces WPF to mint a
             fresh brush instance for every consumer, so each placeholder owns
             its own (unfrozen) RelativeTransform that the storyboard can drive
@@ -348,11 +249,11 @@
             <Setter Property="Height" Value="32" />
             <Setter Property="MinWidth" Value="120" />
             <Setter Property="Padding" Value="18,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="{StaticResource SoftBorderBrush}" />
+            <Setter Property="Background" Value="{StaticResource Surface}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource Ink}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="HorizontalAlignment" Value="Center" />
@@ -1264,7 +1165,7 @@
                                                                       Width="26"
                                                                       Height="26"
                                                                       Cursor="Hand"
-                                                                      Background="#B3FFFFFF"
+                                                                      Background="{DynamicResource HeartChipBackground}"
                                                                       BorderThickness="0"
                                                                       IsChecked="{Binding IsFavorita, Mode=OneWay}"
                                                                       Click="OnFavoriteHeartClick"
@@ -1377,12 +1278,12 @@
                     <TextBlock x:Name="EmptyStateTitle"
                                FontSize="13"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Foreground="{DynamicResource Ink}"
                                HorizontalAlignment="Center"
                                TextAlignment="Center" />
                     <TextBlock x:Name="EmptyStateHint"
                                FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Foreground="{DynamicResource InkSoft}"
                                HorizontalAlignment="Center"
                                TextAlignment="Center"
                                TextWrapping="Wrap"
@@ -1398,7 +1299,7 @@
                 -->
                 <Border x:Name="DownloadOverlay"
                         Visibility="Collapsed"
-                        Background="#F2FBFAF7"
+                        Background="{DynamicResource OverlayBackground}"
                         CornerRadius="10">
                     <StackPanel VerticalAlignment="Center"
                                 HorizontalAlignment="Center"
@@ -1407,13 +1308,13 @@
                                    HorizontalAlignment="Center"
                                    FontSize="13"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                   Foreground="{DynamicResource Ink}" />
 
                         <TextBlock x:Name="DownloadingFamilyName"
                                    HorizontalAlignment="Center"
                                    TextAlignment="Center"
                                    FontSize="11"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Foreground="{DynamicResource InkSoft}"
                                    TextTrimming="CharacterEllipsis"
                                    TextWrapping="Wrap"
                                    MaxWidth="240"
@@ -1430,7 +1331,7 @@
                         <TextBlock x:Name="DownloadProgressLabel"
                                    HorizontalAlignment="Center"
                                    FontSize="10"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Foreground="{DynamicResource InkSoft}"
                                    Margin="0,8,0,16"
                                    Text="Conectando..." />
 
