@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DarivaBIM.Application.Common;
 
 namespace DarivaBIM.Infrastructure.Persistence.Cache
 {
@@ -27,7 +28,7 @@ namespace DarivaBIM.Infrastructure.Persistence.Cache
         {
             _cacheFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "FamiliesImporterHub",
+                FeatureNames.FamiliesImporter,
                 "ThumbnailCache");
 
             Directory.CreateDirectory(_cacheFolder);
@@ -192,7 +193,7 @@ namespace DarivaBIM.Infrastructure.Persistence.Cache
                 Timeout = TimeSpan.FromSeconds(30)
             };
 
-            client.DefaultRequestHeaders.Add("User-Agent", "FamiliesImporterHub");
+            client.DefaultRequestHeaders.Add("User-Agent", FeatureNames.FamiliesImporter);
             return client;
         }
     }

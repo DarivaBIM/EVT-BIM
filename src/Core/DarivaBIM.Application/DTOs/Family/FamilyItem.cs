@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text;
+using DarivaBIM.Domain.Tigre;
 
 namespace DarivaBIM.Application.DTOs.Family
 {
@@ -187,38 +186,7 @@ namespace DarivaBIM.Application.DTOs.Family
             }
         }
 
-        private static string NormalizeKey(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return string.Empty;
-            }
-
-            string normalized = value
-                .Trim()
-                .ToLowerInvariant()
-                .Normalize(NormalizationForm.FormD);
-
-            var builder = new StringBuilder();
-
-            foreach (char c in normalized)
-            {
-                UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(c);
-
-                if (category == UnicodeCategory.NonSpacingMark)
-                {
-                    continue;
-                }
-
-                builder.Append(char.IsLetterOrDigit(c) ? c : ' ');
-            }
-
-            return builder
-                .ToString()
-                .Normalize(NormalizationForm.FormC)
-                .Replace("  ", " ")
-                .Trim();
-        }
+        private static string NormalizeKey(string value) => TigreTextUtils.NormalizeForSearch(value);
     }
 
     public class TagBadge

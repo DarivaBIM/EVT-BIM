@@ -1,5 +1,7 @@
 using Autodesk.Revit.UI;
+using DarivaBIM.Application.Common;
 using DarivaBIM.Application.DTOs.Family;
+using DarivaBIM.Domain.Tigre;
 using DarivaBIM.Infrastructure.Api.Clients;
 using DarivaBIM.Infrastructure.Persistence.Cache;
 using DarivaBIM.Infrastructure.Persistence.Preferences;
@@ -12,8 +14,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -394,7 +394,7 @@ namespace DarivaBIM.Plugin.Ui
             if (family.DownloadLinks == null || family.DownloadLinks.Count == 0)
             {
                 TaskDialog.Show(
-                    "FamiliesImporterHub",
+                    FeatureNames.FamiliesImporter,
                     $"A família \"{family.Name}\" não possui link de download disponível.");
 
                 return;
@@ -414,7 +414,7 @@ namespace DarivaBIM.Plugin.Ui
             catch (Exception ex)
             {
                 TaskDialog.Show(
-                    "FamiliesImporterHub",
+                    FeatureNames.FamiliesImporter,
                     $"Não foi possível preparar a importação da família.\n\n{ex.Message}");
                 return;
             }
@@ -453,7 +453,7 @@ namespace DarivaBIM.Plugin.Ui
                 ReleaseDownloadCts(cts);
 
                 TaskDialog.Show(
-                    "FamiliesImporterHub",
+                    FeatureNames.FamiliesImporter,
                     "Não foi possível baixar o arquivo da família.\n\n" +
                     $"Família: {request.FamilyName}\n" +
                     $"URL: {request.DownloadUrl}\n\n" +
@@ -489,7 +489,7 @@ namespace DarivaBIM.Plugin.Ui
             catch (Exception ex)
             {
                 TaskDialog.Show(
-                    "FamiliesImporterHub",
+                    FeatureNames.FamiliesImporter,
                     $"Não foi possível agendar a importação da família.\n\n{ex.Message}");
             }
         }
@@ -593,7 +593,7 @@ namespace DarivaBIM.Plugin.Ui
                 SetFooterStatus(FooterStatusKind.Offline);
 
                 TaskDialog.Show(
-                    "FamiliesImporterHub",
+                    FeatureNames.FamiliesImporter,
                     $"Não foi possível carregar as famílias da API.\n\n{ex.Message}");
             }
             finally
@@ -717,15 +717,13 @@ namespace DarivaBIM.Plugin.Ui
                     // Cada aba define sua própria fonte. "popular" e "collections"
                     // ainda não têm dados (comissão futura) e voltam vazias —
                     // UpdateVisualState diferencia "em breve" de "vazio".
-                    List<FamilyItem> source = activeTab switch
+                    IEnumerable<FamilyItem> filtered = activeTab switch
                     {
                         "all" => snapshot,
-                        "fav" => snapshot.Where(f => favoritesSnapshot.Contains(f.Id)).ToList(),
+                        "fav" => snapshot.Where(f => favoritesSnapshot.Contains(f.Id)),
                         "recent" => OrderByRecency(snapshot, recentsSnapshot),
-                        _ => new List<FamilyItem>(),
+                        _ => Enumerable.Empty<FamilyItem>(),
                     };
-
-                    IEnumerable<FamilyItem> filtered = source;
 
                     if (hasSearch || hasSistemaFilter)
                     {
@@ -1183,45 +1181,7 @@ namespace DarivaBIM.Plugin.Ui
                 : value.Replace(" ", string.Empty);
         }
 
-        private static string NormalizeForSearch(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return string.Empty;
-            }
-
-            string normalized = value
-                .Trim()
-                .ToLowerInvariant()
-                .Normalize(NormalizationForm.FormD);
-
-            var builder = new StringBuilder();
-
-            foreach (char c in normalized)
-            {
-                UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(c);
-
-                if (category == UnicodeCategory.NonSpacingMark)
-                {
-                    continue;
-                }
-
-                if (char.IsLetterOrDigit(c))
-                {
-                    builder.Append(c);
-                }
-                else
-                {
-                    builder.Append(' ');
-                }
-            }
-
-            string withoutDiacritics = builder
-                .ToString()
-                .Normalize(NormalizationForm.FormC);
-
-            return Regex.Replace(withoutDiacritics, @"\s+", " ").Trim();
-        }
+        private static string NormalizeForSearch(string value) => TigreTextUtils.NormalizeForSearch(value);
 
         private void SetBusyState(bool isBusy)
         {
