@@ -1057,9 +1057,19 @@ namespace DarivaBIM.Plugin.Ui
 
         private void UpdateClearTagsButton()
         {
-            ClearTagsButton.Visibility = _selectedSistemaIds.Count > 0
+            int count = _selectedSistemaIds.Count;
+            bool hasFilters = count > 0;
+
+            ClearTagsButton.Visibility = hasFilters
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+
+            // Badge contador no header de filtros. Mesma fonte de verdade
+            // (_selectedSistemaIds) — atualiza junto pra evitar drift.
+            FilterCountBadge.Visibility = hasFilters
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            FilterCountText.Text = count.ToString(CultureInfo.InvariantCulture);
         }
 
         // OR-semantics: a família aparece se casar com QUALQUER um dos

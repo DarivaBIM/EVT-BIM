@@ -128,8 +128,8 @@
 
                             <Image x:Name="DotIcon"
                                    Source="{Binding Icon}"
-                                   Width="26"
-                                   Height="26"
+                                   Width="30"
+                                   Height="30"
                                    Stretch="Uniform"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
@@ -351,7 +351,7 @@
 
                                 <!-- Thumb: 76×76, raio só nos cantos esquerdos. -->
                                 <Border Grid.Column="0"
-                                        Background="{DynamicResource ThumbBg}"
+                                        Background="{DynamicResource ThumbBgGradient}"
                                         CornerRadius="10,0,0,10">
                                     <Image ui:CachedImage.SourceUrl="{Binding UrlImg}"
                                            Width="64"
@@ -544,13 +544,17 @@
 
         <!--
             ===== Toolbar =====
-            Botão de sort do toolbar. Hover deixa o fundo `LineSoft` e
-            promove o texto para `Ink` para feedback claro.
+            Botão de sort do toolbar. Pill arredondado: borda hairline +
+            fundo Surface, hover puxa LineSoft. O Border do template lê
+            BorderBrush/BorderThickness do estilo pelo TemplateBinding,
+            então o SortMenuItemStyle (popup) consegue zerar a borda
+            sem precisar redefinir o template inteiro.
         -->
         <Style x:Key="ToolbarSortButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,5" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="{DynamicResource InkSoft}" />
             <Setter Property="FontFamily" Value="{DynamicResource BodyFont}" />
@@ -560,9 +564,12 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="bd"
-                                CornerRadius="6"
+                                CornerRadius="8"
                                 Background="{TemplateBinding Background}"
-                                Padding="{TemplateBinding Padding}">
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="Center"
                                               TextElement.Foreground="{TemplateBinding Foreground}" />
@@ -578,11 +585,15 @@
             </Setter>
         </Style>
 
-        <!-- Item do popup de sort. Estende o ToolbarSortButtonStyle para
-             ficar largura total e alinhar à esquerda. -->
+        <!-- Item do popup de sort. Estende o ToolbarSortButtonStyle e
+             desfaz o pill (borda + fundo) para que cada item se comporte
+             como linha plana de menu, mantendo só o hover de fundo do
+             pai para feedback. -->
         <Style x:Key="SortMenuItemStyle"
                TargetType="Button"
                BasedOn="{StaticResource ToolbarSortButtonStyle}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="MinWidth" Value="140" />
@@ -813,12 +824,24 @@
                                Margin="0,0,0,10" />
 
                     <!-- SearchBar — borda hairline, raio 10, lupa Segoe MDL2.
-                         Glow no foco será polido depois com FocusVisualStyle. -->
-                    <Border Background="{DynamicResource Surface}"
-                            BorderBrush="{DynamicResource Line}"
-                            BorderThickness="0.5"
-                            CornerRadius="10"
+                         No foco do TextBox interno o Border ganha borda
+                         Accent 1px (IsKeyboardFocusWithin propaga o estado
+                         do filho até aqui sem precisar de event handler). -->
+                    <Border CornerRadius="10"
                             Height="36">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{DynamicResource Surface}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+                                <Setter Property="BorderThickness" Value="0.5" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="32" />
@@ -872,11 +895,13 @@
                                       Checked="OnFilterSectionToggled"
                                       Unchecked="OnFilterSectionToggled">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock x:Name="FilterSectionChevron"
-                                           Text="&#xE76C;"
+                                <!-- Glyph de funil (Segoe MDL2 E71C). Reforça
+                                     que esta é uma seção de filtro mesmo com
+                                     a lista de chips colapsada. -->
+                                <TextBlock Text="&#xE71C;"
                                            FontFamily="Segoe MDL2 Assets"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource InkFaint}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource InkSoft}"
                                            VerticalAlignment="Center"
                                            Margin="0,0,8,0" />
                                 <TextBlock Text="Filtrar por sistema"
@@ -885,6 +910,38 @@
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource InkSoft}"
                                            VerticalAlignment="Center" />
+                                <!-- Badge contador. Visibility e Text são
+                                     atualizados em UpdateClearTagsButton no
+                                     code-behind, junto com o botão Limpar
+                                     (mesmo gatilho: _selectedSistemaIds). -->
+                                <Border x:Name="FilterCountBadge"
+                                        Background="{DynamicResource Heart}"
+                                        CornerRadius="9"
+                                        MinWidth="18"
+                                        Height="18"
+                                        Margin="8,0,0,0"
+                                        Padding="5,0"
+                                        VerticalAlignment="Center"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="FilterCountText"
+                                               Text="0"
+                                               FontFamily="{DynamicResource BodyFont}"
+                                               FontSize="10"
+                                               FontWeight="Bold"
+                                               Foreground="White"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                                <!-- Chevron de expandir/recolher (E76C ↓ /
+                                     E70D ↑). O code-behind reescreve o glyph
+                                     em ApplyFilterSectionState. -->
+                                <TextBlock x:Name="FilterSectionChevron"
+                                           Text="&#xE76C;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource InkFaint}"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0,0,0" />
                             </StackPanel>
                         </ToggleButton>
 
@@ -1111,9 +1168,9 @@
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
 
-                                                <!-- Thumb area (ThumbBg pastel + raio só nas pontas de cima). -->
+                                                <!-- Thumb area: gradient sutil pastel + raio só nas pontas de cima. -->
                                                 <Border Grid.Row="0"
-                                                        Background="{DynamicResource ThumbBg}"
+                                                        Background="{DynamicResource ThumbBgGradient}"
                                                         CornerRadius="10,10,0,0">
                                                     <Grid>
                                                         <Image ui:CachedImage.SourceUrl="{Binding UrlImg}"
