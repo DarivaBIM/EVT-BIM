@@ -126,15 +126,17 @@
                                      Stroke="{DynamicResource Line}"
                                      StrokeThickness="1" />
 
+                            <!-- 24×24 dentro do DotFill 40×40 dá 8px de margem
+                                 cada lado. Como agora o ícone é vetor (DrawingImage)
+                                 não há perda de nitidez. -->
                             <Image x:Name="DotIcon"
                                    Source="{Binding Icon}"
-                                   Width="30"
-                                   Height="30"
+                                   Width="24"
+                                   Height="24"
                                    Stretch="Uniform"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    SnapsToDevicePixels="True"
-                                   RenderOptions.BitmapScalingMode="HighQuality"
                                    Visibility="Collapsed" />
 
                             <TextBlock x:Name="DotGlyph"
@@ -349,9 +351,11 @@
                                     <ColumnDefinition Width="34" />
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Thumb: 76×76, raio só nos cantos esquerdos. -->
+                                <!-- Thumb: 76×76, raio só nos cantos esquerdos.
+                                     Fundo branco (Surface) para camuflar imagens
+                                     de família que vêm com fundo branco. -->
                                 <Border Grid.Column="0"
-                                        Background="{DynamicResource ThumbBgGradient}"
+                                        Background="{DynamicResource Surface}"
                                         CornerRadius="10,0,0,10">
                                     <Image ui:CachedImage.SourceUrl="{Binding UrlImg}"
                                            Width="64"
@@ -364,10 +368,13 @@
                                 </Border>
 
                                 <!-- Body: nome (top), data, sistemas (bottom).
-                                     Margin direito 0 — col 2 (heart) já dá
-                                     o respiro visual. -->
+                                     Margin direito de 8px protege o último badge
+                                     do WrapPanel de encostar no card edge — sem
+                                     ele, o BorderThickness do badge ficava
+                                     visualmente cortado pelo ClipToBounds do
+                                     FamilyCardStyle. -->
                                 <StackPanel Grid.Column="1"
-                                            Margin="12,8,0,8"
+                                            Margin="12,8,8,8"
                                             VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Name}"
                                                FontFamily="{DynamicResource BodyFont}"
@@ -651,6 +658,82 @@
                TargetType="TextBlock"
                BasedOn="{StaticResource FooterTextStyle}">
             <Setter Property="Foreground" Value="{DynamicResource InkFaint}" />
+        </Style>
+
+        <!--
+            ScrollBar fina (8px) e discreta para a galeria. Sem botões de
+            seta nas pontas, sem borda no track, thumb arredondado em
+            InkFaint com opacidade que cresce em hover/drag para feedback.
+
+            Style sem x:Key — afeta toda ScrollBar dentro desta Page. Hoje
+            o único consumidor é o ScrollViewer interno do GalleryList; o
+            popup do sort é pequeno demais pra precisar scroll. RepeatButtons
+            sobrevivem (transparentes) para que o paging por click no track
+            continue funcionando.
+
+            Performance: nenhum DropShadowEffect, nenhuma animação contínua;
+            só dois triggers de Opacity. Render-thread.
+        -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="8" />
+                    <Setter Property="MinWidth" Value="8" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ScrollBar">
+                                <Grid Background="{TemplateBinding Background}">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                        <Track.Thumb>
+                                            <Thumb>
+                                                <Thumb.Template>
+                                                    <ControlTemplate TargetType="Thumb">
+                                                        <Border x:Name="thumbBorder"
+                                                                Background="{DynamicResource InkFaint}"
+                                                                CornerRadius="4"
+                                                                Margin="2"
+                                                                Opacity="0.35"
+                                                                SnapsToDevicePixels="True" />
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="thumbBorder" Property="Opacity" Value="0.65" />
+                                                            </Trigger>
+                                                            <Trigger Property="IsDragging" Value="True">
+                                                                <Setter TargetName="thumbBorder" Property="Opacity" Value="0.85" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Thumb.Template>
+                                            </Thumb>
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Command="ScrollBar.PageDownCommand">
+                                                <RepeatButton.Template>
+                                                    <ControlTemplate TargetType="RepeatButton">
+                                                        <Border Background="Transparent" />
+                                                    </ControlTemplate>
+                                                </RepeatButton.Template>
+                                            </RepeatButton>
+                                        </Track.IncreaseRepeatButton>
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Command="ScrollBar.PageUpCommand">
+                                                <RepeatButton.Template>
+                                                    <ControlTemplate TargetType="RepeatButton">
+                                                        <Border Background="Transparent" />
+                                                    </ControlTemplate>
+                                                </RepeatButton.Template>
+                                            </RepeatButton>
+                                        </Track.DecreaseRepeatButton>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         </ResourceDictionary>
@@ -1168,9 +1251,12 @@
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
 
-                                                <!-- Thumb area: gradient sutil pastel + raio só nas pontas de cima. -->
+                                                <!-- Thumb area: branco unificado com o body do card. As
+                                                     thumbnails da API costumam vir com fundo branco; manter
+                                                     a área branca camufla a borda da imagem e elimina a
+                                                     "moldura" cinza que aparecia com gradient. -->
                                                 <Border Grid.Row="0"
-                                                        Background="{DynamicResource ThumbBgGradient}"
+                                                        Background="{DynamicResource Surface}"
                                                         CornerRadius="10,10,0,0">
                                                     <Grid>
                                                         <Image ui:CachedImage.SourceUrl="{Binding UrlImg}"

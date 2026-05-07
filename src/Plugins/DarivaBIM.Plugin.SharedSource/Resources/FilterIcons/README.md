@@ -1,51 +1,71 @@
 # Filter Icons — Families Importer
 
 Ícones renderizados nos *chips* de filtro por sistema na aba Biblioteca
-Tigre (`FamiliesPage.xaml` → `TagDotStyle`). Cada chip mostra um ícone
-PNG sobre um fundo pastel; a cor de fundo, o nome legível e o ícone
-fallback (caractere Segoe MDL2) ficam declarados em
-`Plugins/DarivaBIM.Plugin.SharedSource/Ui/TagFilterOption.cs`.
+Tigre (`FamiliesPage.xaml` → `TagDotStyle`) e nos badges miniaturizados
+no rodapé dos cards de família.
 
-## Onde colocar
+## Implementação
 
-Solte o PNG nesta pasta com o nome listado abaixo. O arquivo é copiado
-para `Ribbon/Resources/FilterIcons/<arquivo>.png` no diretório de saída
-de cada plugin (V2025/V2026) via `.projitems` (`<None CopyToOutputDirectory>`).
+A partir desta iteração os ícones são **vetoriais**: cada arquivo `.svg`
+desta pasta é a fonte de design, mas a renderização em runtime usa
+`DrawingImage` congelados construídos diretamente em código no
+`Ui/Models/SistemaIconLoader.cs`. Os SVGs originais permanecem aqui
+apenas como referência (não são copiados para o output do build).
 
-Não é necessário alterar `.csproj`. Basta rebuild do plugin para o
-ícone aparecer no chip.
+Vantagens vs. raster:
 
-## Recomendações de arte
+- Sem perda de nitidez em qualquer DPI (HiDPI, 4K) — o WPF rasteriza
+  sob demanda no tamanho lógico do `Image` consumidor.
+- Sem cache de bitmap por tamanho lógico → menos memória.
+- Brushes pré-frozen, reusados entre todas as instâncias do mesmo
+  sistema (uma única alocação de `Pen` + `SolidColorBrush` por sistema).
 
-- Tamanho: **64x64 px** (decodificado para 80px no chip; cobre HiDPI até ~3x).
-- Formato: PNG com canal alfa.
-- Estilo: monocromático/glyph, traço leve, alinhado para casar visualmente
-  com o tom da cor de fundo do chip.
-- Cor recomendada do traço: a cor "sugerida" da tabela abaixo, usando o
-  HEX da coluna correspondente — assim o ícone se integra ao chip mesmo
-  quando o usuário aproxima a vista.
+## Atualizando um ícone
+
+1. Abra o SVG no Figma (ou outro editor) e altere o desenho.
+2. Salve sobre o arquivo `.svg` aqui na pasta.
+3. Abra `SistemaIconLoader.BuildCatalog` em
+   `Ui/Models/SistemaIconLoader.cs` e atualize a entrada do sistema
+   correspondente: copie o(s) `path d="…"` do novo SVG e cole
+   substituindo a string anterior. Cores `<circle>`/`<ellipse>` viram
+   `Ellipse(cx, cy, rx, ry)`.
+4. Recompile o plugin — não há cópia de PNG, não há rebuild de
+   recurso linkado.
+
+## Convenções de arte
+
+- viewBox **64×64** (mesma origem dos SVGs do Figma).
+- Stroke colorido com a cor de marca do sistema; **sem fill**, só
+  contorno. `stroke-width="3"`, `stroke-linecap="round"`,
+  `stroke-linejoin="round"`.
+- O `SistemaIconLoader.MakeStroked` aplica esses defaults globalmente
+  — não tente codificar variações por ícone, prefira manter a coerência
+  visual com os 14 já estabelecidos.
+- Se um ícone novo precisar de fill ou múltiplas cores, estenda o
+  helper antes de adicionar a entrada no catálogo (mantém o catálogo
+  em si curto e legível).
 
 ## Mapa de categorias → ícone → cor
 
-| Categoria              | Ícone (descrição)             | Cor sugerida       | HEX        | Arquivo esperado              |
-|------------------------|-------------------------------|--------------------|------------|-------------------------------|
-| Ponto de utilização    | Vaso sanitário                | Cinza neutro       | `#616161`  | `ponto_de_utilizacao.png`     |
-| Poço                   | Bomba manual / retirada       | Âmbar escuro       | `#C88719`  | `poco.png`                    |
-| Irrigação              | Folha com gotas               | Verde-oliva        | `#6B8E23`  | `irrigacao.png`               |
-| Válvula                | Registro                      | Verde-petróleo     | `#00796B`  | `valvula.png`                 |
-| Tratamento de esgoto   | Fossa / tanque                | Marrom terroso     | `#6D4C41`  | `tratamento_de_esgoto.png`    |
-| Bombas                 | Bomba centrífuga / motor      | Laranja técnico    | `#EF6C00`  | `bombas.png`                  |
-| Água Fria              | Gota                          | Azul               | `#1565C0`  | `agua_fria.png`               |
-| Água Quente            | Gota                          | Vermelho quente    | `#D84343`  | `agua_quente.png`             |
-| Piscina                | Escada + ondas                | Azul-céu           | `#039BE5`  | `piscina.png`                 |
-| Reservatório           | Caixa d'água                  | Índigo             | `#3949AB`  | `reservatorio.png`            |
-| Combate a Incêndio     | Hidrante                      | Vermelho-escuro    | `#B71C1C`  | `combate_a_incendio.png`      |
-| Esgoto                 | Sifão                         | Verde escuro       | `#2E7D32`  | `esgoto.png`                  |
-| Pluvial                | Nuvem com chuva               | Roxo azulado       | `#5E60CE`  | `pluvial.png`                 |
-| Caixas e Ralos         | Ralo (vista de topo)          | Cinza-ardósia      | `#546E7A`  | `caixas_e_ralos.png`          |
+| Categoria              | Ícone (descrição)             | Cor                |
+|------------------------|-------------------------------|--------------------|
+| Água Fria              | Gota                          | `#1565C0`          |
+| Água Quente            | Gota                          | `#D84343`          |
+| Pluvial                | Nuvem com chuva               | `#5E60CE`          |
+| Esgoto                 | Sifão                         | `#2E7D32`          |
+| Combate a Incêndio     | Hidrante                      | `#B71C1C`          |
+| Piscina                | Escada + ondas                | `#039BE5`          |
+| Irrigação              | Folhas em vaso                | `#6B8E23`          |
+| Reservatório           | Caixa d'água                  | `#0E7490`          |
+| Bombas                 | Bomba centrífuga              | `#EF6C00`          |
+| Válvula                | Registro                      | `#00796B`          |
+| Caixas e Ralos         | Ralo (vista de topo)          | `#546E7A`          |
+| Tratamento de Esgoto   | Fossa com azulejos            | `#6D4C41`          |
+| Poço                   | Bomba manual + gota           | `#C88719`          |
+| Ponto de Utilização    | Vaso sanitário                | `#616161`          |
 
 ## Fallback
 
-Quando o PNG não existir nesta pasta, o chip continua sendo renderizado
-— só que mostrando o glyph Segoe MDL2 do mapa interno em
+Quando um nome de sistema não existe no catálogo do `SistemaIconLoader`,
+`Load` retorna `null` e o chip cai no glyph Segoe MDL2 declarado em
 `TagFilterOption.ResolvePalette`. Não há erro no build nem no runtime.

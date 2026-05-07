@@ -19,9 +19,12 @@ namespace DarivaBIM.Plugin.Ui.Models
         public required string Label { get; init; }
 
         /// <summary>
-        /// Nome do arquivo PNG do ícone, dentro de
-        /// <c>Resources/FilterIcons/</c>. Carregado em runtime via
-        /// <c>Assembly.Location</c>; ausente no disco vira fallback Segoe MDL2.
+        /// Identificador do ícone do sistema. Por compatibilidade histórica
+        /// continua aceitando o nome de arquivo (com ou sem extensão, ex.:
+        /// <c>"agua_fria"</c> ou <c>"agua_fria.png"</c>); o
+        /// <c>SistemaIconLoader</c> normaliza removendo a extensão e procura
+        /// no catálogo de <c>DrawingImage</c> vetoriais. Chave ausente
+        /// devolve <c>null</c> e o chip cai no fallback Segoe MDL2.
         /// </summary>
         public required string IconFileName { get; init; }
 

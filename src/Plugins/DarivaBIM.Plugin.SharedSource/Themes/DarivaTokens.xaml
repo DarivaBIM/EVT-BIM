@@ -49,17 +49,6 @@
     <SolidColorBrush x:Key="Rail" Color="{StaticResource RailColor}" />
     <SolidColorBrush x:Key="RailActive" Color="{StaticResource RailActiveColor}" />
     <SolidColorBrush x:Key="ThumbBg" Color="{StaticResource ThumbBgColor}" />
-
-    <!-- Gradient sutil para a thumb area do card. Frozen automaticamente
-         pela engine (sem bindings dinâmicos), reusado entre todos os
-         cards da lista virtualizada — custo único, render barato.
-         Stops alinhados com a paleta de surfaces para integrar visualmente
-         (topo perto do Surface, base perto do Line). -->
-    <LinearGradientBrush x:Key="ThumbBgGradient" StartPoint="0.5,0" EndPoint="0.5,1">
-        <GradientStop Offset="0" Color="#F8F7F2" />
-        <GradientStop Offset="1" Color="#EAE6DB" />
-    </LinearGradientBrush>
-
     <SolidColorBrush x:Key="Line" Color="{StaticResource LineColor}" />
     <SolidColorBrush x:Key="LineSoft" Color="{StaticResource LineSoftColor}" />
     <SolidColorBrush x:Key="Ink" Color="{StaticResource InkColor}" />

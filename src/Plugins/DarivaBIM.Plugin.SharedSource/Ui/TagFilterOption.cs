@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using DarivaBIM.Plugin.Ui.Models;
 
 namespace DarivaBIM.Plugin.Ui
@@ -29,10 +28,10 @@ namespace DarivaBIM.Plugin.Ui
             Key = sistema.Id;
             BackgroundBrush = CreateFrozenBrush(sistema.BgHex);
             ForegroundBrush = CreateFrozenBrush(sistema.ColorHex);
-            // 26px lógico de ícone × 3 (cobre HiDPI até 200% sem cair em
-            // upscale durante render). Antes era 56 (2× de 28) e ficava
-            // levemente borrado depois que o chip aumentou pra 48.
-            Icon = SistemaIconLoader.Load(sistema.IconFileName, decodePixelWidth: 80);
+            // Vetor: o mesmo DrawingImage congelado é reusado entre todos os
+            // chips do mesmo sistema. Sem decode por tamanho — o WPF rasteriza
+            // sob demanda no tamanho lógico do <Image> consumidor.
+            Icon = SistemaIconLoader.Load(sistema.IconFileName);
         }
 
         /// <summary>Sistema canônico associado a este chip.</summary>
@@ -61,12 +60,12 @@ namespace DarivaBIM.Plugin.Ui
 
         // Mantido para compatibilidade com o ControlTemplate em FamiliesPage.xaml,
         // que tem um TextBlock fallback quando Icon está ausente. Os 14
-        // sistemas do catálogo têm PNGs garantidos, então o glyph nunca
+        // sistemas do catálogo têm vetores garantidos, então o glyph nunca
         // renderiza, mas a property precisa existir para o binding não jogar
         // BindingExpression error no Output.
         public string Glyph => string.Empty;
 
-        public BitmapImage? Icon { get; }
+        public ImageSource? Icon { get; }
 
         public bool HasIcon => Icon != null;
 
