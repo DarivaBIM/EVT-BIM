@@ -65,15 +65,10 @@ namespace DarivaBIM.Plugin.Ui
                 ViewModel.ApplyScan(result);
                 ViewModel.IsBusy = false;
 
+                // ApplyScan já chama RefreshContextualStatus quando não há
+                // erro; aqui só sobrescrevemos com a mensagem fatal de erro.
                 if (!string.IsNullOrEmpty(result.ErrorMessage))
                     ViewModel.StatusMessage = result.ErrorMessage!;
-                else if (result.PipesTotal == 0)
-                    ViewModel.StatusMessage = "Nenhum tubo encontrado no projeto ativo.";
-                else if (!result.ParameterIsBound)
-                    ViewModel.StatusMessage =
-                        "Crie o parâmetro 'Tigre: Código' para liberar os botões de inserir/atualizar.";
-                else
-                    ViewModel.StatusMessage = "Marque os tubos que deseja atualizar e clique em Inserir/Atualizar Códigos.";
             });
         }
 

@@ -36,8 +36,14 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
                     }
                 }
                 RecomputeAggregates();
+                OnPropertyChanged(nameof(IsEmpty));
+                OnPropertyChanged(nameof(HasGroups));
             };
         }
+
+        public bool IsEmpty => Groups.Count == 0;
+
+        public bool HasGroups => Groups.Count > 0;
 
         public TigrePipeStatus Status { get; }
 
