@@ -195,6 +195,33 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             }
         }
 
+        private int _totalSelectedCount;
+        /// <summary>
+        /// Soma de tubos marcados nas quatro caixinhas. Exposta para que os
+        /// botões inferiores possam mostrar o contador entre parênteses
+        /// (ex.: "Inserir/Atualizar Códigos (12)").
+        /// </summary>
+        public int TotalSelectedCount
+        {
+            get => _totalSelectedCount;
+            private set
+            {
+                if (SetField(ref _totalSelectedCount, value))
+                {
+                    OnPropertyChanged(nameof(ApplyButtonLabel));
+                    OnPropertyChanged(nameof(ClearButtonLabel));
+                }
+            }
+        }
+
+        public string ApplyButtonLabel => TotalSelectedCount > 0
+            ? $"Inserir/Atualizar Códigos ({TotalSelectedCount})"
+            : "Inserir/Atualizar Códigos";
+
+        public string ClearButtonLabel => TotalSelectedCount > 0
+            ? $"Deletar Códigos ({TotalSelectedCount})"
+            : "Deletar Códigos";
+
         private string _statusMessage = string.Empty;
         public string StatusMessage
         {
@@ -228,6 +255,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
 
             // Após cada scan a seleção é zerada — IDs antigos podem nem
             // existir mais no documento.
+            TotalSelectedCount = 0;
             HasAnySelection = false;
 
             if (!string.IsNullOrEmpty(scan.ErrorMessage))
@@ -280,6 +308,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
                       + DivergentSection.SelectedCount
                       + MissingSection.SelectedCount
                       + OkSection.SelectedCount;
+            TotalSelectedCount = total;
             HasAnySelection = total > 0;
         }
 
