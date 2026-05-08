@@ -1,19 +1,34 @@
 using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using DarivaBIM.Plugin.Ui;
 using DarivaBIM.Revit.Hosting.Commands;
 
 namespace DarivaBIM.Plugin.Features.PipeCodes
 {
     /// <summary>
-    /// Thin <c>IExternalCommand</c> shell for the "Codificar Tubos" tool.
-    /// All the wiring (DI scope, document validation, error handling and
-    /// dialog) lives in <see cref="RevitCommandBase{TTool}"/>.
+    /// Entry-point do botão "Codificar Tubos". Abre a janela WPF como
+    /// singleton — toda a interação com o documento (varredura, criação do
+    /// shared parameter, inserção e limpeza dos códigos) acontece via
+    /// ExternalEvents disparados pela própria janela. Não roda nada no
+    /// modelo até o usuário decidir.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
-    public sealed class ApplyPipeCodesCommand : RevitCommandBase<ApplyPipeCodesTool>
+    public sealed class ApplyPipeCodesCommand : IExternalCommand
     {
-        protected override string DialogTitle => "EVT-BIM — Códigos Tigre";
-
-        protected override string NoProjectDocumentMessage =>
-            "Abra um projeto Revit para aplicar os códigos Tigre.";
+        public Result Execute(
+            ExternalCommandData commandData,
+            ref string message,
+            ElementSet elements)
+        {
+            string outerMessage = message;
+            Result result = RevitCommandExecutor.Current!.Execute(commandData, ref outerMessage, _ =>
+            {
+                PipeCodesWindow.ShowSingleton();
+                return Result.Succeeded;
+            });
+            message = outerMessage;
+            return result;
+        }
     }
 }

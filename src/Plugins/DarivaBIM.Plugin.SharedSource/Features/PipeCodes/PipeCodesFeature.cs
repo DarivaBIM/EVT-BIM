@@ -5,11 +5,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DarivaBIM.Plugin.Features.PipeCodes
 {
     /// <summary>
-    /// Manifest of the "Codificar Tubos" feature: groups the ribbon button, the
-    /// command type, the stable <see cref="RibbonCommandId"/> and the DI
-    /// registration of feature-local services. Today this dispatches to the
-    /// Tigre-specific applier (<see cref="ApplyPipeCodesTool"/>); future
-    /// catalogues plug in alongside.
+    /// Manifest da feature "Codificar Tubos": botão da ribbon, comando que
+    /// abre o WPF e <see cref="RibbonCommandId"/> estável. A janela cria seus
+    /// próprios <c>ExternalEvent</c>s para varrer o projeto, criar o shared
+    /// parameter Tigre: Código e aplicar/apagar os valores nos tubos
+    /// selecionados pelo usuário, então o DI surface aqui é vazio.
     /// </summary>
     public static class PipeCodesFeature
     {
@@ -21,7 +21,6 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
 
         public static IServiceCollection AddServices(IServiceCollection services)
         {
-            services.AddTransient<ApplyPipeCodesTool>();
             return services;
         }
     }

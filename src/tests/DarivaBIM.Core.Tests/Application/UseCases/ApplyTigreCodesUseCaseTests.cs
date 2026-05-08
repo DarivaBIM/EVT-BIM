@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using DarivaBIM.Application.Contracts;
 using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Application.UseCases.ApplyTigreCodes;
@@ -8,43 +10,40 @@ namespace DarivaBIM.Core.Tests.Application.UseCases
     public class ApplyTigreCodesUseCaseTests
     {
         [Fact]
-        public void Execute_returns_service_result()
+        public void Execute_passes_ids_to_service_and_returns_result()
         {
-            var fakeService = new FakeTigreCodeApplyService();
-            var useCase = new ApplyTigreCodesUseCase(fakeService);
+            FakeTigreCodeApplyService fake = new();
+            ApplyTigreCodesUseCase useCase = new(fake);
 
-            TigreCodeApplyResult result = useCase.Execute();
+            IReadOnlyList<long> ids = new long[] { 101, 202, 303 };
+            TigreSelectiveApplyResult result = useCase.Execute(ids);
 
-            Assert.Equal(7, result.PipesUpdated);
-            Assert.Equal(1, fakeService.CallCount);
+            Assert.Equal(7, result.Inserted);
+            Assert.Equal(1, fake.CallCount);
+            Assert.Equal(ids, fake.LastIds);
         }
 
         [Fact]
-        public void FormatReport_produces_human_readable_summary()
+        public void Execute_throws_when_ids_is_null()
         {
-            var report = new TigreCodeApplyResult
-            {
-                CatalogCount = 42,
-                PipesTotal = 10,
-                PipesUpdated = 8,
-            };
+            ApplyTigreCodesUseCase useCase = new(new FakeTigreCodeApplyService());
 
-            string formatted = ApplyTigreCodesUseCase.FormatReport(report);
-            Assert.Contains("Catálogo: 42", formatted);
-            Assert.Contains("Tubos: 10", formatted);
+            Assert.Throws<ArgumentNullException>(() => useCase.Execute(null!));
         }
 
         private sealed class FakeTigreCodeApplyService : ITigreCodeApplyService
         {
             public int CallCount { get; private set; }
+            public IReadOnlyList<long>? LastIds { get; private set; }
 
-            public TigreCodeApplyResult Apply()
+            public TigreSelectiveApplyResult Apply(IReadOnlyList<long> elementIds)
             {
                 CallCount++;
-                return new TigreCodeApplyResult
+                LastIds = elementIds;
+                return new TigreSelectiveApplyResult
                 {
-                    PipesTotal = 10,
-                    PipesUpdated = 7,
+                    Selected = elementIds.Count,
+                    Inserted = 7,
                 };
             }
         }

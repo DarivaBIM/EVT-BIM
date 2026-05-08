@@ -10,20 +10,13 @@ using DarivaBIM.Revit.Adapters.Common.SharedParameters;
 namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
 {
     /// <summary>
-    /// Implementação Revit 2026 de <see cref="ITigreCodeApplyService"/>.
-    /// Orquestra o fluxo do script Dynamo:
-    ///
-    /// 1. Garante o shared parameter declarado em
-    ///    <see cref="TigreCodesSharedParameters.Code"/> via
-    ///    <see cref="SharedParameterService"/>.
-    /// 2. Coleta todos os tubos do projeto
-    ///    (<see cref="TigrePipeCollector"/>).
-    /// 3. Para cada tubo, lê descrição/segmento/tipo/diâmetro
-    ///    (<see cref="TigrePipeDataReader"/>) e procura o match no
-    ///    <see cref="TigreCatalog"/>.
-    /// 4. Escreve o código no parâmetro alvo
-    ///    (<see cref="TigreCodeWriter"/>).
-    /// 5. Preenche o relatório (<see cref="TigreCodeApplyResult"/>).
+    /// Implementação Revit-side de <see cref="ITigreCodeApplyService"/>.
+    /// Recebe os IDs marcados pelo usuário no WPF, refaz o match contra o
+    /// <see cref="TigreCatalog"/> e grava o código no parâmetro Tigre: Código
+    /// dentro de uma única transação. O ensure do shared parameter é
+    /// responsabilidade do <see cref="TigreParameterBinder"/> — aqui
+    /// assumimos que o binding já existe (caso contrário, contabiliza como
+    /// "parameter issue").
     /// </summary>
     public sealed class TigreCodeApplier : ITigreCodeApplyService
     {
@@ -36,32 +29,135 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             _catalogProvider = catalogProvider ?? throw new ArgumentNullException(nameof(catalogProvider));
         }
 
-        public TigreCodeApplyResult Apply()
+        public TigreSelectiveApplyResult Apply(IReadOnlyList<long> elementIds)
         {
-            TigreCodeApplyResult report = new TigreCodeApplyResult();
+            if (elementIds == null) throw new ArgumentNullException(nameof(elementIds));
+
             TigreCatalog catalog = _catalogProvider.Load();
-            report.CatalogCount = catalog.Entries.Count;
-
             if (catalog.Entries.Count == 0)
-                throw new InvalidOperationException("Catálogo Tigre vazio.");
-
-            ExecuteInWriteTransaction(_doc, "Tigre — Aplicar códigos nos tubos", () =>
             {
-                SharedParameterEnsureResult ensure =
-                    SharedParameterService.Ensure(_doc, TigreCodesSharedParameters.Code);
-                report.ParameterAction = ensure.Action;
-                report.Warnings.AddRange(ensure.Warnings);
+                return new TigreSelectiveApplyResult
+                {
+                    Selected = elementIds.Count,
+                    ErrorMessage = "Catálogo Tigre vazio.",
+                };
+            }
 
-                _doc.Regenerate();
+            int totalInProject = TigrePipeCollector.CollectPipes(_doc).Count;
 
-                IList<Pipe> pipes = TigrePipeCollector.CollectPipes(_doc);
-                report.PipesTotal = pipes.Count;
+            int inserted = 0;
+            int overwritten = 0;
+            int alreadyOk = 0;
+            int noMatch = 0;
+            int paramIssue = 0;
 
-                foreach (Pipe pipe in pipes)
-                    ProcessPipe(pipe, catalog, report);
+            ExecuteInWriteTransaction(_doc, "Tigre — Inserir/Atualizar códigos", () =>
+            {
+                foreach (long rawId in elementIds)
+                {
+                    Element? el = _doc.GetElement(new ElementId(rawId));
+                    if (el is not Pipe pipe)
+                    {
+                        // Tubo deletado entre o scan e o apply — ignora.
+                        continue;
+                    }
+
+                    ProcessPipe(
+                        pipe,
+                        catalog,
+                        ref inserted,
+                        ref overwritten,
+                        ref alreadyOk,
+                        ref noMatch,
+                        ref paramIssue);
+                }
             });
 
-            return report;
+            return new TigreSelectiveApplyResult
+            {
+                CatalogCount = catalog.Entries.Count,
+                PipesTotalInProject = totalInProject,
+                Selected = elementIds.Count,
+                Inserted = inserted,
+                Overwritten = overwritten,
+                AlreadyOk = alreadyOk,
+                NoMatch = noMatch,
+                ParameterIssue = paramIssue,
+            };
+        }
+
+        private void ProcessPipe(
+            Pipe pipe,
+            TigreCatalog catalog,
+            ref int inserted,
+            ref int overwritten,
+            ref int alreadyOk,
+            ref int noMatch,
+            ref int paramIssue)
+        {
+            TigrePipeData data = TigrePipeDataReader.Read(_doc, pipe);
+
+            if (!data.DiameterMm.HasValue)
+            {
+                noMatch++;
+                return;
+            }
+
+            string combined = TigreTextUtils.Normalize(
+                $"{data.Description} {data.Segment} {data.TypeName}");
+            TigreCatalogEntry? match = catalog.FindMatch(
+                data.Description, data.Segment, data.TypeName, combined, data.DiameterMm.Value);
+
+            if (match == null)
+            {
+                noMatch++;
+                return;
+            }
+
+            Parameter? target = SharedParameterService.GetParameter(pipe, TigreCodesSharedParameters.Code);
+            if (target == null || target.IsReadOnly)
+            {
+                paramIssue++;
+                return;
+            }
+
+            // Distingue Inserted (vazio → novo valor) de Overwritten (valor
+            // pré-existente diferente). Para Integer, "vazio" é zero.
+            bool wasEmpty = IsEmptyCode(target);
+
+            TigreWriteOutcome outcome = TigreCodeWriter.Write(target, match.Code);
+            switch (outcome)
+            {
+                case TigreWriteOutcome.AlreadyOk:
+                    alreadyOk++;
+                    break;
+                case TigreWriteOutcome.Overwritten:
+                    if (wasEmpty)
+                        inserted++;
+                    else
+                        overwritten++;
+                    break;
+                case TigreWriteOutcome.ParameterIssue:
+                    paramIssue++;
+                    break;
+            }
+        }
+
+        private static bool IsEmptyCode(Parameter param)
+        {
+            try
+            {
+                return param.StorageType switch
+                {
+                    StorageType.Integer => param.AsInteger() == 0,
+                    StorageType.String => string.IsNullOrEmpty(param.AsString()),
+                    _ => true,
+                };
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         private static void ExecuteInWriteTransaction(Document doc, string transactionName, Action action)
@@ -72,69 +168,14 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 return;
             }
 
-            using Transaction tx = new Transaction(doc, transactionName);
+            using Transaction tx = new(doc, transactionName);
             TransactionStatus status = tx.Start();
             if (status != TransactionStatus.Started)
-                throw new InvalidOperationException("Não foi possível abrir transação para aplicar os códigos Tigre.");
+                throw new InvalidOperationException(
+                    "Não foi possível abrir transação para aplicar os códigos Tigre.");
 
             action();
             tx.Commit();
-        }
-
-        private void ProcessPipe(Pipe pipe, TigreCatalog catalog, TigreCodeApplyResult report)
-        {
-            TigrePipeData data = TigrePipeDataReader.Read(_doc, pipe);
-            string combined = TigreTextUtils.Normalize($"{data.Description} {data.Segment} {data.TypeName}");
-
-            if (!data.DiameterMm.HasValue)
-            {
-                RegisterNoMatch(report, pipe, null, data);
-                return;
-            }
-
-            TigreCatalogEntry? match = catalog.FindMatch(
-                data.Description, data.Segment, data.TypeName, combined, data.DiameterMm.Value);
-            if (match == null)
-            {
-                RegisterNoMatch(report, pipe, data.DiameterMm, data);
-                return;
-            }
-
-            Parameter? target = SharedParameterService.GetParameter(pipe, TigreCodesSharedParameters.Code);
-            if (target == null || target.IsReadOnly)
-            {
-                report.PipesParameterIssue++;
-                return;
-            }
-
-            TigreWriteOutcome outcome = TigreCodeWriter.Write(target, match.Code);
-            switch (outcome)
-            {
-                case TigreWriteOutcome.AlreadyOk:
-                    report.PipesAlreadyOk++;
-                    report.PipesUpdated++;
-                    break;
-                case TigreWriteOutcome.Overwritten:
-                    report.PipesOverwritten++;
-                    report.PipesUpdated++;
-                    break;
-                case TigreWriteOutcome.ParameterIssue:
-                    report.PipesParameterIssue++;
-                    break;
-            }
-        }
-
-        private static void RegisterNoMatch(TigreCodeApplyResult report, Pipe pipe, int? diaMm, TigrePipeData data)
-        {
-            report.PipesNoMatch++;
-            report.Unmatched.Add(new UnmatchedPipe
-            {
-                ElementId = pipe.Id.Value,
-                DiameterMm = diaMm,
-                Description = data.Description,
-                Segment = data.Segment,
-                TypeName = data.TypeName,
-            });
         }
     }
 }
