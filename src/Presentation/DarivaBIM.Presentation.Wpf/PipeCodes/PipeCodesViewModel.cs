@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Presentation.Wpf.Common;
 
@@ -19,22 +20,22 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             NoMatchSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.NoMatch,
                 "Sem correspondência",
-                "Sem casamento no catálogo Tigre. 'Inserir' não tem efeito aqui — útil só pra apagar valores legados.");
+                "Tubos sem item equivalente no catálogo Tigre. Use esta lista para revisar ou apagar códigos legados.");
 
             DivergentSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Divergent,
                 "Códigos divergentes",
-                "Tubos com Tigre: Código gravado, mas com valor diferente do que o catálogo casaria hoje.");
+                "Tubos com código gravado diferente do código previsto pelo catálogo.");
 
             MissingSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Missing,
-                "Sem código (com correspondência)",
-                "Tubos vazios que casam com o catálogo — prontos para receber o código.");
+                "Prontos para codificar",
+                "Tubos sem código, mas com correspondência no catálogo Tigre.");
 
             OkSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Ok,
                 "Códigos corretos",
-                "Tubos já com o código correto. Mantenha selecionados aqui só se quiser regravar/apagar.");
+                "Tubos já com o código correto. Mantenha selecionados apenas se quiser regravar ou apagar.");
 
             NoMatchSection.PropertyChanged += OnSectionPropertyChanged;
             DivergentSection.PropertyChanged += OnSectionPropertyChanged;
@@ -47,7 +48,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
         public PipeCodesSectionViewModel MissingSection { get; }
         public PipeCodesSectionViewModel OkSection { get; }
 
-        // ---------- Cabeçalho com a situação do shared parameter ----------
+        // ---------- Coluna 1: Resumo do projeto ----------
 
         private int _catalogCount;
         public int CatalogCount
@@ -72,11 +73,28 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
                 {
                     OnPropertyChanged(nameof(PipesTotalText));
                     OnPropertyChanged(nameof(CanCreateParameter));
+                    OnPropertyChanged(nameof(ParameterStatusWarning));
+                    OnPropertyChanged(nameof(ParameterStatusOk));
                 }
             }
         }
 
-        public string PipesTotalText => $"Total de tubos: {PipesTotal}";
+        public string PipesTotalText => $"Tubos no projeto: {PipesTotal}";
+
+        private int _uniqueTypeCount;
+        public int UniqueTypeCount
+        {
+            get => _uniqueTypeCount;
+            private set
+            {
+                if (SetField(ref _uniqueTypeCount, value))
+                    OnPropertyChanged(nameof(UniqueTypeCountText));
+            }
+        }
+
+        public string UniqueTypeCountText => $"Tipos encontrados: {UniqueTypeCount}";
+
+        // ---------- Coluna 2: Parâmetro de código ----------
 
         private int _pipesWithParameter;
         public int PipesWithParameter
@@ -85,9 +103,11 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             set
             {
                 if (SetField(ref _pipesWithParameter, value))
-                    OnPropertyChanged(nameof(ParameterStatusText));
+                    OnPropertyChanged(nameof(PipesWithParameterText));
             }
         }
+
+        public string PipesWithParameterText => $"Com parâmetro de código: {PipesWithParameter}";
 
         private int _pipesWithoutParameter;
         public int PipesWithoutParameter
@@ -96,12 +116,11 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             set
             {
                 if (SetField(ref _pipesWithoutParameter, value))
-                    OnPropertyChanged(nameof(ParameterStatusText));
+                    OnPropertyChanged(nameof(PipesWithoutParameterText));
             }
         }
 
-        public string ParameterStatusText =>
-            $"Com parâmetro Tigre: Código: {PipesWithParameter}    ·    Sem parâmetro: {PipesWithoutParameter}";
+        public string PipesWithoutParameterText => $"Sem parâmetro de código: {PipesWithoutParameter}";
 
         private bool _parameterIsBound;
         public bool ParameterIsBound
@@ -112,14 +131,31 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
                 if (SetField(ref _parameterIsBound, value))
                 {
                     OnPropertyChanged(nameof(ParameterIsNotBound));
+                    OnPropertyChanged(nameof(ParameterStatusOk));
+                    OnPropertyChanged(nameof(ParameterStatusWarning));
                     OnPropertyChanged(nameof(CanCreateParameter));
                     OnPropertyChanged(nameof(CanApply));
                     OnPropertyChanged(nameof(CanClear));
+                    RefreshContextualStatus();
                 }
             }
         }
 
         public bool ParameterIsNotBound => !ParameterIsBound;
+
+        // ---------- Coluna 3: Status geral ----------
+
+        /// <summary>
+        /// "Tudo pronto" — todos os tubos do projeto já expõem o parâmetro
+        /// Tigre: Código. Vinculado ao alerta verde da terceira coluna.
+        /// </summary>
+        public bool ParameterStatusOk => ParameterIsBound && PipesTotal > 0;
+
+        /// <summary>
+        /// "Ação necessária" — existem tubos no projeto sem o parâmetro.
+        /// Vinculado ao alerta amarelo da terceira coluna.
+        /// </summary>
+        public bool ParameterStatusWarning => ParameterIsNotBound && PipesTotal > 0;
 
         // ---------- Estado dos botões ----------
 
@@ -154,6 +190,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
                 {
                     OnPropertyChanged(nameof(CanApply));
                     OnPropertyChanged(nameof(CanClear));
+                    RefreshContextualStatus();
                 }
             }
         }
@@ -184,12 +221,19 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             FillSection(MissingSection, scan.Groups, TigrePipeStatus.Missing);
             FillSection(OkSection, scan.Groups, TigrePipeStatus.Ok);
 
+            UniqueTypeCount = scan.Groups
+                .Select(g => g.TypeName)
+                .Distinct(System.StringComparer.OrdinalIgnoreCase)
+                .Count();
+
             // Após cada scan a seleção é zerada — IDs antigos podem nem
             // existir mais no documento.
             HasAnySelection = false;
 
             if (!string.IsNullOrEmpty(scan.ErrorMessage))
                 StatusMessage = scan.ErrorMessage!;
+            else
+                RefreshContextualStatus();
         }
 
         public IReadOnlyList<long> CollectSelectedIds()
@@ -200,6 +244,31 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             CollectFrom(MissingSection, ids);
             CollectFrom(OkSection, ids);
             return ids;
+        }
+
+        /// <summary>
+        /// Atualiza a mensagem do rodapé com base no estado atual: ausência
+        /// de parâmetro, ausência de seleção, ou pronto pra aplicar. Chamada
+        /// pelo code-behind após cada operação ou diretamente quando muda
+        /// algum estado relevante.
+        /// </summary>
+        public void RefreshContextualStatus()
+        {
+            if (PipesTotal == 0)
+            {
+                StatusMessage = "Nenhum tubo encontrado no projeto ativo.";
+                return;
+            }
+
+            if (!ParameterIsBound)
+            {
+                StatusMessage = "Crie o parâmetro de código para liberar os botões de inserir/atualizar.";
+                return;
+            }
+
+            StatusMessage = HasAnySelection
+                ? "Revise os itens selecionados antes de inserir, regravar ou apagar códigos."
+                : "Marque os tubos que deseja atualizar e clique em Inserir/Atualizar Códigos.";
         }
 
         private void OnSectionPropertyChanged(object? sender, PropertyChangedEventArgs e)

@@ -42,8 +42,8 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
         public int? MatchedCode { get; }
 
         public string DiameterText => DiameterMm.HasValue
-            ? $"Ø {DiameterMm.Value} mm"
-            : "Ø —";
+            ? $"{DiameterMm.Value} mm"
+            : "—";
 
         private bool _isSelected;
         public bool IsSelected

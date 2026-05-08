@@ -19,7 +19,9 @@
 
         <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="SoftBorderBrush"     Color="#D8E0EA" />
+        <SolidColorBrush x:Key="DividerBrush"        Color="#E5E7EB" />
         <SolidColorBrush x:Key="TextPrimaryBrush"    Color="#0F172A" />
+        <SolidColorBrush x:Key="TextSecondaryBrush"  Color="#475569" />
         <SolidColorBrush x:Key="LabelBrush"          Color="#64748B" />
         <SolidColorBrush x:Key="MutedBrush"          Color="#94A3B8" />
 
@@ -45,9 +47,18 @@
         <SolidColorBrush x:Key="GreenBorderBrush" Color="#86EFAC" />
         <SolidColorBrush x:Key="GreenAccentBrush" Color="#15803D" />
 
-        <Style x:Key="LabelTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
+        <!-- Estilos de texto -->
+        <Style x:Key="ColumnTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="StatLineStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,3" />
         </Style>
 
         <Style x:Key="HeaderTitleStyle" TargetType="TextBlock">
@@ -62,16 +73,20 @@
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
-        <Style x:Key="StatBigTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Style x:Key="EmptyMessageStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontStyle" Value="Italic" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,12,0,12" />
         </Style>
 
+        <!-- Botões -->
         <Style x:Key="ButtonBaseStyle" TargetType="Button">
-            <Setter Property="Height" Value="36" />
-            <Setter Property="MinWidth" Value="160" />
-            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="MinWidth" Value="150" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="BorderThickness" Value="0" />
@@ -80,7 +95,7 @@
             <Setter Property="Margin" Value="6,0,0,0" />
             <Style.Triggers>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.45" />
+                    <Setter Property="Opacity" Value="0.42" />
                     <Setter Property="Cursor" Value="Arrow" />
                 </Trigger>
             </Style.Triggers>
@@ -100,15 +115,19 @@
 
         <Style x:Key="AccentButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonBaseStyle}">
             <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
 
-        <!-- Cabeçalho de tabela dentro de cada caixinha -->
+        <!-- Cabeçalho de tabela / linhas -->
         <Style x:Key="ColumnHeaderStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextAlignment" Value="Left" />
         </Style>
 
         <Style x:Key="RowTextStyle" TargetType="TextBlock">
@@ -116,20 +135,21 @@
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextAlignment" Value="Left" />
         </Style>
 
-        <!-- Template de uma linha: [check] [qtd] [tipo] [Ø] -->
+        <!-- Template de uma linha: [check] [Qtd] [Tipo] [Diâmetro] -->
         <DataTemplate x:Key="GroupRowTemplate">
             <Border Background="White"
-                    BorderBrush="#E5E7EB"
+                    BorderBrush="{StaticResource DividerBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="6,4">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="28" />
-                        <ColumnDefinition Width="56" />
+                        <ColumnDefinition Width="44" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="70" />
                     </Grid.ColumnDefinitions>
 
                     <CheckBox Grid.Column="0"
@@ -137,21 +157,19 @@
                               VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1"
                                Text="{Binding Count}"
-                               Style="{StaticResource RowTextStyle}"
-                               TextAlignment="Center" />
+                               Style="{StaticResource RowTextStyle}" />
                     <TextBlock Grid.Column="2"
                                Text="{Binding TypeName}"
                                Style="{StaticResource RowTextStyle}"
+                               Margin="2,0,8,0"
                                ToolTip="{Binding TypeName}" />
                     <TextBlock Grid.Column="3"
                                Text="{Binding DiameterText}"
-                               Style="{StaticResource RowTextStyle}"
-                               TextAlignment="Right" />
+                               Style="{StaticResource RowTextStyle}" />
                 </Grid>
             </Border>
         </DataTemplate>
 
-        <!-- Cabeçalho de uma caixinha (cor passa via Tag) -->
         <Style x:Key="SectionBorderStyle" TargetType="Border">
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="10" />
@@ -176,47 +194,113 @@
             </TextBlock>
         </StackPanel>
 
-        <!-- Cabeçalho com a situação do shared parameter -->
+        <!-- Card superior em 3 colunas: Resumo · Parâmetro · Status -->
         <Border Grid.Row="1"
                 Background="{StaticResource CardBackgroundBrush}"
                 BorderBrush="{StaticResource SoftBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
-                Padding="14,12"
+                Padding="0"
                 Margin="0,0,0,10">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="1" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="1" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" Orientation="Vertical">
-                    <TextBlock Text="{Binding CatalogCountText}" Style="{StaticResource StatBigTextStyle}" />
-                    <TextBlock Text="{Binding PipesTotalText}"   Style="{StaticResource StatBigTextStyle}" Margin="0,2,0,0" />
-                    <TextBlock Text="{Binding ParameterStatusText}" Style="{StaticResource LabelTextStyle}" Margin="0,4,0,0" />
+                <!-- Coluna 1 — Resumo do projeto -->
+                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="16,14">
+                    <TextBlock Text="RESUMO DO PROJETO" Style="{StaticResource ColumnTitleStyle}" />
+                    <TextBlock Text="{Binding CatalogCountText}"     Style="{StaticResource StatLineStyle}" />
+                    <TextBlock Text="{Binding PipesTotalText}"       Style="{StaticResource StatLineStyle}" />
+                    <TextBlock Text="{Binding UniqueTypeCountText}"  Style="{StaticResource StatLineStyle}" />
                 </StackPanel>
 
-                <Border Grid.Column="1"
-                        Background="#FFFBEB"
-                        BorderBrush="#FCD34D"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="10,6"
-                        Margin="14,0,14,0"
-                        VerticalAlignment="Center"
-                        Visibility="{Binding ParameterIsNotBound, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <TextBlock FontSize="11"
-                               Foreground="#92400E"
-                               TextWrapping="Wrap"
-                               Text="O shared parameter 'Tigre: Código' ainda não está vinculado a todos os tubos. Clique em 'Criar parâmetro' antes de inserir/atualizar." />
-                </Border>
+                <Border Grid.Column="1" Background="{StaticResource DividerBrush}" />
 
-                <Button Grid.Column="2"
-                        Style="{StaticResource AccentButtonStyle}"
-                        Content="Criar parâmetro 'Tigre: Código' nos tubos"
-                        IsEnabled="{Binding CanCreateParameter}"
-                        Click="OnEnsureParameterClicked" />
+                <!-- Coluna 2 — Parâmetro de código -->
+                <StackPanel Grid.Column="2" Orientation="Vertical" Margin="16,14">
+                    <TextBlock Text="PARÂMETRO DE CÓDIGO" Style="{StaticResource ColumnTitleStyle}" />
+                    <TextBlock Text="{Binding PipesWithParameterText}"    Style="{StaticResource StatLineStyle}" />
+                    <TextBlock Text="{Binding PipesWithoutParameterText}" Style="{StaticResource StatLineStyle}" />
+                    <Button Style="{StaticResource AccentButtonStyle}"
+                            Content="Criar parâmetro nos tubos"
+                            IsEnabled="{Binding CanCreateParameter}"
+                            Click="OnEnsureParameterClicked" />
+                </StackPanel>
+
+                <Border Grid.Column="3" Background="{StaticResource DividerBrush}" />
+
+                <!-- Coluna 3 — Status geral -->
+                <StackPanel Grid.Column="4" Orientation="Vertical" Margin="16,14">
+                    <TextBlock Text="STATUS GERAL" Style="{StaticResource ColumnTitleStyle}" />
+
+                    <Border Background="{StaticResource YellowBgBrush}"
+                            BorderBrush="{StaticResource YellowBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10,8"
+                            Visibility="{Binding ParameterStatusWarning, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="⚠"
+                                       FontSize="18"
+                                       Foreground="{StaticResource YellowAccentBrush}"
+                                       VerticalAlignment="Top"
+                                       Margin="0,0,8,0" />
+                            <StackPanel Grid.Column="1" Orientation="Vertical">
+                                <TextBlock Text="Ação necessária"
+                                           FontSize="12.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource YellowAccentBrush}" />
+                                <TextBlock Text="Crie o parâmetro antes de inserir ou atualizar códigos."
+                                           FontSize="10.5"
+                                           Foreground="{StaticResource YellowAccentBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{StaticResource GreenBgBrush}"
+                            BorderBrush="{StaticResource GreenBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10,8"
+                            Visibility="{Binding ParameterStatusOk, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="✓"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource GreenAccentBrush}"
+                                       VerticalAlignment="Top"
+                                       Margin="0,0,8,0" />
+                            <StackPanel Grid.Column="1" Orientation="Vertical">
+                                <TextBlock Text="Tudo pronto"
+                                           FontSize="12.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource GreenAccentBrush}" />
+                                <TextBlock Text="Todos os tubos já possuem o parâmetro de código."
+                                           FontSize="10.5"
+                                           Foreground="{StaticResource GreenAccentBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -265,30 +349,36 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="28" />
-                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="44" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="70" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text=""    Style="{StaticResource ColumnHeaderStyle}" />
-                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,0,0" />
-                            <TextBlock Grid.Column="3" Text="Ø"    Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Right" />
+                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" />
+                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,8,0" />
+                            <TextBlock Grid.Column="3" Text="Diâmetro" Style="{StaticResource ColumnHeaderStyle}" />
                         </Grid>
                     </StackPanel>
-                    <ListBox ItemsSource="{Binding NoMatchSection.Groups}"
-                             ItemTemplate="{StaticResource GroupRowTemplate}"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Padding" Value="0" />
-                                <Setter Property="Margin" Value="0" />
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
+                    <Grid>
+                        <ListBox ItemsSource="{Binding NoMatchSection.Groups}"
+                                 ItemTemplate="{StaticResource GroupRowTemplate}"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Visibility="{Binding NoMatchSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                        <TextBlock Text="Nenhum item encontrado."
+                                   Style="{StaticResource EmptyMessageStyle}"
+                                   Visibility="{Binding NoMatchSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    </Grid>
                 </DockPanel>
             </Border>
 
@@ -327,34 +417,40 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="28" />
-                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="44" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="70" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text=""    Style="{StaticResource ColumnHeaderStyle}" />
-                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,0,0" />
-                            <TextBlock Grid.Column="3" Text="Ø"    Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Right" />
+                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" />
+                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,8,0" />
+                            <TextBlock Grid.Column="3" Text="Diâmetro" Style="{StaticResource ColumnHeaderStyle}" />
                         </Grid>
                     </StackPanel>
-                    <ListBox ItemsSource="{Binding DivergentSection.Groups}"
-                             ItemTemplate="{StaticResource GroupRowTemplate}"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Padding" Value="0" />
-                                <Setter Property="Margin" Value="0" />
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
+                    <Grid>
+                        <ListBox ItemsSource="{Binding DivergentSection.Groups}"
+                                 ItemTemplate="{StaticResource GroupRowTemplate}"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Visibility="{Binding DivergentSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                        <TextBlock Text="Nenhum item encontrado."
+                                   Style="{StaticResource EmptyMessageStyle}"
+                                   Visibility="{Binding DivergentSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    </Grid>
                 </DockPanel>
             </Border>
 
-            <!-- Amarelo: Sem código (com correspondência) -->
+            <!-- Amarelo: Prontos para codificar -->
             <Border Grid.Column="2"
                     Style="{StaticResource SectionBorderStyle}"
                     Background="{StaticResource YellowBgBrush}"
@@ -389,30 +485,36 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="28" />
-                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="44" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="70" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text=""    Style="{StaticResource ColumnHeaderStyle}" />
-                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,0,0" />
-                            <TextBlock Grid.Column="3" Text="Ø"    Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Right" />
+                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" />
+                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,8,0" />
+                            <TextBlock Grid.Column="3" Text="Diâmetro" Style="{StaticResource ColumnHeaderStyle}" />
                         </Grid>
                     </StackPanel>
-                    <ListBox ItemsSource="{Binding MissingSection.Groups}"
-                             ItemTemplate="{StaticResource GroupRowTemplate}"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Padding" Value="0" />
-                                <Setter Property="Margin" Value="0" />
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
+                    <Grid>
+                        <ListBox ItemsSource="{Binding MissingSection.Groups}"
+                                 ItemTemplate="{StaticResource GroupRowTemplate}"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Visibility="{Binding MissingSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                        <TextBlock Text="Nenhum item encontrado."
+                                   Style="{StaticResource EmptyMessageStyle}"
+                                   Visibility="{Binding MissingSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    </Grid>
                 </DockPanel>
             </Border>
 
@@ -451,30 +553,36 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="28" />
-                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="44" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="70" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text=""    Style="{StaticResource ColumnHeaderStyle}" />
-                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,0,0" />
-                            <TextBlock Grid.Column="3" Text="Ø"    Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Right" />
+                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" />
+                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,8,0" />
+                            <TextBlock Grid.Column="3" Text="Diâmetro" Style="{StaticResource ColumnHeaderStyle}" />
                         </Grid>
                     </StackPanel>
-                    <ListBox ItemsSource="{Binding OkSection.Groups}"
-                             ItemTemplate="{StaticResource GroupRowTemplate}"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Padding" Value="0" />
-                                <Setter Property="Margin" Value="0" />
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
+                    <Grid>
+                        <ListBox ItemsSource="{Binding OkSection.Groups}"
+                                 ItemTemplate="{StaticResource GroupRowTemplate}"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Visibility="{Binding OkSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                        <TextBlock Text="Nenhum item encontrado."
+                                   Style="{StaticResource EmptyMessageStyle}"
+                                   Visibility="{Binding OkSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    </Grid>
                 </DockPanel>
             </Border>
         </Grid>

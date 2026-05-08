@@ -31,8 +31,6 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                     "Tigre — Criar parâmetro 'Tigre: Código' nos tubos",
                     () => SharedParameterService.Ensure(_doc, TigreCodesSharedParameters.Code));
 
-                _doc.Regenerate();
-
                 return new TigreEnsureParameterResult
                 {
                     Action = ensure.Action,
