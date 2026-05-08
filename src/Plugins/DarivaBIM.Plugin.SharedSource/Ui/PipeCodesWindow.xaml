@@ -1,0 +1,510 @@
+<Window x:Class="DarivaBIM.Plugin.Ui.PipeCodesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Codificar Tubos — Tigre"
+        Width="1180"
+        Height="720"
+        MinWidth="980"
+        MinHeight="560"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterScreen"
+        Background="#F4F7FB"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Closed="OnWindowClosed">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="SoftBorderBrush"     Color="#D8E0EA" />
+        <SolidColorBrush x:Key="TextPrimaryBrush"    Color="#0F172A" />
+        <SolidColorBrush x:Key="LabelBrush"          Color="#64748B" />
+        <SolidColorBrush x:Key="MutedBrush"          Color="#94A3B8" />
+
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#16A34A" />
+        <SolidColorBrush x:Key="DangerBrush"  Color="#B91C1C" />
+        <SolidColorBrush x:Key="NeutralBrush" Color="#475569" />
+        <SolidColorBrush x:Key="AccentBrush"  Color="#2563EB" />
+
+        <!-- Paletas das 4 caixinhas -->
+        <SolidColorBrush x:Key="RedBgBrush"      Color="#FEF2F2" />
+        <SolidColorBrush x:Key="RedBorderBrush"  Color="#FCA5A5" />
+        <SolidColorBrush x:Key="RedAccentBrush"  Color="#B91C1C" />
+
+        <SolidColorBrush x:Key="OrangeBgBrush"     Color="#FFF7ED" />
+        <SolidColorBrush x:Key="OrangeBorderBrush" Color="#FDBA74" />
+        <SolidColorBrush x:Key="OrangeAccentBrush" Color="#C2410C" />
+
+        <SolidColorBrush x:Key="YellowBgBrush"     Color="#FEFCE8" />
+        <SolidColorBrush x:Key="YellowBorderBrush" Color="#FCD34D" />
+        <SolidColorBrush x:Key="YellowAccentBrush" Color="#A16207" />
+
+        <SolidColorBrush x:Key="GreenBgBrush"     Color="#F0FDF4" />
+        <SolidColorBrush x:Key="GreenBorderBrush" Color="#86EFAC" />
+        <SolidColorBrush x:Key="GreenAccentBrush" Color="#15803D" />
+
+        <Style x:Key="LabelTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+        </Style>
+
+        <Style x:Key="HeaderTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+
+        <Style x:Key="HintTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="StatBigTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        </Style>
+
+        <Style x:Key="ButtonBaseStyle" TargetType="Button">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="MinWidth" Value="160" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonBaseStyle}">
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+        </Style>
+
+        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonBaseStyle}">
+            <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+        </Style>
+
+        <Style x:Key="NeutralButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonBaseStyle}">
+            <Setter Property="Background" Value="{StaticResource NeutralBrush}" />
+        </Style>
+
+        <Style x:Key="AccentButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonBaseStyle}">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <!-- Cabeçalho de tabela dentro de cada caixinha -->
+        <Style x:Key="ColumnHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style x:Key="RowTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <!-- Template de uma linha: [check] [qtd] [tipo] [Ø] -->
+        <DataTemplate x:Key="GroupRowTemplate">
+            <Border Background="White"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="0,0,0,1"
+                    Padding="6,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="28" />
+                        <ColumnDefinition Width="56" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="80" />
+                    </Grid.ColumnDefinitions>
+
+                    <CheckBox Grid.Column="0"
+                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                              VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Count}"
+                               Style="{StaticResource RowTextStyle}"
+                               TextAlignment="Center" />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding TypeName}"
+                               Style="{StaticResource RowTextStyle}"
+                               ToolTip="{Binding TypeName}" />
+                    <TextBlock Grid.Column="3"
+                               Text="{Binding DiameterText}"
+                               Style="{StaticResource RowTextStyle}"
+                               TextAlignment="Right" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Cabeçalho de uma caixinha (cor passa via Tag) -->
+        <Style x:Key="SectionBorderStyle" TargetType="Border">
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Barra de título -->
+        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,10">
+            <TextBlock Text="Codificar Tubos — Tigre" Style="{StaticResource HeaderTitleStyle}" />
+            <TextBlock Style="{StaticResource HintTextStyle}" Margin="0,2,0,0">
+                Verifique a situação de cada Tipo + Diâmetro de tubo no projeto, marque o que quer atualizar
+                e use os botões abaixo para inserir, regravar ou apagar o parâmetro Tigre: Código.
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Cabeçalho com a situação do shared parameter -->
+        <Border Grid.Row="1"
+                Background="{StaticResource CardBackgroundBrush}"
+                BorderBrush="{StaticResource SoftBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="14,12"
+                Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Vertical">
+                    <TextBlock Text="{Binding CatalogCountText}" Style="{StaticResource StatBigTextStyle}" />
+                    <TextBlock Text="{Binding PipesTotalText}"   Style="{StaticResource StatBigTextStyle}" Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding ParameterStatusText}" Style="{StaticResource LabelTextStyle}" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        Background="#FFFBEB"
+                        BorderBrush="#FCD34D"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="10,6"
+                        Margin="14,0,14,0"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding ParameterIsNotBound, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock FontSize="11"
+                               Foreground="#92400E"
+                               TextWrapping="Wrap"
+                               Text="O shared parameter 'Tigre: Código' ainda não está vinculado a todos os tubos. Clique em 'Criar parâmetro' antes de inserir/atualizar." />
+                </Border>
+
+                <Button Grid.Column="2"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Content="Criar parâmetro 'Tigre: Código' nos tubos"
+                        IsEnabled="{Binding CanCreateParameter}"
+                        Click="OnEnsureParameterClicked" />
+            </Grid>
+        </Border>
+
+        <!-- 4 caixinhas lado a lado -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Vermelho: Sem correspondência -->
+            <Border Grid.Column="0"
+                    Style="{StaticResource SectionBorderStyle}"
+                    Background="{StaticResource RedBgBrush}"
+                    BorderBrush="{StaticResource RedBorderBrush}"
+                    Margin="0,0,5,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding NoMatchSection.Title}"
+                                   FontSize="13" FontWeight="Bold"
+                                   Foreground="{StaticResource RedAccentBrush}" />
+                        <TextBlock Text="{Binding NoMatchSection.Description}"
+                                   Style="{StaticResource HintTextStyle}"
+                                   Margin="0,2,0,0" />
+                        <Grid Margin="0,8,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0"
+                                      Content="Selecionar todos"
+                                      FontSize="11.5"
+                                      FontWeight="SemiBold"
+                                      Foreground="{StaticResource RedAccentBrush}"
+                                      IsThreeState="True"
+                                      IsChecked="{Binding NoMatchSection.IsAllSelected, Mode=TwoWay}"
+                                      ToolTip="Sem correspondência: 'Inserir' não tem efeito; 'Deletar' apaga valores legados." />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding NoMatchSection.HeaderCountText}"
+                                       FontSize="10.5"
+                                       Foreground="{StaticResource RedAccentBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="80" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text=""    Style="{StaticResource ColumnHeaderStyle}" />
+                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,0,0" />
+                            <TextBlock Grid.Column="3" Text="Ø"    Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding NoMatchSection.Groups}"
+                             ItemTemplate="{StaticResource GroupRowTemplate}"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Laranja: Códigos divergentes -->
+            <Border Grid.Column="1"
+                    Style="{StaticResource SectionBorderStyle}"
+                    Background="{StaticResource OrangeBgBrush}"
+                    BorderBrush="{StaticResource OrangeBorderBrush}"
+                    Margin="5,0,5,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding DivergentSection.Title}"
+                                   FontSize="13" FontWeight="Bold"
+                                   Foreground="{StaticResource OrangeAccentBrush}" />
+                        <TextBlock Text="{Binding DivergentSection.Description}"
+                                   Style="{StaticResource HintTextStyle}"
+                                   Margin="0,2,0,0" />
+                        <Grid Margin="0,8,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0"
+                                      Content="Selecionar todos"
+                                      FontSize="11.5"
+                                      FontWeight="SemiBold"
+                                      Foreground="{StaticResource OrangeAccentBrush}"
+                                      IsThreeState="True"
+                                      IsChecked="{Binding DivergentSection.IsAllSelected, Mode=TwoWay}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding DivergentSection.HeaderCountText}"
+                                       FontSize="10.5"
+                                       Foreground="{StaticResource OrangeAccentBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="80" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text=""    Style="{StaticResource ColumnHeaderStyle}" />
+                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,0,0" />
+                            <TextBlock Grid.Column="3" Text="Ø"    Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding DivergentSection.Groups}"
+                             ItemTemplate="{StaticResource GroupRowTemplate}"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Amarelo: Sem código (com correspondência) -->
+            <Border Grid.Column="2"
+                    Style="{StaticResource SectionBorderStyle}"
+                    Background="{StaticResource YellowBgBrush}"
+                    BorderBrush="{StaticResource YellowBorderBrush}"
+                    Margin="5,0,5,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding MissingSection.Title}"
+                                   FontSize="13" FontWeight="Bold"
+                                   Foreground="{StaticResource YellowAccentBrush}" />
+                        <TextBlock Text="{Binding MissingSection.Description}"
+                                   Style="{StaticResource HintTextStyle}"
+                                   Margin="0,2,0,0" />
+                        <Grid Margin="0,8,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0"
+                                      Content="Selecionar todos"
+                                      FontSize="11.5"
+                                      FontWeight="SemiBold"
+                                      Foreground="{StaticResource YellowAccentBrush}"
+                                      IsThreeState="True"
+                                      IsChecked="{Binding MissingSection.IsAllSelected, Mode=TwoWay}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding MissingSection.HeaderCountText}"
+                                       FontSize="10.5"
+                                       Foreground="{StaticResource YellowAccentBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="80" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text=""    Style="{StaticResource ColumnHeaderStyle}" />
+                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,0,0" />
+                            <TextBlock Grid.Column="3" Text="Ø"    Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding MissingSection.Groups}"
+                             ItemTemplate="{StaticResource GroupRowTemplate}"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Verde: Códigos corretos -->
+            <Border Grid.Column="3"
+                    Style="{StaticResource SectionBorderStyle}"
+                    Background="{StaticResource GreenBgBrush}"
+                    BorderBrush="{StaticResource GreenBorderBrush}"
+                    Margin="5,0,0,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding OkSection.Title}"
+                                   FontSize="13" FontWeight="Bold"
+                                   Foreground="{StaticResource GreenAccentBrush}" />
+                        <TextBlock Text="{Binding OkSection.Description}"
+                                   Style="{StaticResource HintTextStyle}"
+                                   Margin="0,2,0,0" />
+                        <Grid Margin="0,8,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0"
+                                      Content="Selecionar todos"
+                                      FontSize="11.5"
+                                      FontWeight="SemiBold"
+                                      Foreground="{StaticResource GreenAccentBrush}"
+                                      IsThreeState="True"
+                                      IsChecked="{Binding OkSection.IsAllSelected, Mode=TwoWay}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding OkSection.HeaderCountText}"
+                                       FontSize="10.5"
+                                       Foreground="{StaticResource GreenAccentBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="80" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text=""    Style="{StaticResource ColumnHeaderStyle}" />
+                            <TextBlock Grid.Column="1" Text="Qtd" Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="Tipo" Style="{StaticResource ColumnHeaderStyle}" Margin="2,0,0,0" />
+                            <TextBlock Grid.Column="3" Text="Ø"    Style="{StaticResource ColumnHeaderStyle}" TextAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding OkSection.Groups}"
+                             ItemTemplate="{StaticResource GroupRowTemplate}"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- Rodapé: status à esquerda, botões à direita -->
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding StatusMessage}"
+                       Style="{StaticResource HintTextStyle}"
+                       VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Style="{StaticResource NeutralButtonStyle}"
+                        Content="Atualizar lista"
+                        ToolTip="Re-varre o projeto e atualiza as caixinhas."
+                        Click="OnRescanClicked" />
+                <Button Style="{StaticResource DangerButtonStyle}"
+                        Content="Deletar Códigos"
+                        IsEnabled="{Binding CanClear}"
+                        Click="OnClearClicked" />
+                <Button Style="{StaticResource PrimaryButtonStyle}"
+                        Content="Inserir/Atualizar Códigos"
+                        IsEnabled="{Binding CanApply}"
+                        Click="OnApplyClicked" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
