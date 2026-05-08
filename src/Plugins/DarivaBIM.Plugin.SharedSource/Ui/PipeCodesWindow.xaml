@@ -439,10 +439,11 @@
                     <Border Background="{StaticResource YellowBgBrush}"
                             BorderBrush="{StaticResource YellowBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="999"
-                            Padding="10,6"
+                            CornerRadius="15"
+                            Height="30"
+                            Padding="10,0"
                             Visibility="{Binding ParameterStatusWarning, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Path Width="14" Height="14"
                                   Stretch="Uniform"
                                   Fill="{StaticResource YellowAccentBrush}"
@@ -461,13 +462,14 @@
                     <Border Background="{StaticResource GreenBgBrush}"
                             BorderBrush="{StaticResource GreenBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="999"
-                            Padding="10,6"
+                            CornerRadius="15"
+                            Height="30"
+                            Padding="10,0"
                             Visibility="{Binding ParameterStatusOk, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Border Background="{StaticResource GreenAccentBrush}"
                                     Width="16" Height="16"
-                                    CornerRadius="999"
+                                    CornerRadius="8"
                                     VerticalAlignment="Center">
                                 <Path Stretch="Uniform"
                                       Margin="3"
@@ -595,6 +597,7 @@
                             Background="{StaticResource CardBackgroundBrush}"
                             BorderBrush="{StaticResource RedBorderBrush}"
                             BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,9,9"
                             Visibility="{Binding ElementName=NoMatchCollapseToggle, Path=IsChecked, Converter={StaticResource InverseBoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -719,6 +722,7 @@
                             Background="{StaticResource CardBackgroundBrush}"
                             BorderBrush="{StaticResource OrangeBorderBrush}"
                             BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,9,9"
                             Visibility="{Binding ElementName=DivergentCollapseToggle, Path=IsChecked, Converter={StaticResource InverseBoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -843,6 +847,7 @@
                             Background="{StaticResource CardBackgroundBrush}"
                             BorderBrush="{StaticResource YellowBorderBrush}"
                             BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,9,9"
                             Visibility="{Binding ElementName=MissingCollapseToggle, Path=IsChecked, Converter={StaticResource InverseBoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -967,6 +972,7 @@
                             Background="{StaticResource CardBackgroundBrush}"
                             BorderBrush="{StaticResource GreenBorderBrush}"
                             BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,9,9"
                             Visibility="{Binding ElementName=OkCollapseToggle, Path=IsChecked, Converter={StaticResource InverseBoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
