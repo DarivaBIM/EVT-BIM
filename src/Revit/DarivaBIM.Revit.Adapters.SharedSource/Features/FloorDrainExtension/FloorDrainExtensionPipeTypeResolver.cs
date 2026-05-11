@@ -4,6 +4,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Plumbing;
 using DarivaBIM.Domain.Tigre;
+using DarivaBIM.Revit.Adapters.Common.Pipes;
 
 namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
 {
@@ -12,10 +13,52 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
     /// normal) e escolhe o <see cref="PipeType"/> mais compatível
     /// disponível no projeto. Reproduz as preferências do script Dynamo:
     /// para "redux" prioriza nomes que contenham "Redux" + "Prolongamento".
+    /// Também expõe a listagem de tipos compatíveis com um diâmetro
+    /// específico, usada pela UI para popular o dropdown por tipo de caixa.
     /// </summary>
-    internal static class FloorDrainExtensionPipeTypeResolver
+    public static class FloorDrainExtensionPipeTypeResolver
     {
         public static string DetermineMaterialKind(FamilyInstance fi)
+        {
+            List<string> fields = CollectMaterialFields(fi);
+
+            foreach (string f in fields)
+                if (Contains(f, "redux"))
+                    return "redux";
+
+            foreach (string f in fields)
+                if (Contains(f, "reforcada") || Contains(f, "reforçada"))
+                    return "reforcada";
+
+            return "serie normal";
+        }
+
+        /// <summary>
+        /// Variação que aceita os strings de identificação diretamente
+        /// (Família, Symbol, instance Name, Description, Type Comments).
+        /// Útil quando estamos analisando um <see cref="FamilySymbol"/> sem
+        /// instância concreta — caso típico do scan que monta os grupos de
+        /// tipos de caixa para a UI.
+        /// </summary>
+        public static string DetermineMaterialKind(IEnumerable<string?> identifyingFields)
+        {
+            List<string> fields = identifyingFields
+                .Where(f => !string.IsNullOrEmpty(f))
+                .Select(f => f!)
+                .ToList();
+
+            foreach (string f in fields)
+                if (Contains(f, "redux"))
+                    return "redux";
+
+            foreach (string f in fields)
+                if (Contains(f, "reforcada") || Contains(f, "reforçada"))
+                    return "reforcada";
+
+            return "serie normal";
+        }
+
+        private static List<string> CollectMaterialFields(FamilyInstance fi)
         {
             List<string> fields = new();
 
@@ -29,15 +72,7 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
             SafeAdd(fields, () => ReadStringParameter(fi, BuiltInParameter.ALL_MODEL_DESCRIPTION));
             SafeAdd(fields, () => ReadStringParameter(fi.Symbol, BuiltInParameter.ALL_MODEL_TYPE_COMMENTS));
 
-            foreach (string f in fields)
-                if (Contains(f, "redux"))
-                    return "redux";
-
-            foreach (string f in fields)
-                if (Contains(f, "reforcada") || Contains(f, "reforçada"))
-                    return "reforcada";
-
-            return "serie normal";
+            return fields;
         }
 
         private static void SafeAdd(List<string> fields, Func<string?> getter)
@@ -59,15 +94,69 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
 
         public static PipeType? FindPipeType(Document doc, string materialKind)
         {
-            List<PipeType> types = new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_PipeCurves)
-                .WhereElementIsElementType()
-                .OfType<PipeType>()
-                .ToList();
+            List<PipeType> types = LoadAllPipeTypes(doc);
 
             if (types.Count == 0)
                 return null;
 
+            PipeType? preferred = FindPreferred(types, materialKind);
+            return preferred ?? types[0];
+        }
+
+        /// <summary>
+        /// Retorna todos os <see cref="PipeType"/> do projeto cuja
+        /// <c>RoutingPreferenceManager</c> consegue rotear o diâmetro
+        /// informado (em mm). Lista ordenada com o tipo preferido (pelo
+        /// <paramref name="materialKind"/>) à frente, seguido dos demais
+        /// compatíveis em ordem alfabética. Devolve coleção vazia se nenhum
+        /// tipo do projeto suportar o diâmetro.
+        /// </summary>
+        public static List<PipeType> FindPipeTypesForDiameter(
+            Document doc,
+            double diameterMm,
+            string materialKind)
+        {
+            if (diameterMm <= 0)
+                return new List<PipeType>();
+
+            List<PipeType> types = LoadAllPipeTypes(doc);
+            if (types.Count == 0)
+                return types;
+
+            List<PipeType> compatible = types
+                .Where(t => PipeDiameterDiscoveryService.SupportsDiameterMm(doc, t, diameterMm))
+                .ToList();
+
+            if (compatible.Count == 0)
+                return compatible;
+
+            PipeType? preferred = FindPreferred(compatible, materialKind);
+
+            List<PipeType> ordered = new();
+            if (preferred != null)
+                ordered.Add(preferred);
+
+            foreach (PipeType pt in compatible.OrderBy(p => p.Name))
+            {
+                if (preferred != null && pt.Id == preferred.Id)
+                    continue;
+                ordered.Add(pt);
+            }
+
+            return ordered;
+        }
+
+        private static List<PipeType> LoadAllPipeTypes(Document doc)
+        {
+            return new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_PipeCurves)
+                .WhereElementIsElementType()
+                .OfType<PipeType>()
+                .ToList();
+        }
+
+        private static PipeType? FindPreferred(IReadOnlyList<PipeType> types, string materialKind)
+        {
             if (materialKind == "redux")
             {
                 // Prioridade: "Redux" + "Prolongamento/Prolongador".
@@ -99,7 +188,7 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
                     return pt;
             }
 
-            return types[0];
+            return null;
         }
 
         private static bool Contains(string text, string needle)

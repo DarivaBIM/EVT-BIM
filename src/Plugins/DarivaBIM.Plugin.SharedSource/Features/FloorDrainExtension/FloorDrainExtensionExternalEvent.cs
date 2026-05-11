@@ -10,9 +10,24 @@ using DarivaBIM.Revit.Adapters.Features.FloorDrainExtension;
 namespace DarivaBIM.Plugin.Features.FloorDrainExtension
 {
     /// <summary>
-    /// External event que abre um <c>PickObjects</c> filtrando por instâncias de
-    /// família (caixas sifonadas/secas) e cria os tubos prolongadores. Roda no
-    /// contexto modeless da <see cref="FloorDrainExtensionWindow"/>.
+    /// Modos suportados pelo external event de criação de prolongadores:
+    /// seleção interativa (PickObjects), todas as caixas do projeto ou
+    /// apenas as visíveis na vista ativa. O dropdown por tipo de caixa
+    /// (vindo da janela) é aplicado em qualquer um dos três fluxos.
+    /// </summary>
+    public enum FloorDrainExtensionRunMode
+    {
+        PickInProject,
+        AllInProject,
+        VisibleInActiveView,
+    }
+
+    /// <summary>
+    /// External event que executa o fluxo de criação de prolongadores
+    /// (<see cref="FloorDrainExtensionCreator"/>), com o modo de coleta
+    /// das caixas definido pelo botão clicado e o mapa de PipeType por
+    /// tipo de caixa vindo da UI. Roda no contexto modeless da
+    /// <see cref="FloorDrainExtensionWindow"/>.
     /// </summary>
     public class FloorDrainExtensionExternalEvent
     {
@@ -25,10 +40,16 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
             _externalEvent = ExternalEvent.Create(_handler);
         }
 
-        public void Raise(FloorDrainExtensionWindow window, double lengthMeters)
+        public void Raise(
+            FloorDrainExtensionWindow window,
+            double lengthMeters,
+            FloorDrainExtensionRunMode mode,
+            IReadOnlyDictionary<long, long> pipeTypeBySymbolId)
         {
             _handler.Window = window;
             _handler.LengthMeters = lengthMeters;
+            _handler.Mode = mode;
+            _handler.PipeTypeBySymbolId = pipeTypeBySymbolId;
             _externalEvent.Raise();
         }
     }
@@ -37,6 +58,9 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
     {
         public FloorDrainExtensionWindow? Window { get; set; }
         public double LengthMeters { get; set; }
+        public FloorDrainExtensionRunMode Mode { get; set; }
+        public IReadOnlyDictionary<long, long> PipeTypeBySymbolId { get; set; } =
+            new Dictionary<long, long>();
 
         public string GetName() => "EvtBim.FloorDrainExtensionHandler";
 
@@ -57,38 +81,18 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
 
                 Document doc = uiDoc.Document;
 
-                IList<Reference> refs;
-                try
-                {
-                    refs = uiDoc.Selection.PickObjects(
-                        ObjectType.Element,
-                        new PlumbingFixtureSelectionFilter(),
-                        "Selecione as caixas sifonadas/secas. ENTER ou ESC para finalizar.");
-                }
-                catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-                {
-                    win.SetStatus("Seleção cancelada.");
+                List<FamilyInstance>? caixas = CollectBoxes(uiDoc, win, Mode);
+                if (caixas == null)
                     return;
-                }
-
-                if (refs == null || refs.Count == 0)
-                {
-                    win.SetStatus("Nenhuma caixa selecionada.");
-                    return;
-                }
-
-                List<FamilyInstance> caixas = refs
-                    .Select(r => doc.GetElement(r))
-                    .OfType<FamilyInstance>()
-                    .ToList();
 
                 if (caixas.Count == 0)
                 {
-                    win.SetStatus("Os elementos selecionados não são instâncias de família.");
+                    win.SetStatus(BuildEmptyMessage(Mode));
                     return;
                 }
 
-                FloorDrainExtensionResult result = FloorDrainExtensionCreator.Run(doc, caixas, LengthMeters);
+                FloorDrainExtensionResult result =
+                    FloorDrainExtensionCreator.Run(doc, caixas, LengthMeters, PipeTypeBySymbolId);
 
                 string status =
                     $"{result.Created} prolongador(es) criado(s). " +
@@ -110,6 +114,71 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
                 TaskDialog.Show("EVT-BIM", $"Erro ao criar prolongadores:\n{ex.Message}");
             }
         }
+
+        private static List<FamilyInstance>? CollectBoxes(
+            UIDocument uiDoc,
+            FloorDrainExtensionWindow win,
+            FloorDrainExtensionRunMode mode)
+        {
+            Document doc = uiDoc.Document;
+
+            switch (mode)
+            {
+                case FloorDrainExtensionRunMode.AllInProject:
+                    return FloorDrainExtensionBoxScanner.CollectAllBoxes(doc);
+
+                case FloorDrainExtensionRunMode.VisibleInActiveView:
+                    View view = doc.ActiveView;
+                    if (view == null)
+                    {
+                        win.SetStatus("Não há vista ativa no Revit.");
+                        return new List<FamilyInstance>();
+                    }
+                    return FloorDrainExtensionBoxScanner.CollectBoxesInView(doc, view);
+
+                case FloorDrainExtensionRunMode.PickInProject:
+                default:
+                    return PickBoxes(uiDoc, win);
+            }
+        }
+
+        private static List<FamilyInstance>? PickBoxes(UIDocument uiDoc, FloorDrainExtensionWindow win)
+        {
+            Document doc = uiDoc.Document;
+            IList<Reference> refs;
+            try
+            {
+                refs = uiDoc.Selection.PickObjects(
+                    ObjectType.Element,
+                    new PlumbingFixtureSelectionFilter(),
+                    "Selecione as caixas sifonadas/secas. ENTER ou ESC para finalizar.");
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                win.SetStatus("Seleção cancelada.");
+                return null;
+            }
+
+            if (refs == null || refs.Count == 0)
+            {
+                win.SetStatus("Nenhuma caixa selecionada.");
+                return new List<FamilyInstance>();
+            }
+
+            return refs
+                .Select(r => doc.GetElement(r))
+                .OfType<FamilyInstance>()
+                .ToList();
+        }
+
+        private static string BuildEmptyMessage(FloorDrainExtensionRunMode mode) => mode switch
+        {
+            FloorDrainExtensionRunMode.AllInProject =>
+                "Nenhuma caixa sifonada/seca encontrada no projeto.",
+            FloorDrainExtensionRunMode.VisibleInActiveView =>
+                "Nenhuma caixa sifonada/seca visível na vista ativa.",
+            _ => "Os elementos selecionados não são instâncias de família.",
+        };
     }
 
     /// <summary>
