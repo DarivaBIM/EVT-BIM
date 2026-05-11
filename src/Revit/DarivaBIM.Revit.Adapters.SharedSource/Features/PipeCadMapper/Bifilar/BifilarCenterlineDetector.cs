@@ -414,17 +414,22 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 }
             }
 
-            // Ordena: prioriza pares no mesmo cluster (extremidades coincidem
-            // melhor com o tubo real), depois menor distância entre paredes
-            // (mais provavelmente o tubo, não duas paredes adjacentes), depois
-            // maior sobreposição (mais evidência).
+            // Ordenação: PARES CUJA DISTÂNCIA ENTRE PAREDES BATE COM UM
+            // DIÂMETRO NOMINAL DO TIPO ganham preferência. Isso evita que
+            // um par "errado" (ex.: gap estreito entre dois tubos
+            // diferentes, ou dois trechos de polilinha que casam por sorte)
+            // venha antes do par CORRETO (que tem distância igual ao
+            // diâmetro real do tubo) na hora de travar candidates via
+            // LockEdgeAfterPair. Empates por mesmo cluster e maior overlap.
             pairs.Sort((p, q) =>
             {
+                double pScore = DiameterMatchScoreMm(p.EdgeDistanceMm);
+                double qScore = DiameterMatchScoreMm(q.EdgeDistanceMm);
+                int matchCmp = pScore.CompareTo(qScore);
+                if (matchCmp != 0) return matchCmp;
+
                 int sameCmp = (q.SameCluster ? 1 : 0) - (p.SameCluster ? 1 : 0);
                 if (sameCmp != 0) return sameCmp;
-
-                int edgeCmp = p.EdgeDistanceMm.CompareTo(q.EdgeDistanceMm);
-                if (edgeCmp != 0) return edgeCmp;
 
                 return q.OverlapMm.CompareTo(p.OverlapMm);
             });
@@ -531,6 +536,29 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         // -------------------------------------------------------------
         // Helpers de geometria
         // -------------------------------------------------------------
+
+        /// <summary>
+        /// Distância (em mm) entre <paramref name="edgeMm"/> e o diâmetro
+        /// nominal mais próximo da lista do tipo de tubo. Quando a lista vem
+        /// vazia (tipo sem routing preferences), todo par recebe score 0 e o
+        /// desempate cai para os critérios secundários. Quando a lista existe,
+        /// pares cujo edge bate com um nominal vencem qualquer par "errado"
+        /// (gap entre tubos paralelos, etc.) — essencial para que LockEdgeAfterPair
+        /// não trave o candidate correto antes do par certo aparecer.
+        /// </summary>
+        private double DiameterMatchScoreMm(double edgeMm)
+        {
+            IReadOnlyList<double> diams = _params.AvailableDiametersMm;
+            if (diams.Count == 0) return 0.0;
+
+            double best = double.MaxValue;
+            foreach (double d in diams)
+            {
+                double diff = Math.Abs(d - edgeMm);
+                if (diff < best) best = diff;
+            }
+            return best;
+        }
 
         private static (XYZ a, XYZ b) NormalizeSegmentDirection(XYZ p0, XYZ p1)
         {

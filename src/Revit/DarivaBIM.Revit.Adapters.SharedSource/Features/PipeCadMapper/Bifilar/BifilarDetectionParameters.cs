@@ -8,12 +8,21 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
     /// de expor cada parâmetro na UI, o usuário controla um único slider
     /// "Tolerância" (0..100) e este record produz a tupla de valores via
     /// <see cref="FromTolerance"/>. 0 = casamento estrito (poucos pares,
-    /// alta precisão); 100 = casamento frouxo (muitos pares, mais ruído).
+    /// alta precisão); 100 = casamento muito permissivo (muitos pares,
+    /// inclusive em regiões com cotas, T-fittings e outros símbolos do
+    /// mesmo layer atravessando o eixo do tubo).
     ///
     /// <see cref="MinEdgeDistanceMm"/> / <see cref="MaxEdgeDistanceMm"/>
-    /// dependem da lista de diâmetros disponíveis no tipo selecionado:
-    /// abaixo do menor diâmetro -1mm é ruído; acima do maior diâmetro
-    /// +50% provavelmente são linhas paralelas que não formam um tubo.
+    /// dependem da lista de diâmetros disponíveis no tipo selecionado.
+    /// O intervalo é generoso porque desenhos reais frequentemente fogem
+    /// dos nominais (a regra final é o <c>DiameterSnapper</c>, que ainda
+    /// aproxima a medida para um diâmetro disponível).
+    ///
+    /// <see cref="AvailableDiametersMm"/> é carregado aqui também para o
+    /// detector poder usar como critério de DESEMPATE entre pares
+    /// concorrentes: pares com distância entre paredes próxima de um
+    /// nominal vencem pares "errados" (gaps entre tubos diferentes, por
+    /// exemplo) na hora de travar candidatos.
     /// </summary>
     public sealed class BifilarDetectionParameters
     {
@@ -31,13 +40,24 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         public int MaxValidPairsStored { get; init; }
         public double SegmentGridCellMm { get; init; }
         public bool LockEdgeAfterPair { get; init; }
+        public IReadOnlyList<double> AvailableDiametersMm { get; init; } = Array.Empty<double>();
 
         /// <summary>
-        /// Mapeia o slider 0..100 para todos os limiares. As escolhas vêm de
-        /// testes no Dynamo: o caminho intermediário (~50) acerta ~80% dos
-        /// tubos em CADs bifilar típicos; abaixo de 30 perde tubos
-        /// inclinados/curtos; acima de 70 começa a pareiar linhas vizinhas
-        /// não relacionadas.
+        /// Mapeia o slider 0..100 para todos os limiares.
+        ///
+        /// Decisões importantes:
+        /// <list type="bullet">
+        /// <item>Range de distância entre paredes BEM amplo (0,3× a 2,5× dos
+        /// nominais do tipo). Tubos desenhados levemente fora do nominal
+        /// — 47mm em vez de 50, 90mm em vez de 100 — entram e o
+        /// <c>DiameterSnapper</c> os arruma para o nominal mais próximo.</item>
+        /// <item>Filtro de símbolos praticamente desligado a partir de 80%.
+        /// Como já filtramos por layer, símbolos remanescentes vêm do
+        /// próprio sistema (juntas, T-fittings); em alta tolerância o
+        /// usuário aceita esse ruído em troca de não perder pipes.</item>
+        /// <item>Limite alto de candidatos (até 10000) para projetos grandes
+        /// não terem paredes ignoradas só por aparecerem depois no scan.</item>
+        /// </list>
         /// </summary>
         public static BifilarDetectionParameters FromTolerance(
             double tolerancePercent,
@@ -45,11 +65,8 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         {
             double t = Math.Clamp(tolerancePercent / 100.0, 0.0, 1.0);
 
-            // min / max edge distance dependem dos diâmetros disponíveis do
-            // tipo selecionado. Se a lista veio vazia (tipo sem routing
-            // preferences), caímos para o range "amplo" do código Dynamo.
-            double minDiamMm = 5.0;
-            double maxDiamMm = 250.0;
+            double minDiamMm = 10.0;
+            double maxDiamMm = 200.0;
             if (availableDiametersMm.Count > 0)
             {
                 minDiamMm = double.MaxValue;
@@ -61,39 +78,54 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 }
             }
 
-            // Folga: -1mm para baixo e +30% para cima do range nominal,
-            // mas com piso/teto para não colapsar quando só há um diâmetro.
-            double minEdgeMm = Math.Max(2.0, minDiamMm - 1.0);
-            double maxEdgeMm = Math.Max(minEdgeMm + 10.0, maxDiamMm * 1.3);
+            // Folga MUITO generosa: 0,3× do menor diâmetro para baixo,
+            // 2,5× do maior para cima. Para um tipo só com 50mm o range
+            // fica 15..125mm, o que aceita tubos desenhados 25..100mm
+            // (DiameterSnapper depois os arruma).
+            double minEdgeMm = Math.Max(2.0, minDiamMm * 0.3);
+            double maxEdgeMm = Math.Max(minEdgeMm + 30.0, maxDiamMm * 2.5);
+
+            int maxHard;
+            int maxTotal;
+            if (t >= 0.8)
+            {
+                maxHard = 100;
+                maxTotal = 500;
+            }
+            else
+            {
+                maxHard = (int)Math.Round(Lerp(t / 0.8, strict: 0.0, loose: 6.0));
+                maxTotal = (int)Math.Round(Lerp(t / 0.8, strict: 2.0, loose: 20.0));
+            }
 
             return new BifilarDetectionParameters
             {
-                // Frouxo (t→1) aceita segmentos curtos; estrito (t→0) só os longos.
-                MinCandidateLengthMm = Lerp(t, strict: 250.0, loose: 40.0),
+                MinCandidateLengthMm = Lerp(t, strict: 250.0, loose: 20.0),
 
                 MinEdgeDistanceMm = minEdgeMm,
                 MaxEdgeDistanceMm = maxEdgeMm,
 
-                AngleToleranceDeg = Lerp(t, strict: 1.5, loose: 10.0),
-                MinOverlapMm = Lerp(t, strict: 200.0, loose: 25.0),
+                AngleToleranceDeg = Lerp(t, strict: 1.5, loose: 12.0),
+                MinOverlapMm = Lerp(t, strict: 200.0, loose: 15.0),
 
                 ClusterSnapMm = 25.0,
 
-                SymbolBufferMm = Lerp(t, strict: 35.0, loose: 100.0),
+                SymbolBufferMm = Lerp(t, strict: 120.0, loose: 25.0),
 
-                // 0 símbolos "duros" (arc/ellipse) dentro = casamento limpo;
-                // afrouxar permite até 3, útil quando o CAD tem cotas/textos.
-                MaxHardSymbolsInside = (int)Math.Round(Lerp(t, strict: 0.0, loose: 3.0)),
-                MaxTotalSymbolsInside = (int)Math.Round(Lerp(t, strict: 2.0, loose: 12.0)),
+                MaxHardSymbolsInside = maxHard,
+                MaxTotalSymbolsInside = maxTotal,
 
-                EndpointIgnoreMm = Lerp(t, strict: 200.0, loose: 40.0),
+                EndpointIgnoreMm = Lerp(t, strict: 25.0, loose: 300.0),
 
-                // Performance: limita o universo de busca para nunca
-                // estourar. 700 candidatos x ~50 vizinhos = ~35k testes.
-                MaxCandidateSegments = 700,
-                MaxValidPairsStored = 5000,
+                // Limites altos para projetos grandes — o custo extra do
+                // pareamento é amortizado pelo grid espacial e pelo filtro
+                // de ângulo rápido (a maioria dos candidatos vizinhos é
+                // descartada em O(1) antes de pagar o custo de overlap).
+                MaxCandidateSegments = (int)Math.Round(Lerp(t, strict: 800.0, loose: 10000.0)),
+                MaxValidPairsStored = (int)Math.Round(Lerp(t, strict: 5000.0, loose: 30000.0)),
                 SegmentGridCellMm = 400.0,
                 LockEdgeAfterPair = true,
+                AvailableDiametersMm = availableDiametersMm,
             };
         }
 

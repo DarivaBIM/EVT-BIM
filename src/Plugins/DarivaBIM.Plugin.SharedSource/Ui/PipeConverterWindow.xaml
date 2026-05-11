@@ -163,20 +163,21 @@
                               SelectedItem="{Binding SelectedPipeType}"
                               DisplayMemberPath="Name" />
 
-                    <TextBlock Style="{StaticResource FieldLabelStyle}">
-                        <Run Text="Diâmetro (mm)" />
-                        <Run Text=" — em bifilar, usado como fallback quando o par não bate com nenhum nominal."
-                             FontWeight="Normal"
-                             Foreground="{StaticResource LabelBrush}" />
-                    </TextBlock>
-                    <ComboBox x:Name="DiameterComboBox"
-                              ItemsSource="{Binding Diameters}"
-                              SelectedItem="{Binding SelectedDiameterMm}" />
+                    <!-- Diâmetro só faz sentido em unifilar; em bifilar a distância
+                         entre as paredes do CAD define o diâmetro (snappado para a
+                         lista do tipo) e o input ficaria sem propósito. -->
+                    <StackPanel Visibility="{Binding IsUnifilar, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Diâmetro (mm)" Style="{StaticResource FieldLabelStyle}" />
+                        <ComboBox x:Name="DiameterComboBox"
+                                  ItemsSource="{Binding Diameters}"
+                                  SelectedItem="{Binding SelectedDiameterMm}" />
+                    </StackPanel>
 
                     <TextBlock Text="Nível de referência" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox x:Name="LevelComboBox"
                               ItemsSource="{Binding Levels}"
                               SelectedItem="{Binding SelectedLevel}"
+                              IsEnabled="{Binding IsLevelInputEnabled}"
                               DisplayMemberPath="Name" />
 
                     <CheckBox Content="Usar cota Z do próprio CAD selecionado"
@@ -186,6 +187,7 @@
 
                     <TextBlock Text="Cota em relação ao nível (mm)" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="OffsetTextBox"
+                             IsEnabled="{Binding IsLevelInputEnabled}"
                              Text="{Binding OffsetMm, StringFormat={}{0:0.##}}" />
 
                     <TextBlock Style="{StaticResource FieldLabelStyle}">
