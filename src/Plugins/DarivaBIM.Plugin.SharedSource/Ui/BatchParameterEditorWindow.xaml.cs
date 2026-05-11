@@ -116,6 +116,7 @@ namespace DarivaBIM.Plugin.Ui
                 }
 
                 ViewModel.IsSelectionActive = false;
+                ViewModel.IsRemoveModeActive = false;
             };
 
             if (Dispatcher.CheckAccess())
@@ -134,10 +135,17 @@ namespace DarivaBIM.Plugin.Ui
 
         public void SetSelectionActive(bool active)
         {
-            if (Dispatcher.CheckAccess())
+            Action update = () =>
+            {
                 ViewModel.IsSelectionActive = active;
+                if (!active)
+                    ViewModel.IsRemoveModeActive = false;
+            };
+
+            if (Dispatcher.CheckAccess())
+                update();
             else
-                Dispatcher.Invoke(() => ViewModel.IsSelectionActive = active);
+                Dispatcher.Invoke(update);
         }
 
         public void NotifyApplyCompleted(ParameterApplyResult result)
@@ -156,18 +164,50 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnSelectClicked(object sender, RoutedEventArgs e)
         {
-            ViewModel.IsSelectionActive = true;
-            ViewModel.StatusMessage =
-                "Selecione no Revit. Ctrl+clique adiciona, Shift+clique remove. Clique em Concluir na ribbon para finalizar.";
+            StartPick(BatchSelectionMode.Add);
+        }
 
-            // Snapshot das disciplinas marcadas no momento do clique e dos IDs
-            // já selecionados; o handler vai usar esses IDs como pré-seleção
-            // do PickObjects, permitindo seleção incremental entre cliques.
+        private void OnRemoveClicked(object sender, RoutedEventArgs e)
+        {
+            if (_selectedIds.Count == 0)
+            {
+                ViewModel.StatusMessage = "Não há elementos no lote para remover.";
+                return;
+            }
+
+            StartPick(BatchSelectionMode.Remove);
+        }
+
+        private void StartPick(BatchSelectionMode mode)
+        {
+            ViewModel.IsRemoveModeActive = mode == BatchSelectionMode.Remove;
+            ViewModel.IsSelectionActive = true;
+
+            if (mode == BatchSelectionMode.Remove)
+            {
+                ViewModel.SelectionInfoText =
+                    "Selecione no Revit os elementos que deseja REMOVER do lote. " +
+                    "Use clique ou janela de seleção. Quando terminar, clique em Concluir na ribbon do Revit (ou pressione ENTER, se o foco estiver no Revit).";
+                ViewModel.StatusMessage =
+                    "Selecione no Revit os elementos que deseja remover do lote. Clique em Concluir na ribbon para finalizar.";
+            }
+            else
+            {
+                ViewModel.SelectionInfoText =
+                    "Selecione no Revit os elementos que deseja ADICIONAR ao lote. " +
+                    "Use clique ou janela de seleção. Quando terminar, clique em Concluir na ribbon do Revit (ou pressione ENTER, se o foco estiver no Revit).";
+                ViewModel.StatusMessage =
+                    "Selecione no Revit os elementos para adicionar ao lote. Clique em Concluir na ribbon para finalizar.";
+            }
+
+            // Snapshot das disciplinas marcadas e dos IDs já no lote; o
+            // handler usa o lote anterior para combinar/subtrair conforme o
+            // modo de seleção, depois que o PickObjects retorna.
             IReadOnlyList<Discipline> disciplines = ViewModel.SelectedDisciplines
                 .Select(BatchParameterEditorTypeMapping.ToAdapter)
                 .ToList();
             List<ElementId> previous = _selectedIds.ToList();
-            _selectionEvent.Raise(this, disciplines, previous);
+            _selectionEvent.Raise(this, disciplines, previous, mode);
         }
 
         private void OnClearSelectionClicked(object sender, RoutedEventArgs e)

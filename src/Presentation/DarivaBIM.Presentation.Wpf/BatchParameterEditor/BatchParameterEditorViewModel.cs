@@ -124,7 +124,7 @@ namespace DarivaBIM.Presentation.Wpf.BatchParameterEditor
         };
 
         public string SelectButtonText => HasSelection
-            ? "Selecionar elementos (ajustar)"
+            ? "Adicionar mais elementos"
             : "Selecionar elementos";
 
         private string _selectionCategoriesSummary = string.Empty;
@@ -223,6 +223,25 @@ namespace DarivaBIM.Presentation.Wpf.BatchParameterEditor
                 if (SetField(ref _isSelectionActive, value))
                     OnPropertyChanged(nameof(CanApply));
             }
+        }
+
+        // Marca qual dos dois botões de pick está ativo no momento, para que
+        // a UI saiba estilizar (verde) o botão correto. IsSelectionActive
+        // permanece como o flag global "há um pick em andamento".
+        private bool _isRemoveModeActive;
+        public bool IsRemoveModeActive
+        {
+            get => _isRemoveModeActive;
+            set => SetField(ref _isRemoveModeActive, value);
+        }
+
+        // Texto exibido no InfoBox durante o pick. Varia conforme o modo
+        // (Selecionar/Remover) para reforçar a intenção da ação corrente.
+        private string _selectionInfoText = string.Empty;
+        public string SelectionInfoText
+        {
+            get => _selectionInfoText;
+            set => SetField(ref _selectionInfoText, value);
         }
 
         private string _noCommonParametersMessage = string.Empty;

@@ -28,6 +28,7 @@
         <SolidColorBrush x:Key="ErrorBrush" Color="#DC2626" />
         <SolidColorBrush x:Key="FilterPanelBrush" Color="#F1F5F9" />
         <SolidColorBrush x:Key="ClearBrush" Color="#94A3B8" />
+        <SolidColorBrush x:Key="RemoveBrush" Color="#F97316" />
 
         <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
@@ -69,9 +70,37 @@
 
         <Style x:Key="SelectButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsSelectionActive}" Value="True">
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelectionActive}" Value="True" />
+                        <Condition Binding="{Binding IsRemoveModeActive}" Value="False" />
+                    </MultiDataTrigger.Conditions>
                     <Setter Property="Background" Value="{StaticResource ActiveBrush}" />
-                </DataTrigger>
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="RemoveButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{StaticResource RemoveBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelectionActive}" Value="True" />
+                        <Condition Binding="{Binding IsRemoveModeActive}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{StaticResource ActiveBrush}" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -83,7 +112,7 @@
             <Setter Property="Background" Value="{StaticResource ClearBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,4,0,8" />
+            <Setter Property="Margin" Value="0,0,0,8" />
             <Style.Triggers>
                 <Trigger Property="IsEnabled" Value="False">
                     <Setter Property="Opacity" Value="0.45" />
@@ -194,6 +223,12 @@
                 </StackPanel>
             </Border>
 
+            <Button x:Name="SelectButton"
+                    Style="{StaticResource SelectButtonStyle}"
+                    Content="{Binding SelectButtonText}"
+                    ToolTip="Adiciona ao lote atual os elementos selecionados no Revit. Você pode usar clique individual ou janela de seleção."
+                    Click="OnSelectClicked" />
+
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -201,18 +236,20 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Button x:Name="SelectButton"
+                <Button x:Name="RemoveButton"
                         Grid.Column="0"
-                        Style="{StaticResource SelectButtonStyle}"
-                        Content="{Binding SelectButtonText}"
-                        Click="OnSelectClicked" />
+                        Style="{StaticResource RemoveButtonStyle}"
+                        Content="Remover elementos"
+                        ToolTip="Remove do lote atual os elementos selecionados no Revit. Útil para retirar itens incluídos por engano."
+                        IsEnabled="{Binding HasSelection}"
+                        Click="OnRemoveClicked" />
 
                 <Button x:Name="ClearSelectionButton"
                         Grid.Column="2"
                         Style="{StaticResource ClearButtonStyle}"
                         Content="Limpar"
                         Padding="14,0"
-                        ToolTip="Limpa a lista de elementos selecionados."
+                        ToolTip="Limpa a lista de elementos do lote."
                         IsEnabled="{Binding HasSelection}"
                         Click="OnClearSelectionClicked" />
             </Grid>
@@ -220,7 +257,7 @@
             <Border Style="{StaticResource InfoBoxStyle}"
                     Visibility="{Binding IsSelectionActive, Converter={StaticResource BoolToVisibilityConverter}}">
                 <TextBlock Style="{StaticResource InfoBoxTextStyle}"
-                           Text="Selecione elementos no Revit. Use Ctrl+clique para adicionar e Shift+clique para remover. Quando terminar, clique em Concluir na ribbon do Revit (ou pressione ENTER, se o foco estiver no Revit)." />
+                           Text="{Binding SelectionInfoText}" />
             </Border>
 
             <Border Background="{StaticResource SuccessBgBrush}"
@@ -242,7 +279,7 @@
                                TextWrapping="Wrap"
                                Margin="0,2,0,0"
                                Visibility="{Binding HasSelectionCategoriesSummary, Converter={StaticResource BoolToVisibilityConverter}}" />
-                    <TextBlock Text="Clique em &quot;Selecionar elementos&quot; novamente para adicionar/ajustar a seleção (os elementos atuais ficarão pré-selecionados no Revit)."
+                    <TextBlock Text="Use &quot;Adicionar mais elementos&quot; para incluir novos, &quot;Remover elementos&quot; para tirar do lote, ou &quot;Limpar&quot; para começar do zero."
                                FontSize="10"
                                Foreground="{StaticResource SuccessTextBrush}"
                                TextWrapping="Wrap"

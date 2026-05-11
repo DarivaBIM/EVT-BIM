@@ -13,6 +13,18 @@ using DarivaBIM.Revit.Adapters.Features.BatchParameterEditor;
 namespace DarivaBIM.Plugin.Features.BatchParameterEditor
 {
     /// <summary>
+    /// Como o pick atual interage com o lote de elementos já selecionados.
+    /// </summary>
+    public enum BatchSelectionMode
+    {
+        /// <summary>União dos elementos pegos no pick com o lote anterior.</summary>
+        Add,
+
+        /// <summary>Subtração: remove do lote anterior os elementos pegos no pick.</summary>
+        Remove,
+    }
+
+    /// <summary>
     /// Wrapper de external event para o ciclo de seleção do
     /// <see cref="BatchParameterEditorWindow"/>: <c>PickObjects</c> + cálculo dos
     /// parâmetros comuns aos elementos selecionados.
@@ -31,11 +43,13 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
         public void Raise(
             BatchParameterEditorWindow window,
             IReadOnlyList<Discipline> disciplines,
-            IReadOnlyList<ElementId> previousSelection)
+            IReadOnlyList<ElementId> previousSelection,
+            BatchSelectionMode mode)
         {
             _handler.Window = window;
             _handler.Disciplines = disciplines.ToList();
             _handler.PreviousSelection = previousSelection.ToList();
+            _handler.SelectionMode = mode;
             _externalEvent.Raise();
         }
     }
@@ -45,6 +59,7 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
         public BatchParameterEditorWindow? Window { get; set; }
         public List<Discipline> Disciplines { get; set; } = new();
         public List<ElementId> PreviousSelection { get; set; } = new();
+        public BatchSelectionMode SelectionMode { get; set; } = BatchSelectionMode.Add;
 
         public string GetName() => "EvtBim.BatchParameterEditorSelectionHandler";
 
@@ -77,34 +92,19 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                         filter = new DisciplineSelectionFilter(allowed);
                 }
 
-                // Reconstrói References dos elementos previamente selecionados
-                // que ainda existem e satisfazem o filtro. Isso permite ao
-                // usuário continuar adicionando/removendo elementos via
-                // Ctrl/Shift+clique sem perder o que já estava selecionado.
-                List<Reference> preselected = new();
-                foreach (ElementId id in PreviousSelection)
-                {
-                    Element? el = doc.GetElement(id);
-                    if (el == null)
-                        continue;
+                // Não passamos pré-seleção ao PickObjects. Cada modo (Add/Remove)
+                // é um pick "limpo" do ponto de vista do Revit; a fusão com o
+                // lote anterior é feita pelo próprio código depois que o pick
+                // retorna. Isso evita brigar com o comportamento nativo de
+                // janela de seleção do Revit (rubber-band em área vazia
+                // descarta a pré-seleção mesmo com Ctrl), e dá ao usuário um
+                // resultado previsível: ele vê exatamente o que está clicando.
 
-                    if (filter != null && !filter.AllowElement(el))
-                        continue;
-
-                    try
-                    {
-                        preselected.Add(new Reference(el));
-                    }
-                    catch
-                    {
-                        // Se o elemento não suporta criação de Reference (raro
-                        // para FamilyInstance/Pipe/etc.), ignora silenciosamente.
-                    }
-                }
-
-                const string prompt =
-                    "Selecione os elementos. Ctrl+clique adiciona, Shift+clique remove. " +
-                    "Clique em Concluir na ribbon para finalizar.";
+                string prompt = SelectionMode == BatchSelectionMode.Remove
+                    ? "Selecione os elementos que deseja REMOVER do lote. " +
+                      "Use clique ou janela de seleção e clique em Concluir na ribbon para finalizar."
+                    : "Selecione os elementos para adicionar ao lote. " +
+                      "Use clique ou janela de seleção e clique em Concluir na ribbon para finalizar.";
 
                 // Garante que a janela do Revit fique em primeiro plano antes
                 // do PickObjects. Sem isso, a janela WPF Topmost do editor
@@ -112,10 +112,11 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                 // com que o usuário precise clicar no Concluir manualmente.
                 EnsureRevitForeground();
 
+                ISelectionFilter effectiveFilter = filter ?? AcceptAllSelectionFilter.Instance;
                 IList<Reference> refs;
                 try
                 {
-                    refs = PickObjectsCompat(uiDoc, filter, prompt, preselected);
+                    refs = uiDoc.Selection.PickObjects(ObjectType.Element, effectiveFilter, prompt);
                 }
                 catch (Autodesk.Revit.Exceptions.OperationCanceledException)
                 {
@@ -125,27 +126,63 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                     win.SetSelectionActive(false);
                     if (PreviousSelection.Count > 0)
                         win.SetStatus(
-                            $"Seleção cancelada. {PreviousSelection.Count} elemento(s) ainda selecionado(s).");
+                            $"Seleção cancelada. {PreviousSelection.Count} elemento(s) ainda no lote.");
                     else
                         win.SetStatus("Seleção cancelada.");
                     return;
                 }
 
-                if (refs == null || refs.Count == 0)
+                List<ElementId> pickedIds = (refs ?? Array.Empty<Reference>())
+                    .Select(r => doc.GetElement(r))
+                    .Where(e => e != null)
+                    .Select(e => e!.Id)
+                    .ToList();
+
+                // Se o usuário não pegou nada, preservamos o lote anterior em
+                // vez de zerá-lo. Isso evita "perder tudo" quando o usuário
+                // clica em Concluir sem ter pegado elementos novos.
+                if (pickedIds.Count == 0)
                 {
-                    win.SetSelection(
-                        Array.Empty<ElementId>(),
-                        Array.Empty<CommonParameterOption>(),
-                        string.Empty);
+                    win.SetSelectionActive(false);
+                    string emptyMsg = SelectionMode == BatchSelectionMode.Remove
+                        ? "Nenhum elemento foi removido do lote."
+                        : "Nenhum elemento foi adicionado ao lote.";
+                    if (PreviousSelection.Count > 0)
+                        emptyMsg += $" {PreviousSelection.Count} elemento(s) ainda no lote.";
+                    win.SetStatus(emptyMsg);
                     return;
                 }
 
-                List<Element> elements = refs
-                    .Select(r => doc.GetElement(r))
+                // Calcula o lote final a partir do modo. Comparamos por
+                // ElementId.Value (long) para evitar dependência do == do
+                // ElementId em diferentes versões da API do Revit.
+                List<ElementId> ids;
+                if (SelectionMode == BatchSelectionMode.Remove)
+                {
+                    HashSet<long> removeSet = pickedIds.Select(id => id.Value).ToHashSet();
+                    ids = PreviousSelection
+                        .Where(id => !removeSet.Contains(id.Value))
+                        .ToList();
+                }
+                else
+                {
+                    Dictionary<long, ElementId> merged = new();
+                    foreach (ElementId id in PreviousSelection)
+                        merged[id.Value] = id;
+                    foreach (ElementId id in pickedIds)
+                        merged[id.Value] = id;
+                    ids = merged.Values.ToList();
+                }
+
+                // Resolve novamente os elementos do lote final, descartando
+                // IDs obsoletos (elementos apagados entre seleções) que possam
+                // ter sobrado em PreviousSelection.
+                List<Element> elements = ids
+                    .Select(id => doc.GetElement(id))
                     .Where(e => e != null)
                     .ToList()!;
 
-                List<ElementId> ids = elements.Select(e => e.Id).ToList();
+                ids = elements.Select(e => e.Id).ToList();
 
                 // Os parâmetros em comum consideram apenas os elementos
                 // selecionados pelo usuário. As famílias aninhadas só são
@@ -195,25 +232,6 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                 // Falha em mover o foco não é fatal — o usuário ainda pode
                 // clicar em Concluir.
             }
-        }
-
-        // Encapsula os overloads de PickObjects. Quando não há filtro específico
-        // (todas as disciplinas marcadas), usamos um filtro pass-through para
-        // poder utilizar o overload com pPreSelected — esse overload só existe
-        // na API com ISelectionFilter, então um filtro nulo não cobriria o
-        // caminho de seleção incremental.
-        private static IList<Reference> PickObjectsCompat(
-            UIDocument uiDoc,
-            ISelectionFilter? filter,
-            string prompt,
-            IList<Reference> preselected)
-        {
-            ISelectionFilter effectiveFilter = filter ?? AcceptAllSelectionFilter.Instance;
-
-            if (preselected.Count == 0)
-                return uiDoc.Selection.PickObjects(ObjectType.Element, effectiveFilter, prompt);
-
-            return uiDoc.Selection.PickObjects(ObjectType.Element, effectiveFilter, prompt, preselected);
         }
 
         private static string BuildCategoriesSummary(IReadOnlyList<Element> elements)
