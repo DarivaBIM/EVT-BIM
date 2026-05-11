@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using DarivaBIM.Plugin.Features.PipeCadMapper.Tools;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
@@ -133,6 +134,11 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             tx.SetFailureHandlingOptions(failureOptions);
             tx.Start();
 
+            // "Marcar todas as linhas do layer" é uma operação de RESET: o
+            // usuário espera o resultado de UMA execução, não acúmulo. Sem
+            // isso, ajustar parâmetros e clicar de novo sobrepõe marcadores.
+            int previous = ResetExistingMarkers(doc, activeView);
+
             PipeMarkerBatch result = PipeMarkerCreator.CreateFromSegments(
                 doc, activeView, batch.Segments, config);
 
@@ -147,6 +153,8 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             string detail = batch.SkippedNonLinear > 0
                 ? $"{batch.SkippedNonLinear} geometria(s) curva(s) ignorada(s) no layer"
                 : string.Empty;
+            if (previous > 0)
+                detail = (detail.Length > 0 ? detail + "; " : string.Empty) + $"{previous} marcador(es) anterior(es) substituído(s)";
 
             return (result.Created, result.SkippedShort, detail);
         }
@@ -179,6 +187,12 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             tx.SetFailureHandlingOptions(failureOptions);
             tx.Start();
 
+            // Detectar bifilar é uma operação de RESET: o usuário ajusta a
+            // tolerância e quer ver o resultado do detector atual, não a
+            // soma com execuções anteriores. Apagar antes de criar evita
+            // marcadores sobrepostos quando o usuário re-roda o detector.
+            int previous = ResetExistingMarkers(doc, activeView);
+
             PipeMarkerBatch result = PipeMarkerCreator.CreateFromCenterlines(
                 doc, activeView, centerlines, config, availableDiametersMm);
 
@@ -191,7 +205,27 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             tx.Commit();
 
             string detail = $"{centerlines.Count} eixo(s) detectado(s)";
+            if (previous > 0)
+                detail += $"; {previous} marcador(es) anterior(es) substituído(s)";
+
             return (result.Created, result.SkippedShort, detail);
+        }
+
+        /// <summary>
+        /// Apaga todos os marcadores (placeholders DBIM_PIPE_MARKER) da vista
+        /// ativa. Deve ser chamado dentro de uma transação aberta. Retorna a
+        /// quantidade de marcadores excluídos para o status text.
+        /// </summary>
+        private static int ResetExistingMarkers(Document doc, View view)
+        {
+            List<Pipe> existing = PipeMarkerCollector.CollectInView(doc, view);
+            if (existing.Count == 0) return 0;
+
+            List<ElementId> ids = new(existing.Count);
+            foreach (Pipe p in existing) ids.Add(p.Id);
+
+            doc.Delete(ids);
+            return ids.Count;
         }
     }
 }

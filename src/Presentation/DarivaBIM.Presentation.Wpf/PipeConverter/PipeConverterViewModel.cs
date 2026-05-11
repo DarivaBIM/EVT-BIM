@@ -82,8 +82,20 @@ namespace DarivaBIM.Presentation.Wpf.PipeConverter
         public bool UseCadElevation
         {
             get => _useCadElevation;
-            set => SetField(ref _useCadElevation, value);
+            set
+            {
+                if (SetField(ref _useCadElevation, value))
+                {
+                    OnPropertyChanged(nameof(IsLevelInputEnabled));
+                }
+            }
         }
+
+        /// <summary>
+        /// Inverso de <see cref="UseCadElevation"/>. Usado pela UI para
+        /// desabilitar o combo de nível e o offset enquanto a cota vier do CAD.
+        /// </summary>
+        public bool IsLevelInputEnabled => !_useCadElevation;
 
         // ----- CAD link / layer / mode -----
 
