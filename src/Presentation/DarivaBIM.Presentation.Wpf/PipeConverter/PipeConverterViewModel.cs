@@ -164,22 +164,63 @@ namespace DarivaBIM.Presentation.Wpf.PipeConverter
 
         // ----- Tolerance -----
 
-        private double _tolerancePercent = 50.0;
         /// <summary>
-        /// Slider 0..100 que controla o detector bifilar (linhas mais "frouxas"
-        /// pareiam tubos mais permissivamente). Vide
-        /// <c>BifilarDetectionParameters.FromTolerance</c> para o mapeamento.
-        /// Ignorado em modo unifilar.
+        /// Opções de tolerância exibidas no ComboBox da UI. Cinco níveis
+        /// discretos em vez de um slider contínuo: na prática só uns poucos
+        /// "presets" fazem diferença prática no resultado do detector.
         /// </summary>
-        public double TolerancePercent
+        public ObservableCollection<BifilarToleranceOption> ToleranceOptions { get; } = new()
         {
-            get => _tolerancePercent;
+            new BifilarToleranceOption(BifilarToleranceLevel.VeryLow,  "Muito baixa"),
+            new BifilarToleranceOption(BifilarToleranceLevel.Low,      "Baixa"),
+            new BifilarToleranceOption(BifilarToleranceLevel.Medium,   "Média"),
+            new BifilarToleranceOption(BifilarToleranceLevel.High,     "Alta"),
+            new BifilarToleranceOption(BifilarToleranceLevel.VeryHigh, "Muito alta"),
+        };
+
+        private BifilarToleranceOption? _selectedToleranceOption;
+        public BifilarToleranceOption? SelectedToleranceOption
+        {
+            get => _selectedToleranceOption;
             set
             {
-                double clamped = value;
-                if (clamped < 0) clamped = 0;
-                if (clamped > 100) clamped = 100;
-                SetField(ref _tolerancePercent, clamped);
+                if (SetField(ref _selectedToleranceOption, value))
+                {
+                    OnPropertyChanged(nameof(ToleranceLevel));
+                    OnPropertyChanged(nameof(TolerancePercent));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Nível de tolerância vigente (default: Média).
+        /// </summary>
+        public BifilarToleranceLevel ToleranceLevel =>
+            _selectedToleranceOption?.Level ?? BifilarToleranceLevel.Medium;
+
+        /// <summary>
+        /// Percentual derivado do nível selecionado (0/25/50/75/100). É o que
+        /// o adapter consome via <c>BifilarDetectionParameters.FromTolerance</c>.
+        /// </summary>
+        public double TolerancePercent => ToleranceLevel switch
+        {
+            BifilarToleranceLevel.VeryLow => 0.0,
+            BifilarToleranceLevel.Low => 25.0,
+            BifilarToleranceLevel.Medium => 50.0,
+            BifilarToleranceLevel.High => 75.0,
+            BifilarToleranceLevel.VeryHigh => 100.0,
+            _ => 50.0,
+        };
+
+        public void SetToleranceLevel(BifilarToleranceLevel level)
+        {
+            foreach (BifilarToleranceOption opt in ToleranceOptions)
+            {
+                if (opt.Level == level)
+                {
+                    SelectedToleranceOption = opt;
+                    return;
+                }
             }
         }
 

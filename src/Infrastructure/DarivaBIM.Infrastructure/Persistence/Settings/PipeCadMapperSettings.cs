@@ -35,9 +35,11 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
         // O nível selecionado continua sendo o host do placeholder.
         public bool UseCadElevation { get; set; }
 
-        // Slider 0..100 que controla, em conjunto, os limiares do detector
-        // bifilar. Padrão 50 representa o ponto médio "neutro".
-        public double TolerancePercent { get; set; } = 50.0;
+        // Nível discreto de tolerância do detector bifilar.
+        // Armazenado como string para sobreviver à evolução do enum sem
+        // quebrar settings antigos. Valores válidos:
+        // "VeryLow" / "Low" / "Medium" / "High" / "VeryHigh".
+        public string? ToleranceLevel { get; set; }
 
         private static string SettingsPath
         {

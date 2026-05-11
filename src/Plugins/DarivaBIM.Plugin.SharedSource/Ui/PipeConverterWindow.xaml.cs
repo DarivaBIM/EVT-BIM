@@ -56,7 +56,9 @@ namespace DarivaBIM.Plugin.Ui
             _initialSettings = PipeCadMapperSettings.Load();
             ViewModel.OffsetMm = _initialSettings.OffsetMm;
             ViewModel.UseCadElevation = _initialSettings.UseCadElevation;
-            ViewModel.TolerancePercent = _initialSettings.TolerancePercent;
+            // O handler de data-load aplica o nível de tolerância junto com
+            // sistema/tipo/nível persistidos. Garante que a UI já mostra o
+            // ComboBox preenchido na primeira renderização.
             _initialLoadDone = true;
 
             _dataLoadEvent.RaiseWithSettings(ViewModel, _initialSettings);
@@ -170,7 +172,7 @@ namespace DarivaBIM.Plugin.Ui
                     LayerName = ViewModel.SelectedLayer,
                     Mode = ViewModel.Mode.ToString(),
                     UseCadElevation = ViewModel.UseCadElevation,
-                    TolerancePercent = ViewModel.TolerancePercent,
+                    ToleranceLevel = ViewModel.ToleranceLevel.ToString(),
                 };
                 settings.Save();
             }
@@ -239,7 +241,7 @@ namespace DarivaBIM.Plugin.Ui
                             LayerName = _instance.ViewModel.SelectedLayer,
                             Mode = _instance.ViewModel.Mode.ToString(),
                             UseCadElevation = _instance.ViewModel.UseCadElevation,
-                            TolerancePercent = _instance.ViewModel.TolerancePercent,
+                            ToleranceLevel = _instance.ViewModel.ToleranceLevel.ToString(),
                         }
                         : _instance._initialSettings;
 

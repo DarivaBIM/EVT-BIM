@@ -141,7 +141,14 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
 
             vm.OffsetMm = settings.OffsetMm;
             vm.UseCadElevation = settings.UseCadElevation;
-            vm.TolerancePercent = settings.TolerancePercent;
+
+            BifilarToleranceLevel toleranceLevel = BifilarToleranceLevel.Medium;
+            if (!string.IsNullOrEmpty(settings.ToleranceLevel) &&
+                Enum.TryParse<BifilarToleranceLevel>(settings.ToleranceLevel, ignoreCase: true, out BifilarToleranceLevel parsed))
+            {
+                toleranceLevel = parsed;
+            }
+            vm.SetToleranceLevel(toleranceLevel);
 
             if (!string.IsNullOrEmpty(settings.LayerName))
             {
@@ -175,6 +182,12 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
 
             if (vm.SelectedSystem == null && vm.Systems.Count > 0)
                 vm.SelectedSystem = vm.Systems[0];
+
+            // Garante uma opção de tolerância selecionada na primeira abertura
+            // — o ComboBox da UI ficaria vazio sem isso se nada estiver
+            // persistido em settings.
+            if (vm.SelectedToleranceOption == null && vm.ToleranceOptions.Count > 0)
+                vm.SetToleranceLevel(BifilarToleranceLevel.Medium);
 
             if (vm.SelectedPipeType == null && vm.PipeTypes.Count > 0)
                 vm.SelectedPipeType = vm.PipeTypes[0];
