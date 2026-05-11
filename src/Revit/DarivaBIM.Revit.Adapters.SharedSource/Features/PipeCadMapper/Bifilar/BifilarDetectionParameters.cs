@@ -17,6 +17,12 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
     /// O intervalo é generoso porque desenhos reais frequentemente fogem
     /// dos nominais (a regra final é o <c>DiameterSnapper</c>, que ainda
     /// aproxima a medida para um diâmetro disponível).
+    ///
+    /// <see cref="AvailableDiametersMm"/> é carregado aqui também para o
+    /// detector poder usar como critério de DESEMPATE entre pares
+    /// concorrentes: pares com distância entre paredes próxima de um
+    /// nominal vencem pares "errados" (gaps entre tubos diferentes, por
+    /// exemplo) na hora de travar candidatos.
     /// </summary>
     public sealed class BifilarDetectionParameters
     {
@@ -34,23 +40,23 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         public int MaxValidPairsStored { get; init; }
         public double SegmentGridCellMm { get; init; }
         public bool LockEdgeAfterPair { get; init; }
+        public IReadOnlyList<double> AvailableDiametersMm { get; init; } = Array.Empty<double>();
 
         /// <summary>
         /// Mapeia o slider 0..100 para todos os limiares.
         ///
-        /// As escolhas vêm dos testes que o usuário rodou no Dynamo, mas com
-        /// dois ajustes em relação à primeira versão deste detector:
+        /// Decisões importantes:
         /// <list type="bullet">
-        /// <item>O range de distância entre paredes (<see cref="MinEdgeDistanceMm"/>
-        /// e <see cref="MaxEdgeDistanceMm"/>) ficou muito mais amplo
-        /// (0,4× a 1,8× dos diâmetros nominais do tipo). Sem isso, um tubo
-        /// desenhado 47mm em vez de 50mm já era rejeitado.</item>
-        /// <item>O filtro de símbolos fica efetivamente desligado a partir
-        /// de ~80% de tolerância. Como o detector já restringe a busca ao
-        /// layer alvo, símbolos remanescentes são necessariamente
-        /// componentes do próprio sistema (juntas, T-fittings, redutores
-        /// desenhados como arcos) — não devem bloquear o pareamento quando
-        /// o usuário aceita um pouco mais de falso-positivo.</item>
+        /// <item>Range de distância entre paredes BEM amplo (0,3× a 2,5× dos
+        /// nominais do tipo). Tubos desenhados levemente fora do nominal
+        /// — 47mm em vez de 50, 90mm em vez de 100 — entram e o
+        /// <c>DiameterSnapper</c> os arruma para o nominal mais próximo.</item>
+        /// <item>Filtro de símbolos praticamente desligado a partir de 80%.
+        /// Como já filtramos por layer, símbolos remanescentes vêm do
+        /// próprio sistema (juntas, T-fittings); em alta tolerância o
+        /// usuário aceita esse ruído em troca de não perder pipes.</item>
+        /// <item>Limite alto de candidatos (até 10000) para projetos grandes
+        /// não terem paredes ignoradas só por aparecerem depois no scan.</item>
         /// </list>
         /// </summary>
         public static BifilarDetectionParameters FromTolerance(
@@ -72,24 +78,17 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 }
             }
 
-            // Folga generosa: 0,4× do menor diâmetro para baixo, 1,8× do maior
-            // para cima. Para um tipo só com 50mm, o range fica 20..90mm, o
-            // que aceita desenhos com pequenas distorções (47, 53, 70mm) e
-            // ainda os snappa para 50mm via DiameterSnapper.
-            double minEdgeMm = Math.Max(2.0, minDiamMm * 0.4);
-            double maxEdgeMm = Math.Max(minEdgeMm + 20.0, maxDiamMm * 1.8);
+            // Folga MUITO generosa: 0,3× do menor diâmetro para baixo,
+            // 2,5× do maior para cima. Para um tipo só com 50mm o range
+            // fica 15..125mm, o que aceita tubos desenhados 25..100mm
+            // (DiameterSnapper depois os arruma).
+            double minEdgeMm = Math.Max(2.0, minDiamMm * 0.3);
+            double maxEdgeMm = Math.Max(minEdgeMm + 30.0, maxDiamMm * 2.5);
 
-            // Filtro de símbolos: estrito a 0%, praticamente desligado a 100%.
-            // O ponto-chave: como já filtramos por layer, símbolos
-            // remanescentes são parte do desenho do próprio sistema (juntas,
-            // T-pieces). Em alta tolerância o usuário aceita esses ruídos.
             int maxHard;
             int maxTotal;
             if (t >= 0.8)
             {
-                // "praticamente desligado" — um teto alto evita pareamentos
-                // absurdos em CADs realmente caóticos sem custar nada nos
-                // casos comuns.
                 maxHard = 100;
                 maxTotal = 500;
             }
@@ -101,8 +100,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
 
             return new BifilarDetectionParameters
             {
-                // Frouxo (t→1) aceita segmentos curtos; estrito (t→0) só os longos.
-                MinCandidateLengthMm = Lerp(t, strict: 250.0, loose: 30.0),
+                MinCandidateLengthMm = Lerp(t, strict: 250.0, loose: 20.0),
 
                 MinEdgeDistanceMm = minEdgeMm,
                 MaxEdgeDistanceMm = maxEdgeMm,
@@ -112,24 +110,22 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
 
                 ClusterSnapMm = 25.0,
 
-                // Buffer maior = caça mais símbolos = mais restritivo. Em
-                // estrito, varremos uma faixa larga em volta da centerline;
-                // em frouxo, só símbolos coladinhos contam.
                 SymbolBufferMm = Lerp(t, strict: 120.0, loose: 25.0),
 
                 MaxHardSymbolsInside = maxHard,
                 MaxTotalSymbolsInside = maxTotal,
 
-                // Ignorar mais perto das pontas = mais permissivo (verifica
-                // só o miolo da centerline). Estrito = verifica quase tudo.
                 EndpointIgnoreMm = Lerp(t, strict: 25.0, loose: 300.0),
 
-                // Performance: limite escala suavemente com tolerância para
-                // não pagar custo desnecessário em modo estrito.
-                MaxCandidateSegments = (int)Math.Round(Lerp(t, strict: 500.0, loose: 2500.0)),
-                MaxValidPairsStored = (int)Math.Round(Lerp(t, strict: 3000.0, loose: 12000.0)),
+                // Limites altos para projetos grandes — o custo extra do
+                // pareamento é amortizado pelo grid espacial e pelo filtro
+                // de ângulo rápido (a maioria dos candidatos vizinhos é
+                // descartada em O(1) antes de pagar o custo de overlap).
+                MaxCandidateSegments = (int)Math.Round(Lerp(t, strict: 800.0, loose: 10000.0)),
+                MaxValidPairsStored = (int)Math.Round(Lerp(t, strict: 5000.0, loose: 30000.0)),
                 SegmentGridCellMm = 400.0,
                 LockEdgeAfterPair = true,
+                AvailableDiametersMm = availableDiametersMm,
             };
         }
 
