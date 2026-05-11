@@ -13,7 +13,11 @@ namespace DarivaBIM.Plugin.Ui
         private static PipeConverterWindow? _instance;
 
         private readonly PipeConverterDataLoadExternalEvent _dataLoadEvent = new();
-        private readonly PipeInsertionExternalEvent _pipeInsertionEvent = new();
+        private readonly CadLinkPickExternalEvent _cadLinkPickEvent = new();
+        private readonly MarkerLinePickExternalEvent _linePickEvent = new();
+        private readonly MarkerBatchExternalEvent _batchEvent = new();
+        private readonly MarkerConversionExternalEvent _convertEvent = new();
+        private readonly MarkerCountRefreshExternalEvent _countRefreshEvent = new();
         private readonly IRevitPickCancellationService _pickCancellationService =
             new Win32RevitPickCancellationService();
 
@@ -49,49 +53,105 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnWindowLoaded(object sender, RoutedEventArgs e)
         {
-            // Carrega as preferências persistidas e pede para o handler
-            // aplicá-las na primeira passagem de carga de dados.
             _initialSettings = PipeCadMapperSettings.Load();
             ViewModel.OffsetMm = _initialSettings.OffsetMm;
+            ViewModel.UseCadElevation = _initialSettings.UseCadElevation;
+            ViewModel.TolerancePercent = _initialSettings.TolerancePercent;
             _initialLoadDone = true;
 
             _dataLoadEvent.RaiseWithSettings(ViewModel, _initialSettings);
+            _countRefreshEvent.Raise(ViewModel);
         }
 
-        private void OnToggleClicked(object sender, RoutedEventArgs e)
+        private void OnPickCadClicked(object sender, RoutedEventArgs e)
+        {
+            // Ao iniciar uma nova escolha de CAD, encerra qualquer pick em
+            // andamento e zera o estado de "ativa" para não confundir o
+            // usuário no próximo Pick do CAD.
+            if (ViewModel.IsActive)
+            {
+                ViewModel.IsActive = false;
+                _linePickEvent.MarkNextCancelAsInternal();
+                _pickCancellationService.CancelPendingPick();
+            }
+
+            _cadLinkPickEvent.Raise(ViewModel);
+        }
+
+        private void OnToggleLinePickClicked(object sender, RoutedEventArgs e)
         {
             if (ViewModel.IsActive)
             {
                 ViewModel.IsActive = false;
-                ViewModel.StatusMessage = "Ferramenta desativada.";
-                _pipeInsertionEvent.MarkNextCancelAsInternal();
+                _linePickEvent.MarkNextCancelAsInternal();
                 _pickCancellationService.CancelPendingPick();
                 return;
             }
 
             if (!HasMinimumConfiguration())
             {
-                ViewModel.StatusMessage =
-                    "Configuração incompleta — selecione sistema, tipo, diâmetro e nível antes de ativar.";
+                ViewModel.StatusMessage = "Selecione vínculo CAD, layer, sistema, tipo, diâmetro e nível antes de ativar.";
                 return;
             }
 
             ViewModel.IsActive = true;
-            ViewModel.StatusMessage = "Ferramenta ativa — clique em uma linha do vínculo CAD.";
-            _pipeInsertionEvent.Raise(ViewModel);
+            ViewModel.StatusMessage = $"Clique em uma linha do layer '{ViewModel.SelectedLayer}' para criar marcadores.";
+            _linePickEvent.Raise(ViewModel);
+        }
+
+        private void OnBatchClicked(object sender, RoutedEventArgs e)
+        {
+            // Se um pick estiver em andamento, encerra antes de rodar o batch
+            // (não queremos o usuário com duas modalidades concorrentes).
+            if (ViewModel.IsActive)
+            {
+                ViewModel.IsActive = false;
+                _linePickEvent.MarkNextCancelAsInternal();
+                _pickCancellationService.CancelPendingPick();
+            }
+
+            if (!HasMinimumConfiguration())
+            {
+                ViewModel.StatusMessage = "Selecione vínculo CAD, layer, sistema, tipo, diâmetro e nível antes de criar marcadores em lote.";
+                return;
+            }
+
+            if (ViewModel.IsBusy)
+                return;
+
+            ViewModel.StatusMessage = ViewModel.Mode == PipeCadMappingMode.Bifilar
+                ? "Detectando tubos bifilar... isso pode levar alguns segundos."
+                : "Criando marcadores para o layer...";
+
+            _batchEvent.Raise(ViewModel);
+        }
+
+        private void OnConvertMarkersClicked(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel.IsActive)
+            {
+                ViewModel.IsActive = false;
+                _linePickEvent.MarkNextCancelAsInternal();
+                _pickCancellationService.CancelPendingPick();
+            }
+
+            if (ViewModel.IsBusy)
+                return;
+
+            ViewModel.StatusMessage = "Convertendo marcadores em tubos...";
+            _convertEvent.Raise(ViewModel);
         }
 
         private void OnWindowClosing(object sender, CancelEventArgs e)
         {
             ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
 
-            // Persiste o último estado da configuração para a próxima sessão.
             SaveCurrentSettings();
 
             if (ViewModel.IsActive)
             {
                 ViewModel.IsActive = false;
-                _pipeInsertionEvent.MarkNextCancelAsInternal();
+                _linePickEvent.MarkNextCancelAsInternal();
                 _pickCancellationService.CancelPendingPick();
             }
         }
@@ -107,6 +167,10 @@ namespace DarivaBIM.Plugin.Ui
                     DiameterMm = ViewModel.SelectedDiameterMm,
                     LevelName = ViewModel.SelectedLevel?.Name,
                     OffsetMm = ViewModel.OffsetMm,
+                    LayerName = ViewModel.SelectedLayer,
+                    Mode = ViewModel.Mode.ToString(),
+                    UseCadElevation = ViewModel.UseCadElevation,
+                    TolerancePercent = ViewModel.TolerancePercent,
                 };
                 settings.Save();
             }
@@ -117,41 +181,34 @@ namespace DarivaBIM.Plugin.Ui
         }
 
         // Quando o usuário troca um parâmetro de inserção (sistema, tipo,
-        // diâmetro, nível, offset) com a ferramenta ATIVA, cancela o PickObject
-        // corrente e reagenda um novo pick. Sem isso, o ciclo de seleção podia
-        // ficar travado depois de uma alteração no WPF.
+        // diâmetro, nível, layer, modo) com a ferramenta ATIVA (pick linha-a-
+        // linha), cancela o PickObject corrente e reagenda. Sem isso, o ciclo
+        // de seleção podia ficar travado depois de uma alteração no WPF.
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (!ViewModel.IsActive)
                 return;
 
-            if (!IsInsertionParameter(e.PropertyName))
+            if (!IsLineLoopParameter(e.PropertyName))
                 return;
 
-            // Marca esse cancel como interno antes de enviar o ESC, caso
-            // contrário o handler interpretaria como ESC do usuário e
-            // desativaria a ferramenta.
-            _pipeInsertionEvent.MarkNextCancelAsInternal();
+            _linePickEvent.MarkNextCancelAsInternal();
             _pickCancellationService.CancelPendingPick();
-            _pipeInsertionEvent.RaiseIfActive(ViewModel);
+            _linePickEvent.RaiseIfActive(ViewModel);
         }
 
-        // Apenas parâmetros vindos de ComboBox: a alteração ocorre dentro do
-        // próprio WPF (sem clique no canvas) então é seguro disparar ESC.
-        // OffsetMm fica de fora para não criar corrida com o clique-pick
-        // (TextBox.LostFocus dispara junto com a mudança de foco).
-        private static bool IsInsertionParameter(string? propertyName)
+        private static bool IsLineLoopParameter(string? propertyName)
         {
             return propertyName is
                 nameof(PipeConverterViewModel.SelectedSystem) or
                 nameof(PipeConverterViewModel.SelectedPipeType) or
                 nameof(PipeConverterViewModel.SelectedDiameterMm) or
-                nameof(PipeConverterViewModel.SelectedLevel);
+                nameof(PipeConverterViewModel.SelectedLevel) or
+                nameof(PipeConverterViewModel.SelectedLayer) or
+                nameof(PipeConverterViewModel.UseCadElevation) or
+                nameof(PipeConverterViewModel.Mode);
         }
 
-        // Chamado pelo App quando o documento ativo do Revit muda.
-        // Recarrega sistemas/tipos/níveis para refletir o novo projeto, mas não
-        // interrompe uma sessão de inserção em andamento.
         internal static void RequestDataReload()
         {
             PipeConverterWindow? w = _instance;
@@ -164,9 +221,13 @@ namespace DarivaBIM.Plugin.Ui
                 {
                     _instance.ViewModel.StatusMessage = "Recarregando dados do projeto…";
 
-                    // Em recargas (troca de projeto), não reaplicamos o
-                    // snapshot inicial: usamos o estado corrente do VM como
-                    // alvo das seleções por nome.
+                    // Em recargas (troca de projeto), o CAD selecionado pode
+                    // não existir mais; zera para forçar nova seleção.
+                    _instance.ViewModel.SelectedCadLinkId = null;
+                    _instance.ViewModel.SelectedCadLinkName = null;
+                    _instance.ViewModel.CadLayers.Clear();
+                    _instance.ViewModel.ActiveViewMarkerCount = 0;
+
                     PipeCadMapperSettings reloadHints = _instance._initialLoadDone
                         ? new PipeCadMapperSettings
                         {
@@ -175,21 +236,27 @@ namespace DarivaBIM.Plugin.Ui
                             DiameterMm = _instance.ViewModel.SelectedDiameterMm,
                             LevelName = _instance.ViewModel.SelectedLevel?.Name,
                             OffsetMm = _instance.ViewModel.OffsetMm,
+                            LayerName = _instance.ViewModel.SelectedLayer,
+                            Mode = _instance.ViewModel.Mode.ToString(),
+                            UseCadElevation = _instance.ViewModel.UseCadElevation,
+                            TolerancePercent = _instance.ViewModel.TolerancePercent,
                         }
                         : _instance._initialSettings;
 
                     _instance._dataLoadEvent.RaiseWithSettings(_instance.ViewModel, reloadHints);
+                    _instance._countRefreshEvent.Raise(_instance.ViewModel);
                 }
             }));
         }
 
         private bool HasMinimumConfiguration()
         {
-            return ViewModel.SelectedSystem != null
+            return ViewModel.HasCadLink
+                && !string.IsNullOrEmpty(ViewModel.SelectedLayer)
+                && ViewModel.SelectedSystem != null
                 && ViewModel.SelectedPipeType != null
                 && ViewModel.SelectedDiameterMm.HasValue
                 && ViewModel.SelectedLevel != null;
         }
-
     }
 }
