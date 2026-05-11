@@ -15,25 +15,18 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
     /// <summary>
     /// Carrega sistemas, tipos de tubo, diâmetros e níveis disponíveis no
     /// documento ativo e popula o <see cref="PipeConverterViewModel"/>.
+    /// Layer de CAD não é populado aqui: depende de qual vínculo o usuário
+    /// escolher, e é o <see cref="CadLinkPickHandler"/> quem cuida disso.
     /// </summary>
     public class PipeConverterDataLoadHandler : IExternalEventHandler
     {
         public PipeConverterViewModel? ViewModel { get; set; }
-
-        /// <summary>
-        /// Configurações persistidas a aplicar nas seleções (definidas pela
-        /// UI ao abrir a janela). Limpadas após o primeiro uso para que
-        /// recarregamentos posteriores não sobrescrevam o estado do usuário.
-        /// </summary>
         public PipeCadMapperSettings? PendingSettings { get; set; }
 
         public void Execute(UIApplication app)
         {
             PipeConverterViewModel? vm = ViewModel;
-            if (vm == null)
-            {
-                return;
-            }
+            if (vm == null) return;
 
             try
             {
@@ -71,17 +64,15 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                     .ToList();
 
                 PopulateViewModel(vm, systems, pipeTypes, levels);
-
                 ApplyPendingSettings(vm);
 
                 if (vm.Systems.Count == 0 || vm.PipeTypes.Count == 0 || vm.Levels.Count == 0)
                 {
-                    vm.StatusMessage = "Projeto sem sistemas/tipos/níveis suficientes para criar tubos.";
+                    vm.StatusMessage = "Projeto sem sistemas/tipos/níveis suficientes para criar marcadores.";
                 }
-                else if (string.IsNullOrEmpty(vm.StatusMessage)
-                         || vm.StatusMessage.StartsWith("Recarregando"))
+                else if (!vm.HasCadLink)
                 {
-                    vm.StatusMessage = "Pronto. Configure os parâmetros e ative a ferramenta.";
+                    vm.StatusMessage = "Pronto. Selecione um vínculo CAD para começar.";
                 }
             }
             catch (Exception ex)
@@ -95,12 +86,9 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
         private void ApplyPendingSettings(PipeConverterViewModel vm)
         {
             PipeCadMapperSettings? settings = PendingSettings;
-            if (settings == null)
-                return;
+            if (settings == null) return;
 
-            // Consome o pedido — recarregamentos seguintes (ex.: troca de
-            // projeto) não devem reaplicar o snapshot inicial por cima do que
-            // o usuário tiver mexido.
+            // Limpa para que reloads posteriores não sobrescrevam o estado do usuário.
             PendingSettings = null;
 
             if (!string.IsNullOrEmpty(settings.SystemName))
@@ -152,6 +140,22 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             }
 
             vm.OffsetMm = settings.OffsetMm;
+            vm.UseCadElevation = settings.UseCadElevation;
+            vm.TolerancePercent = settings.TolerancePercent;
+
+            if (!string.IsNullOrEmpty(settings.LayerName))
+            {
+                // Pré-seleciona o layer pelo nome para o caso de o usuário
+                // escolher um CAD com a mesma nomenclatura — se o layer
+                // não estiver presente no CAD selecionado depois, o pick
+                // handler ajusta a seleção.
+                vm.SelectedLayer = settings.LayerName;
+            }
+
+            if (string.Equals(settings.Mode, nameof(PipeCadMappingMode.Bifilar), StringComparison.OrdinalIgnoreCase))
+                vm.Mode = PipeCadMappingMode.Bifilar;
+            else
+                vm.Mode = PipeCadMappingMode.Unifilar;
         }
 
         private static void PopulateViewModel(
@@ -161,38 +165,22 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             IReadOnlyList<LevelOptionViewModel> levels)
         {
             vm.Systems.Clear();
-            foreach (PipingSystemOptionViewModel s in systems)
-            {
-                vm.Systems.Add(s);
-            }
+            foreach (PipingSystemOptionViewModel s in systems) vm.Systems.Add(s);
 
             vm.PipeTypes.Clear();
-            foreach (PipeTypeOptionViewModel t in pipeTypes)
-            {
-                vm.PipeTypes.Add(t);
-            }
+            foreach (PipeTypeOptionViewModel t in pipeTypes) vm.PipeTypes.Add(t);
 
             vm.Levels.Clear();
-            foreach (LevelOptionViewModel l in levels)
-            {
-                vm.Levels.Add(l);
-            }
+            foreach (LevelOptionViewModel l in levels) vm.Levels.Add(l);
 
             if (vm.SelectedSystem == null && vm.Systems.Count > 0)
-            {
                 vm.SelectedSystem = vm.Systems[0];
-            }
 
             if (vm.SelectedPipeType == null && vm.PipeTypes.Count > 0)
-            {
                 vm.SelectedPipeType = vm.PipeTypes[0];
-            }
 
             if (vm.SelectedLevel == null && vm.Levels.Count > 0)
-            {
                 vm.SelectedLevel = vm.Levels[0];
-            }
         }
-
     }
 }

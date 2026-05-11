@@ -21,6 +21,24 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
         public string? LevelName { get; set; }
         public double OffsetMm { get; set; }
 
+        // Novos campos (workflow vínculo CAD → marcadores → tubos).
+        // LayerName é guardado entre sessões para que projetos com o mesmo
+        // padrão de nomenclatura abram já apontando para o layer correto.
+        public string? LayerName { get; set; }
+
+        // "Unifilar" (default) ou "Bifilar". Mantemos como string para
+        // tolerar evolução do enum sem quebrar settings existentes.
+        public string? Mode { get; set; }
+
+        // Quando true, os marcadores são criados na cota Z dos pontos do CAD
+        // (ignorando o nível de referência selecionado para fins de elevação).
+        // O nível selecionado continua sendo o host do placeholder.
+        public bool UseCadElevation { get; set; }
+
+        // Slider 0..100 que controla, em conjunto, os limiares do detector
+        // bifilar. Padrão 50 representa o ponto médio "neutro".
+        public double TolerancePercent { get; set; } = 50.0;
+
         private static string SettingsPath
         {
             get

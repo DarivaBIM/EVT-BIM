@@ -1,22 +1,20 @@
 using DarivaBIM.Presentation.Wpf.Models;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
-using DarivaBIM.Revit.Adapters.Features.PipeCadMapper;
+using DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers;
 
 namespace DarivaBIM.Plugin.Features.PipeCadMapper.Tools
 {
     /// <summary>
-    /// Constrói um <see cref="PipeConversionConfig"/> (lado Adapter,
-    /// dependente da RevitAPI) a partir do <see cref="PipeConverterViewModel"/>
-    /// neutro (Presentation.Wpf, sem RevitAPI). A conversão dos ids
-    /// <c>long</c> de volta para <see cref="Autodesk.Revit.DB.ElementId"/>
-    /// acontece aqui para o handler ficar focado no ciclo
-    /// pick/transaction.
+    /// Constrói um <see cref="PipeMarkerConfig"/> a partir do view-model
+    /// neutro. A conversão dos IDs <c>long</c> para
+    /// <see cref="Autodesk.Revit.DB.ElementId"/> acontece aqui, deixando o
+    /// handler focado no ciclo de pick/transaction.
     /// </summary>
-    internal static class PipeConversionConfigFactory
+    internal static class PipeMarkerConfigFactory
     {
         public static bool TryCreate(
             PipeConverterViewModel vm,
-            out PipeConversionConfig? config,
+            out PipeMarkerConfig? config,
             out string? error)
         {
             config = null;
@@ -26,7 +24,6 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper.Tools
             PipeTypeOptionViewModel? pipeType = vm.SelectedPipeType;
             double? diameter = vm.SelectedDiameterMm;
             LevelOptionViewModel? level = vm.SelectedLevel;
-            double offsetMm = vm.OffsetMm;
 
             if (system == null || pipeType == null || !diameter.HasValue || level == null)
             {
@@ -34,13 +31,14 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper.Tools
                 return false;
             }
 
-            config = new PipeConversionConfig(
+            config = new PipeMarkerConfig(
                 RevitElementIdConversions.ToElementId(system.Id),
                 RevitElementIdConversions.ToElementId(pipeType.Id),
                 RevitElementIdConversions.ToElementId(level.Id),
                 diameter.Value,
                 level.ElevationFeet,
-                offsetMm);
+                vm.OffsetMm,
+                vm.UseCadElevation);
 
             return true;
         }
