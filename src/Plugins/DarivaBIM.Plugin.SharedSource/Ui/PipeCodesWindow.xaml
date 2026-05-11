@@ -439,7 +439,7 @@
                     <Border Background="{StaticResource YellowBgBrush}"
                             BorderBrush="{StaticResource YellowBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="999"
+                            CornerRadius="6"
                             Padding="10,6"
                             Visibility="{Binding ParameterStatusWarning, Converter={StaticResource BoolToVisibilityConverter}}">
                         <StackPanel Orientation="Horizontal">
@@ -461,7 +461,7 @@
                     <Border Background="{StaticResource GreenBgBrush}"
                             BorderBrush="{StaticResource GreenBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="999"
+                            CornerRadius="6"
                             Padding="10,6"
                             Visibility="{Binding ParameterStatusOk, Converter={StaticResource BoolToVisibilityConverter}}">
                         <StackPanel Orientation="Horizontal">
@@ -595,6 +595,7 @@
                             Background="{StaticResource CardBackgroundBrush}"
                             BorderBrush="{StaticResource RedBorderBrush}"
                             BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,9,9"
                             Visibility="{Binding ElementName=NoMatchCollapseToggle, Path=IsChecked, Converter={StaticResource InverseBoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -719,6 +720,7 @@
                             Background="{StaticResource CardBackgroundBrush}"
                             BorderBrush="{StaticResource OrangeBorderBrush}"
                             BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,9,9"
                             Visibility="{Binding ElementName=DivergentCollapseToggle, Path=IsChecked, Converter={StaticResource InverseBoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -843,6 +845,7 @@
                             Background="{StaticResource CardBackgroundBrush}"
                             BorderBrush="{StaticResource YellowBorderBrush}"
                             BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,9,9"
                             Visibility="{Binding ElementName=MissingCollapseToggle, Path=IsChecked, Converter={StaticResource InverseBoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -967,6 +970,7 @@
                             Background="{StaticResource CardBackgroundBrush}"
                             BorderBrush="{StaticResource GreenBorderBrush}"
                             BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,9,9"
                             Visibility="{Binding ElementName=OkCollapseToggle, Path=IsChecked, Converter={StaticResource InverseBoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
