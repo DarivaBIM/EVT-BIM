@@ -281,7 +281,7 @@ namespace DarivaBIM.Plugin.Ui
 
         private static void ShowResultDialog(ParameterApplyResult result)
         {
-            TaskDialog dlg = new("EVT-BIM — Editor de parâmetros");
+            TaskDialog dlg = new("EVT-BIM — Parâmetros em Lote");
 
             if (!string.IsNullOrEmpty(result.ErrorMessage))
             {

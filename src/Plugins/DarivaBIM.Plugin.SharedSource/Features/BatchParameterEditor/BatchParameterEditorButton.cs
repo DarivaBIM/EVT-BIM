@@ -10,8 +10,8 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
             commandId: RibbonCommandId.OpenBatchParameterEditor,
             toolTip: "Atribui um valor a um parâmetro comum a vários elementos (incluindo famílias aninhadas).",
             longDescription:
-                "Abre uma janela onde o usuário seleciona elementos do projeto (com " +
-                "seleção incremental — Ctrl/Shift+clique e múltiplas rodadas de seleção), " +
+                "Abre uma janela onde o usuário monta um lote de elementos com botões " +
+                "Selecionar/Remover/Limpar (sem depender de Ctrl/Shift do Revit), " +
                 "escolhe um parâmetro comum a todos em um dropdown e informa o valor a " +
                 "ser atribuído. O valor é propagado para o elemento selecionado e para " +
                 "as famílias aninhadas que tiverem o mesmo parâmetro. A janela mostra o " +

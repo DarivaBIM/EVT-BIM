@@ -20,6 +20,12 @@ namespace DarivaBIM.Presentation.Wpf.BatchParameterEditor
 
         public ObservableCollection<DisciplineFilterViewModel> DisciplineFilters { get; } = new();
 
+        // Snapshot da última configuração de disciplinas marcada pelo usuário,
+        // mantido em memória durante a sessão do Revit. Permite que ao fechar
+        // e reabrir a janela o filtro continue como o usuário deixou. Quando
+        // o Revit é fechado, volta ao default (todas marcadas).
+        private static IReadOnlyCollection<ParameterDiscipline>? _persistedDisciplineSelection;
+
         public BatchParameterEditorViewModel()
         {
             ParameterDiscipline[] order =
@@ -33,12 +39,19 @@ namespace DarivaBIM.Presentation.Wpf.BatchParameterEditor
                 ParameterDiscipline.ModelosGenericos,
             };
 
+            HashSet<ParameterDiscipline>? persisted = _persistedDisciplineSelection?.ToHashSet();
+
             foreach (ParameterDiscipline d in order)
             {
-                DisciplineFilterViewModel item = new(d, DisplayName(d), isChecked: true);
+                bool isChecked = persisted == null || persisted.Contains(d);
+                DisciplineFilterViewModel item = new(d, DisplayName(d), isChecked);
                 item.PropertyChanged += OnDisciplineItemChanged;
                 DisciplineFilters.Add(item);
             }
+
+            // Sincroniza o "Todos" com o estado restaurado, sem disparar a
+            // propagação para os items (eles já estão com o IsChecked correto).
+            _isAllDisciplinesSelected = DisciplineFilters.All(d => d.IsChecked);
         }
 
         private bool _suppressDisciplineSync;
@@ -64,6 +77,8 @@ namespace DarivaBIM.Presentation.Wpf.BatchParameterEditor
                     {
                         _suppressDisciplineSync = false;
                     }
+
+                    PersistDisciplineSelection();
                 }
             }
         }
@@ -90,6 +105,16 @@ namespace DarivaBIM.Presentation.Wpf.BatchParameterEditor
             {
                 _suppressDisciplineSync = false;
             }
+
+            PersistDisciplineSelection();
+        }
+
+        private void PersistDisciplineSelection()
+        {
+            _persistedDisciplineSelection = DisciplineFilters
+                .Where(d => d.IsChecked)
+                .Select(d => d.Discipline)
+                .ToList();
         }
 
         public IReadOnlyList<ParameterDiscipline> SelectedDisciplines =>
