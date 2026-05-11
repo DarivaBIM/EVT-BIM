@@ -8,6 +8,7 @@ using DarivaBIM.Infrastructure.Persistence.Settings;
 using DarivaBIM.Presentation.Wpf.Models;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
 using DarivaBIM.Plugin.Features.PipeCadMapper.Tools;
+using DarivaBIM.Revit.Adapters.Common.Pipes;
 
 namespace DarivaBIM.Plugin.Features.PipeCadMapper
 {
@@ -59,7 +60,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                     .Select(t => new PipeTypeOptionViewModel(
                         RevitElementIdConversions.ToLong(t.Id),
                         t.Name,
-                        GetAvailableDiametersMm(doc, t)))
+                        PipeDiameterDiscoveryService.GetAvailableDiametersMm(doc, t)))
                     .ToList();
 
                 List<LevelOptionViewModel> levels = new FilteredElementCollector(doc)
@@ -193,43 +194,5 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             }
         }
 
-        private static IReadOnlyList<double> GetAvailableDiametersMm(Document doc, PipeType pipeType)
-        {
-            HashSet<double> diameters = new();
-
-            try
-            {
-                RoutingPreferenceManager? manager = pipeType.RoutingPreferenceManager;
-                if (manager == null)
-                {
-                    return Array.Empty<double>();
-                }
-
-                int count = manager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Segments);
-                for (int i = 0; i < count; i++)
-                {
-                    RoutingPreferenceRule rule = manager.GetRule(RoutingPreferenceRuleGroupType.Segments, i);
-                    if (doc.GetElement(rule.MEPPartId) is not Segment segment)
-                    {
-                        continue;
-                    }
-
-                    foreach (MEPSize size in segment.GetSizes())
-                    {
-                        double mm = UnitUtils.ConvertFromInternalUnits(
-                            size.NominalDiameter,
-                            UnitTypeId.Millimeters);
-
-                        diameters.Add(Math.Round(mm, 2));
-                    }
-                }
-            }
-            catch
-            {
-                // Tipos sem RoutingPreferenceManager utilizável: devolve lista vazia.
-            }
-
-            return diameters.OrderBy(d => d).ToList();
-        }
     }
 }

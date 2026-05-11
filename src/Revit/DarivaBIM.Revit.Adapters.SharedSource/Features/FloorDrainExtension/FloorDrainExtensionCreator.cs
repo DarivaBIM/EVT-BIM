@@ -13,13 +13,17 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
     /// <see cref="FloorDrainExtensionPipeTypeResolver"/> (material → PipeType),
     /// <see cref="FloorDrainExtensionLevelResolver"/> (Level) e
     /// <see cref="FloorDrainExtensionPipeConnector"/> (conexão pipe ↔ caixa).
+    /// Aceita um override opcional de <see cref="PipeType"/> por tipo de
+    /// caixa (mapeado pelo <c>FamilySymbol.Id.Value</c>) — caminho que a UI
+    /// usa para respeitar a escolha do usuário no dropdown.
     /// </summary>
     public static class FloorDrainExtensionCreator
     {
         public static FloorDrainExtensionResult Run(
             Document doc,
             IReadOnlyList<FamilyInstance> caixas,
-            double lengthMeters)
+            double lengthMeters,
+            IReadOnlyDictionary<long, long>? pipeTypeBySymbolId = null)
         {
             FloorDrainExtensionResult result = new();
 
@@ -60,10 +64,7 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
                         continue;
                     }
 
-                    string materialKind = FloorDrainExtensionPipeTypeResolver.DetermineMaterialKind(fi);
-                    logs.Add($"  -> Tipo material: {materialKind}");
-
-                    PipeType? pipeType = FloorDrainExtensionPipeTypeResolver.FindPipeType(doc, materialKind);
+                    PipeType? pipeType = ResolvePipeTypeForBox(doc, fi, pipeTypeBySymbolId, logs);
                     if (pipeType == null)
                     {
                         logs.Add("  -> ERRO: nenhum PipeType encontrado.");
@@ -135,6 +136,36 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
 
             tx.Commit();
             return result;
+        }
+
+        private static PipeType? ResolvePipeTypeForBox(
+            Document doc,
+            FamilyInstance fi,
+            IReadOnlyDictionary<long, long>? pipeTypeBySymbolId,
+            List<string> logs)
+        {
+            // 1) Override explícito da UI: a escolha do usuário no dropdown
+            //    para aquele tipo de caixa tem precedência sobre a heurística
+            //    de material.
+            if (pipeTypeBySymbolId != null)
+            {
+                long symbolId = 0;
+                try { symbolId = fi.Symbol.Id.Value; }
+                catch { /* sem symbol legível: cai no fallback */ }
+
+                if (symbolId != 0 &&
+                    pipeTypeBySymbolId.TryGetValue(symbolId, out long pipeTypeId) &&
+                    doc.GetElement(new ElementId(pipeTypeId)) is PipeType chosen)
+                {
+                    logs.Add($"  -> PipeType vindo da UI (override por tipo de caixa).");
+                    return chosen;
+                }
+            }
+
+            // 2) Fallback: heurística por material da caixa.
+            string materialKind = FloorDrainExtensionPipeTypeResolver.DetermineMaterialKind(fi);
+            logs.Add($"  -> Tipo material: {materialKind}");
+            return FloorDrainExtensionPipeTypeResolver.FindPipeType(doc, materialKind);
         }
     }
 }
