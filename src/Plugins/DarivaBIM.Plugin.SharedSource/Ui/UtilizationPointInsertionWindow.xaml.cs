@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -23,14 +24,20 @@ namespace DarivaBIM.Plugin.Ui
     /// e os ExternalEvents que interagem com a Revit API; toda a lógica de
     /// inserção vive em <c>RevitUtilizationPointInsertionService</c>.
     ///
-    /// Estado do loop de inserção: ao clicar em "Ativar inserção de pontos",
-    /// o handler entra num loop <c>pick → insert → repeat</c>; o usuário
-    /// finaliza cada lote com ENTER/Concluir e encerra com ESC. Fechar a
-    /// janela limpa <see cref="IsLoopActive"/> para o loop sair na próxima
-    /// volta.
+    /// Estado do loop de inserção: ao clicar em "Ativar inserção", o handler
+    /// entra num loop <c>pick → insert → repeat</c>; o usuário finaliza cada
+    /// lote com ENTER/Concluir e encerra com ESC. Fechar a janela limpa
+    /// <see cref="IsLoopActive"/> para o loop sair na próxima volta.
+    ///
+    /// Reordenação: drag-and-drop pelo handle de 6 pontinhos. O MouseDown
+    /// arma <see cref="_draggedRule"/>; o MouseMove na janela (não no handle)
+    /// é que de fato dispara o <c>DragDrop.DoDragDrop</c>, para que o gesto
+    /// continue funcionando mesmo se o cursor sair do handle.
     /// </summary>
     public partial class UtilizationPointInsertionWindow : Window
     {
+        private const string RuleDragFormat = "EvtBim.UtilizationPointRule";
+
         // Debounce para não escrever JSON em disco a cada keystroke / clique
         // de seta. 400 ms balanceia "salva rápido" e "não satura I/O".
         private const int SaveDebounceMilliseconds = 400;
@@ -45,6 +52,9 @@ namespace DarivaBIM.Plugin.Ui
         private bool _initialLoadDone;
         private bool _isLoopActive;
         private bool _isClosing;
+
+        private Point _dragStartPoint;
+        private UtilizationPointRuleViewModel? _draggedRule;
 
         public UtilizationPointInsertionViewModel ViewModel { get; }
 
@@ -291,35 +301,77 @@ namespace DarivaBIM.Plugin.Ui
             ScheduleSave();
         }
 
-        private void OnMoveRuleUpClicked(object sender, RoutedEventArgs e)
+        // ---------- Drag-and-drop reorder ----------
+
+        private void OnRuleDragHandleMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is not FrameworkElement fe) return;
-            if (fe.Tag is not UtilizationPointRuleViewModel rule) return;
+            if (fe.DataContext is not UtilizationPointRuleViewModel rule) return;
+
+            _dragStartPoint = e.GetPosition(this);
+            _draggedRule = rule;
+        }
+
+        private void OnWindowPreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed) return;
+            if (_draggedRule == null) return;
+
+            Point pos = e.GetPosition(this);
+            if (Math.Abs(pos.X - _dragStartPoint.X) <= SystemParameters.MinimumHorizontalDragDistance
+                && Math.Abs(pos.Y - _dragStartPoint.Y) <= SystemParameters.MinimumVerticalDragDistance)
+            {
+                return;
+            }
+
+            UtilizationPointRuleViewModel rule = _draggedRule;
+            _draggedRule = null;
+
+            try
+            {
+                DataObject data = new(RuleDragFormat, rule);
+                DragDrop.DoDragDrop(this, data, DragDropEffects.Move);
+            }
+            catch
+            {
+                // DoDragDrop pode lançar se a window perde foco no meio do
+                // gesto; ignorar mantém a UI estável.
+            }
+        }
+
+        private void OnWindowPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            _draggedRule = null;
+        }
+
+        private void OnRuleRowDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(RuleDragFormat)
+                ? DragDropEffects.Move
+                : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void OnRuleRowDrop(object sender, DragEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not UtilizationPointRuleViewModel target) return;
+            if (e.Data.GetData(RuleDragFormat) is not UtilizationPointRuleViewModel source) return;
             if (ViewModel.ActiveGroup == null) return;
+            if (ReferenceEquals(source, target)) return;
 
-            int index = ViewModel.ActiveGroup.Rules.IndexOf(rule);
-            if (index <= 0) return;
+            int oldIndex = ViewModel.ActiveGroup.Rules.IndexOf(source);
+            int newIndex = ViewModel.ActiveGroup.Rules.IndexOf(target);
+            if (oldIndex < 0 || newIndex < 0) return;
 
-            ViewModel.ActiveGroup.Rules.Move(index, index - 1);
+            ViewModel.ActiveGroup.Rules.Move(oldIndex, newIndex);
             ViewModel.ActiveGroup.RefreshSummaries();
             ViewModel.OnActiveGroupChanged();
             ScheduleSave();
+            e.Handled = true;
         }
 
-        private void OnMoveRuleDownClicked(object sender, RoutedEventArgs e)
-        {
-            if (sender is not FrameworkElement fe) return;
-            if (fe.Tag is not UtilizationPointRuleViewModel rule) return;
-            if (ViewModel.ActiveGroup == null) return;
-
-            int index = ViewModel.ActiveGroup.Rules.IndexOf(rule);
-            if (index < 0 || index >= ViewModel.ActiveGroup.Rules.Count - 1) return;
-
-            ViewModel.ActiveGroup.Rules.Move(index, index + 1);
-            ViewModel.ActiveGroup.RefreshSummaries();
-            ViewModel.OnActiveGroupChanged();
-            ScheduleSave();
-        }
+        // ---------- Preset I/O ----------
 
         private void OnImportPresetClicked(object sender, RoutedEventArgs e)
         {
@@ -599,6 +651,10 @@ namespace DarivaBIM.Plugin.Ui
             rule.Status = UtilizationPointRuleStatus.Ok;
         }
 
+        // Validação pré-ativação. Bloqueia se houver QUALQUER linha não-Ok
+        // e exibe um diálogo listando exatamente quais linhas estão com
+        // problema. Usa o Status já computado pelos view models (cobre
+        // "Sem tipo", "Tipo ausente" e "Faixa inválida").
         private bool EnsureActiveGroupReadyForInsertion(out UtilizationPointGroup? group)
         {
             group = null;
@@ -608,18 +664,54 @@ namespace DarivaBIM.Plugin.Ui
                 return false;
             }
 
-            UtilizationPointGroupDto dto = ViewModel.ActiveGroup.ToDto();
-            UtilizationPointGroup domain = UtilizationPointProfilesMapper.ToDomain(dto);
-
-            ValidateUtilizationPointGroupUseCase validator = new();
-            UtilizationPointGroupValidationResult validation = validator.Execute(domain);
-            if (!validation.IsValid)
+            if (ViewModel.ActiveGroup.Rules.Count == 0)
             {
-                ViewModel.StatusMessage = "O grupo ativo precisa ter pelo menos uma regra válida (tipo e faixa de altura).";
+                MessageBox.Show(
+                    this,
+                    "O grupo ativo não tem nenhuma regra. Adicione ao menos uma regra com tipo e faixa de altura.",
+                    "Não é possível ativar a inserção",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                ViewModel.StatusMessage = "Grupo ativo vazio.";
                 return false;
             }
 
-            group = domain;
+            List<string> issues = new();
+            for (int i = 0; i < ViewModel.ActiveGroup.Rules.Count; i++)
+            {
+                UtilizationPointRuleViewModel rule = ViewModel.ActiveGroup.Rules[i];
+                if (rule.Status != UtilizationPointRuleStatus.Ok)
+                {
+                    issues.Add($"• Linha {i + 1}: {rule.StatusLabel}");
+                }
+            }
+
+            if (issues.Count > 0)
+            {
+                StringBuilder sb = new();
+                sb.Append("O grupo \"").Append(ViewModel.ActiveGroup.Name).Append("\" tem ");
+                sb.Append(issues.Count).Append(issues.Count == 1 ? " item" : " itens");
+                sb.AppendLine(" que precisa(m) de atenção:");
+                sb.AppendLine();
+                for (int i = 0; i < issues.Count; i++)
+                {
+                    sb.AppendLine(issues[i]);
+                }
+                sb.AppendLine();
+                sb.Append("Corrija as linhas marcadas em amarelo e tente novamente.");
+
+                MessageBox.Show(
+                    this,
+                    sb.ToString(),
+                    "Não é possível ativar a inserção",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                ViewModel.StatusMessage = $"Há {issues.Count} item(ns) problemático(s) no grupo ativo.";
+                return false;
+            }
+
+            UtilizationPointGroupDto dto = ViewModel.ActiveGroup.ToDto();
+            group = UtilizationPointProfilesMapper.ToDomain(dto);
             return true;
         }
 
