@@ -3,156 +3,387 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:common="clr-namespace:DarivaBIM.Presentation.Wpf.Common;assembly=DarivaBIM.Presentation.Wpf"
         xmlns:vmup="clr-namespace:DarivaBIM.Presentation.Wpf.UtilizationPoints;assembly=DarivaBIM.Presentation.Wpf"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Inserção de Pontos de Utilização"
-        Width="820"
-        Height="700"
-        MinWidth="820"
-        MinHeight="600"
+        Width="1180"
+        Height="800"
+        MinWidth="980"
+        MinHeight="640"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
         Topmost="True"
         WindowStartupLocation="CenterScreen"
-        Background="#F4F7FB"
+        WindowStyle="None"
+        Background="#EEF1F4"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="ClearType"
+        FontFamily="Segoe UI"
         Loaded="OnWindowLoaded"
         Closing="OnWindowClosing"
         PreviewMouseMove="OnWindowPreviewMouseMove"
         PreviewMouseLeftButtonUp="OnWindowPreviewMouseLeftButtonUp">
+
+    <shell:WindowChrome.WindowChrome>
+        <!-- Custom title bar: deixa a barra padrão de fora para podermos
+             desenhar o nosso header com pill de estado. CaptionHeight=36 casa
+             com a Row 0 da Grid principal. ResizeBorderThickness preserva o
+             hit-test de borda nas 4 laterais para redimensionar. -->
+        <shell:WindowChrome CaptionHeight="36"
+                            ResizeBorderThickness="4"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <common:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
         <common:OneBasedIndexConverter x:Key="OneBasedIndex" />
 
+        <!-- =====================================================
+             Design tokens — paleta "Azul EVT" sobre branco/cinza
+             frio. Substitui o esquema anterior centrado em sky/cyan
+             por um azul deeper, com cinza neutro frio para apoio.
+             Mantemos chaves antigas (PrimaryBrush, etc.) ainda em uso
+             pelos handlers em code-behind/conversores.
+        ===================================================== -->
+
+        <!-- Plano de fundo -->
+        <SolidColorBrush x:Key="AppBgBrush" Color="#EEF1F4" />
+        <SolidColorBrush x:Key="WindowBgBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="SidebarBgBrush" Color="#FAFBFC" />
+        <SolidColorBrush x:Key="SubtleBgBrush" Color="#F6F8FA" />
+        <SolidColorBrush x:Key="FooterBgBrush" Color="#F4F6F8" />
+
+        <!-- Bordas -->
+        <SolidColorBrush x:Key="BorderBrush" Color="#E4E7EB" />
+        <SolidColorBrush x:Key="BorderStrongBrush" Color="#D4D7DC" />
+
+        <!-- Texto -->
+        <SolidColorBrush x:Key="TextBrush" Color="#1A2433" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#5B6573" />
+        <SolidColorBrush x:Key="TextSoftBrush" Color="#8A94A2" />
+        <SolidColorBrush x:Key="TextFaintBrush" Color="#A8B0BB" />
+
+        <!-- Acento azul -->
+        <SolidColorBrush x:Key="AccentBrush" Color="#2A6FDB" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#2461C2" />
+        <SolidColorBrush x:Key="AccentSoftBrush" Color="#EAF1FC" />
+        <SolidColorBrush x:Key="AccentSoft2Brush" Color="#DCE8FA" />
+        <SolidColorBrush x:Key="AccentDeepBrush" Color="#1E4A91" />
+
+        <!-- Semânticas -->
+        <SolidColorBrush x:Key="GreenBrush" Color="#15A34A" />
+        <SolidColorBrush x:Key="GreenSoftBrush" Color="#DCFCE7" />
+        <SolidColorBrush x:Key="GreenSoftBorderBrush" Color="#BBF1CC" />
+        <SolidColorBrush x:Key="GreenDeepBrush" Color="#0E6B33" />
+
+        <SolidColorBrush x:Key="AmberBrush" Color="#C77A06" />
+        <SolidColorBrush x:Key="AmberSoftBrush" Color="#FEF3C7" />
+        <SolidColorBrush x:Key="AmberBgBrush" Color="#FFF8E1" />
+        <SolidColorBrush x:Key="AmberBorderBrush" Color="#F7D588" />
+        <SolidColorBrush x:Key="AmberDeepBrush" Color="#6A4A05" />
+        <SolidColorBrush x:Key="AmberDeeperBrush" Color="#4D3504" />
+
+        <SolidColorBrush x:Key="RedBrush" Color="#DC2626" />
+        <SolidColorBrush x:Key="RedHoverBrush" Color="#B91C1C" />
+        <SolidColorBrush x:Key="RedSoftBrush" Color="#FEE2E2" />
+        <SolidColorBrush x:Key="RedSoftBorderBrush" Color="#FCA5A5" />
+        <SolidColorBrush x:Key="RedDeepBrush" Color="#8B1A1A" />
+
+        <!-- Aliases mantidos para compatibilidade com handlers existentes -->
         <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="SoftBorderBrush" Color="#D8E0EA" />
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#475569" />
-        <SolidColorBrush x:Key="LabelBrush" Color="#64748B" />
-        <SolidColorBrush x:Key="MutedBrush" Color="#94A3B8" />
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#0EA5E9" />
-        <SolidColorBrush x:Key="PrimaryDarkBrush" Color="#0284C7" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#06B6D4" />
-        <SolidColorBrush x:Key="SuccessBrush" Color="#10B981" />
-        <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B" />
-        <SolidColorBrush x:Key="DangerBrush" Color="#EF4444" />
-        <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F8FAFC" />
+        <SolidColorBrush x:Key="SoftBorderBrush" Color="#E4E7EB" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A2433" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6573" />
+        <SolidColorBrush x:Key="LabelBrush" Color="#8A94A2" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#8A94A2" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#2A6FDB" />
+        <SolidColorBrush x:Key="PrimaryDarkBrush" Color="#1E4A91" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="#15A34A" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#C77A06" />
+        <SolidColorBrush x:Key="DangerBrush" Color="#DC2626" />
+        <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#FAFBFC" />
         <SolidColorBrush x:Key="SidebarItemBackgroundBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="RuleCardBackgroundBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="RuleCardBorderBrush" Color="#E2E8F0" />
+        <SolidColorBrush x:Key="RuleCardBorderBrush" Color="#E4E7EB" />
         <SolidColorBrush x:Key="ChipOkBackgroundBrush" Color="#DCFCE7" />
-        <SolidColorBrush x:Key="ChipOkForegroundBrush" Color="#15803D" />
+        <SolidColorBrush x:Key="ChipOkForegroundBrush" Color="#0E6B33" />
         <SolidColorBrush x:Key="ChipWarningBackgroundBrush" Color="#FEF3C7" />
-        <SolidColorBrush x:Key="ChipWarningForegroundBrush" Color="#B45309" />
-        <SolidColorBrush x:Key="HintBannerBackgroundBrush" Color="#FFF3CD" />
-        <SolidColorBrush x:Key="HintBannerBorderBrush" Color="#F0B429" />
-        <SolidColorBrush x:Key="HintBannerForegroundBrush" Color="#8A4B00" />
+        <SolidColorBrush x:Key="ChipWarningForegroundBrush" Color="#6A4A05" />
+        <SolidColorBrush x:Key="HintBannerBackgroundBrush" Color="#FFF8E1" />
+        <SolidColorBrush x:Key="HintBannerBorderBrush" Color="#F7D588" />
+        <SolidColorBrush x:Key="HintBannerForegroundBrush" Color="#6A4A05" />
+
+        <!-- =====================================================
+             Iconografia — usamos Path Geometry (Feather/Lucide style)
+             em vez de glyphs Unicode para garantir consistência
+             visual independente da fonte instalada.
+        ===================================================== -->
+
+        <!-- Geometrias em viewbox 24×24, salvo notas em contrário. -->
+        <Geometry x:Key="CheckIconGeometry">M5,12 L10,17 L19,8</Geometry>
+        <Geometry x:Key="WarningIconGeometry">M12,3 L22,20 L2,20 Z M12,10 L12,14 M12,17 L12,17.5</Geometry>
+        <Geometry x:Key="PlayIconGeometry">M7,5 L19,12 L7,19 Z</Geometry>
+        <Geometry x:Key="PlusIconGeometry">M12,5 L12,19 M5,12 L19,12</Geometry>
+        <Geometry x:Key="EditIconGeometry">M4,20 L8,20 L19,9 L15,5 L4,16 Z M14,6 L18,10</Geometry>
+        <Geometry x:Key="CopyIconGeometry">M8,8 L8,3 L20,3 L20,15 L15,15 M4,8 L16,8 L16,21 L4,21 Z</Geometry>
+        <Geometry x:Key="TrashIconGeometry">M5,7 L19,7 M9,7 L9,4 L15,4 L15,7 M7,7 L7,20 L17,20 L17,7 M10,11 L10,17 M14,11 L14,17</Geometry>
+        <Geometry x:Key="ImportIconGeometry">M12,3 L12,15 M7,10 L12,15 L17,10 M4,18 L20,18</Geometry>
+        <Geometry x:Key="ExportIconGeometry">M12,17 L12,4 M7,9 L12,4 L17,9 M4,18 L20,18</Geometry>
+        <Geometry x:Key="BulbIconGeometry">M12,3 C8.5,3 6,5.5 6,9 C6,11.5 7.5,13.5 9,14.5 L9,17 L15,17 L15,14.5 C16.5,13.5 18,11.5 18,9 C18,5.5 15.5,3 12,3 Z M10,19 L14,19 M10.5,21 L13.5,21</Geometry>
+        <Geometry x:Key="ChevronDownIconGeometry">M6,9 L12,15 L18,9</Geometry>
+        <Geometry x:Key="DotsHandleGeometry">M9,5 L9,5 M15,5 L15,5 M9,12 L9,12 M15,12 L15,12 M9,19 L9,19 M15,19 L15,19</Geometry>
+
+        <!-- =====================================================
+             Tipografia
+        ===================================================== -->
+
+        <Style x:Key="HeaderTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="19" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        </Style>
 
         <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="17" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         </Style>
 
         <Style x:Key="SubtitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
         <Style x:Key="LabelStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextSoftBrush}" />
         </Style>
 
-        <Style x:Key="SidebarHeaderStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="10.5" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="{StaticResource LabelBrush}" />
+        <Style x:Key="SidebarHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource LabelStyle}">
+            <Setter Property="FontSize" Value="11" />
         </Style>
 
         <Style x:Key="ChipTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <!-- =====================================================
+             Title bar buttons (min / max / close)
+        ===================================================== -->
+
+        <Style x:Key="WinControlButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#4A5260" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#ECEEF1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="WinCloseButtonStyle" TargetType="Button" BasedOn="{StaticResource WinControlButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter x:Name="Cp" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E81123" />
+                                <Setter TargetName="Cp" Property="TextElement.Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- =====================================================
+             Inputs & botões
+        ===================================================== -->
+
         <Style TargetType="TextBox">
             <Setter Property="Height" Value="32" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="8,4" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="BorderBrush" Value="{StaticResource RuleCardBorderBrush}" />
-            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="Background" Value="{StaticResource WindowBgBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="UseLayoutRounding" Value="True" />
         </Style>
 
         <Style TargetType="ComboBox">
             <Setter Property="Height" Value="32" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
-        <!-- Combo da linha precisa caber thumbnail 24×24 + duas linhas de
-             texto sem cortar a categoria. -->
         <Style x:Key="RuleTypeComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="Height" Value="44" />
             <Setter Property="Padding" Value="6,4" />
         </Style>
 
-        <Style x:Key="ActionButtonStyle" TargetType="Button">
+        <Style x:Key="BaseButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="34" />
-            <Setter Property="MinWidth" Value="110" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="UseLayoutRounding" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                CornerRadius="6"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="16,0" />
             <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+                </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.45" />
-                    <Setter Property="Cursor" Value="Arrow" />
+                    <Setter Property="Background" Value="#E4E7EB" />
+                    <Setter Property="BorderBrush" Value="#E4E7EB" />
+                    <Setter Property="Foreground" Value="#A0A6AE" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
-            <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource BaseButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource WindowBgBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SubtleBgBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
-        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButtonStyle}">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource RuleCardBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-        </Style>
-
+        <!-- Botão de ícone (renomear / duplicar / excluir nos cards). 26×26,
+             transparente por padrão e ganha borda + fundo branco no hover. -->
         <Style x:Key="IconActionButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="26" />
             <Setter Property="Height" Value="26" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextSoftBrush}" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                CornerRadius="5"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource WindowBgBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
-        <!-- Larguras das colunas: cabeçalho e linhas compartilham. Tipo é Star
-             para flexar com o tamanho da janela; demais são fixas e enxutas.
-             Min/Max ganharam 8 px a mais para acomodar o sufixo " m" depois
-             do campo numérico. -->
-        <GridLength x:Key="ColReorderWidth">28</GridLength>
-        <GridLength x:Key="ColAltMinWidth">72</GridLength>
-        <GridLength x:Key="ColAltMaxWidth">72</GridLength>
-        <GridLength x:Key="ColStatusWidth">56</GridLength>
-        <GridLength x:Key="ColActionsWidth">70</GridLength>
+        <Style x:Key="IconDangerButtonStyle" TargetType="Button" BasedOn="{StaticResource IconActionButtonStyle}">
+            <Setter Property="Foreground" Value="{StaticResource RedBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                CornerRadius="5"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource RedSoftBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource RedSoftBorderBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource RedHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
-        <!-- ScrollBar slim: trilho transparente, polegar arredondado e
-             discreto, com leve realce no hover. Auto-hide é mantido via
-             VerticalScrollBarVisibility="Auto" no ScrollViewer; quando some,
-             o gutter reservado no cabeçalho cobre a diferença de largura. -->
+        <!-- =====================================================
+             Larguras das colunas da tabela de regras
+        ===================================================== -->
+        <GridLength x:Key="ColReorderWidth">40</GridLength>
+        <GridLength x:Key="ColAltMinWidth">90</GridLength>
+        <GridLength x:Key="ColAltMaxWidth">90</GridLength>
+        <GridLength x:Key="ColStatusWidth">72</GridLength>
+        <GridLength x:Key="ColActionsWidth">80</GridLength>
+
+        <!-- =====================================================
+             ScrollBar slim
+        ===================================================== -->
         <Style x:Key="SlimScrollBarThumbStyle" TargetType="Thumb">
             <Setter Property="OverridesDefaultStyle" Value="True" />
             <Setter Property="IsTabStop" Value="False" />
@@ -168,7 +399,7 @@
                                 <Setter TargetName="ThumbBorder" Property="Background" Value="#94A3B8" />
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbBorder" Property="Background" Value="#64748B" />
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#5B6573" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -190,8 +421,6 @@
                                 <Track.Thumb>
                                     <Thumb Style="{StaticResource SlimScrollBarThumbStyle}" />
                                 </Track.Thumb>
-                                <!-- Page-up/page-down botões invisíveis para
-                                     manter o gesto de clicar no trilho. -->
                                 <Track.IncreaseRepeatButton>
                                     <RepeatButton Command="ScrollBar.PageDownCommand"
                                                   Opacity="0"
@@ -219,11 +448,6 @@
             </Style.Triggers>
         </Style>
 
-        <!-- ScrollViewer que aplica a SlimScrollBar como padrão. A coluna do
-             scrollbar é fixa em 8 px sempre — isso reserva o "gutter"
-             permanente para que o cabeçalho de colunas não desalinhe quando a
-             barra entra/sai. Quando não há overflow, a coluna fica
-             transparente. -->
         <Style x:Key="SlimScrollViewerStyle" TargetType="ScrollViewer">
             <Setter Property="Template">
                 <Setter.Value>
@@ -262,868 +486,1281 @@
             </Setter>
         </Style>
 
-        <!-- Ícones vetoriais (Path) usados nos badges de status. Trocam os
-             glifos Unicode ✓/⚠, que ficavam dependentes da fonte instalada e
-             desalinhavam por causa do baseline. -->
-        <Geometry x:Key="CheckIconGeometry">M2,6 L5,9 L10,2.5</Geometry>
-        <Geometry x:Key="WarningIconGeometry">M6,1 L11,10 L1,10 Z M6,4.2 L6,7.2 M6,8.4 L6,9.0</Geometry>
-
+        <!-- =====================================================
+             Status badge (Ok / Warn)
+        ===================================================== -->
         <Style x:Key="StatusBadgeStyle" TargetType="Border">
-            <Setter Property="Width" Value="22" />
-            <Setter Property="Height" Value="22" />
-            <Setter Property="CornerRadius" Value="11" />
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="CornerRadius" Value="13" />
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
             <Setter Property="UseLayoutRounding" Value="True" />
         </Style>
 
-        <!-- TextBox dedicado às colunas Alt.Mín/Alt.Máx: alinhamento à
-             direita (deixa o sufixo "m" colado no número) e borda vermelha
-             quando a regra está com Max < Min. Reage a IsRangeInvalid do
-             RuleViewModel via DataTrigger. -->
+        <!-- TextBox de altura: alinha à direita e fica vermelho quando a
+             faixa é inválida (Max < Min). -->
         <Style x:Key="HeightTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Setter Property="HorizontalContentAlignment" Value="Right" />
             <Setter Property="Padding" Value="6,4,2,4" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsRangeInvalid}" Value="True">
-                    <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource RedBrush}" />
                     <Setter Property="BorderThickness" Value="1.5" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <!-- Foco visual nas linhas de regra: usado para não desenhar o rect
+             pontilhado padrão do WPF, que polui visualmente o card. -->
+        <Style x:Key="NoFocusVisualStyle" TargetType="Control">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
     </Window.Resources>
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220" />
-            <ColumnDefinition Width="*" MinWidth="540" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
-        <!-- Header -->
-        <Border Grid.Row="0" Grid.ColumnSpan="2"
-                Background="#FFFFFF"
-                BorderBrush="{StaticResource SoftBorderBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="16,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Style="{StaticResource SectionTitleStyle}"
-                               Text="Inserção de Pontos de Utilização" />
-                    <TextBlock Style="{StaticResource SubtitleStyle}"
-                               Margin="0,2,0,0"
-                               Text="Configure grupos por ambiente e insira peças automaticamente em conectores hidráulicos livres." />
-                </StackPanel>
-                <Border Grid.Column="1"
-                        Background="#F1F5F9"
-                        CornerRadius="14"
-                        Padding="10,6"
-                        VerticalAlignment="Center"
-                        MaxWidth="260">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
-                        <TextBlock Margin="8,0,0,0"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   Text="{Binding StatusMessage}"
-                                   TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </Border>
-
-        <!-- Sidebar: groups + preset I/O + tip -->
-        <Border Grid.Row="1" Grid.Column="0"
-                Background="{StaticResource SidebarBackgroundBrush}"
-                BorderBrush="{StaticResource SoftBorderBrush}"
-                BorderThickness="0,0,1,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Grid Grid.Row="0" Margin="12,12,12,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Style="{StaticResource SidebarHeaderStyle}"
-                               Text="GRUPOS"
-                               TextTrimming="CharacterEllipsis" />
-                    <Border Grid.Column="1"
-                            Background="#E2E8F0"
-                            CornerRadius="9"
-                            Padding="6,1">
-                        <TextBlock FontSize="10.5"
-                                   FontWeight="Bold"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   Text="{Binding GroupsCount}" />
-                    </Border>
-                </Grid>
-
-                <Grid Grid.Row="1">
-                    <!-- Empty state: nenhum grupo cadastrado. Aparece na primeira
-                         abertura e depois que o usuário apaga todos os grupos. -->
-                    <StackPanel HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Margin="20,0,20,20"
-                                Visibility="{Binding HasGroups, Converter={StaticResource InverseBoolToVisibility}}">
-                        <TextBlock Text="📁"
-                                   FontSize="22"
-                                   HorizontalAlignment="Center"
-                                   Foreground="{StaticResource MutedBrush}" />
-                        <TextBlock Margin="0,6,0,0"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   HorizontalAlignment="Center"
-                                   TextAlignment="Center"
-                                   Text="Nenhum grupo ainda" />
-                        <TextBlock Margin="0,2,0,0"
-                                   FontSize="10.5"
-                                   Foreground="{StaticResource MutedBrush}"
-                                   HorizontalAlignment="Center"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   Text="Crie um para começar a configurar as regras de inserção." />
-                    </StackPanel>
-
-                    <ScrollViewer Style="{StaticResource SlimScrollViewerStyle}"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  Padding="4,0,4,6"
-                                  Visibility="{Binding HasGroups, Converter={StaticResource BoolToVisibility}}">
-                    <ItemsControl ItemsSource="{Binding Groups}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vmup:UtilizationPointGroupViewModel}">
-                                <Border Margin="4,3,4,3"
-                                        CornerRadius="8"
-                                        Padding="8,6"
-                                        BorderThickness="1"
-                                        MouseLeftButtonUp="OnGroupItemClicked">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Background" Value="{StaticResource SidebarItemBackgroundBrush}" />
-                                            <Setter Property="BorderBrush" Value="{StaticResource RuleCardBorderBrush}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                    <Setter Property="Background" Value="#EFF6FF" />
-                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0"
-                                                Width="26" Height="26"
-                                                CornerRadius="8"
-                                                Background="#E0F2FE"
-                                                VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding InitialLetter}"
-                                                       FontWeight="Bold"
-                                                       FontSize="12"
-                                                       Foreground="{StaticResource PrimaryDarkBrush}"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center" />
-                                        </Border>
-                                        <StackPanel Grid.Column="1"
-                                                    Margin="8,0,0,0"
-                                                    VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}"
-                                                       FontWeight="SemiBold"
-                                                       FontSize="12"
-                                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                <TextBlock Text="{Binding RulesCountLabel}"
-                                                           FontSize="10"
-                                                           Foreground="{StaticResource MutedBrush}" />
-                                                <TextBlock Text=" · "
-                                                           FontSize="10"
-                                                           Foreground="{StaticResource MutedBrush}"
-                                                           Visibility="{Binding HasMissingTypes, Converter={StaticResource BoolToVisibility}}" />
-                                                <TextBlock Text="{Binding MissingTypesLabel}"
-                                                           FontSize="10"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="{StaticResource WarningBrush}"
-                                                           Visibility="{Binding HasMissingTypes, Converter={StaticResource BoolToVisibility}}" />
-                                            </StackPanel>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2"
-                                                    Orientation="Horizontal"
-                                                    VerticalAlignment="Center">
-                                            <Button Style="{StaticResource IconActionButtonStyle}"
-                                                    Width="22" Height="22"
-                                                    Click="OnRenameGroupClicked"
-                                                    Tag="{Binding Id}"
-                                                    ToolTip="Renomear"
-                                                    Content="✎" />
-                                            <Button Style="{StaticResource IconActionButtonStyle}"
-                                                    Width="22" Height="22"
-                                                    Click="OnDuplicateGroupClicked"
-                                                    Tag="{Binding Id}"
-                                                    ToolTip="Duplicar"
-                                                    Content="❐" />
-                                            <Button Style="{StaticResource IconActionButtonStyle}"
-                                                    Width="22" Height="22"
-                                                    Click="OnDeleteGroupClicked"
-                                                    Tag="{Binding Id}"
-                                                    ToolTip="Excluir"
-                                                    Content="🗑" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
-
-                <Button Grid.Row="2"
-                        Style="{StaticResource GhostButtonStyle}"
-                        Margin="12,6,12,8"
-                        MinWidth="0"
-                        Height="32"
-                        Padding="6,0"
-                        Click="OnNewGroupClicked"
-                        Content="+ Novo grupo" />
-
-                <Border Grid.Row="3"
-                        Margin="12,0,12,8"
-                        Padding="10"
-                        CornerRadius="8"
-                        Background="#FFFFFF"
-                        BorderBrush="{StaticResource RuleCardBorderBrush}"
-                        BorderThickness="1">
-                    <StackPanel>
-                        <TextBlock Text="💡 Dica"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextSecondaryBrush}" />
-                        <TextBlock Margin="0,4,0,0"
-                                   FontSize="10.5"
-                                   Foreground="{StaticResource MutedBrush}"
-                                   TextWrapping="Wrap"
-                                   Text="Presets agrupam vários grupos e podem ser compartilhados com a equipe." />
-                    </StackPanel>
-                </Border>
-
-                <Grid Grid.Row="4" Margin="12,0,12,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0"
-                            Style="{StaticResource GhostButtonStyle}"
-                            MinWidth="0"
-                            Height="30"
-                            Padding="4,0"
-                            FontSize="11"
-                            Click="OnImportPresetClicked"
-                            ToolTip="Importa todos os grupos de um arquivo JSON."
-                            Content="📥 Importar"
-                            Margin="0,0,3,0" />
-                    <Button Grid.Column="1"
-                            Style="{StaticResource GhostButtonStyle}"
-                            MinWidth="0"
-                            Height="30"
-                            Padding="4,0"
-                            FontSize="11"
-                            Click="OnExportPresetClicked"
-                            ToolTip="Exporta todos os grupos para um arquivo JSON."
-                            Content="📤 Exportar"
-                            Margin="3,0,0,0" />
-                </Grid>
-            </Grid>
-        </Border>
-
-        <!-- Main content: rules editor -->
-        <Grid Grid.Row="1" Grid.Column="1">
+    <!-- Outer chrome: borda fina + sombra discreta para descolar o card da
+         área do Revit. Cantos retos porque WindowStyle=None sem
+         AllowsTransparency não suporta clipping de canto. -->
+    <Border Background="{StaticResource WindowBgBrush}"
+            BorderBrush="{StaticResource BorderStrongBrush}"
+            BorderThickness="1">
+        <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
+                <RowDefinition Height="36" />     <!-- TitleBar -->
+                <RowDefinition Height="Auto" />   <!-- Header -->
+                <RowDefinition Height="*" />      <!-- Body (sidebar + main) -->
+                <RowDefinition Height="Auto" />   <!-- Last execution row -->
+                <RowDefinition Height="Auto" />   <!-- Footer (metrics + action) -->
             </Grid.RowDefinitions>
 
-            <!-- Active group header + add point -->
-            <Grid Grid.Row="0" Margin="18,14,18,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Style="{StaticResource SectionTitleStyle}"
-                               Text="{Binding ActiveGroupName}"
-                               TextTrimming="CharacterEllipsis" />
-                    <Border Margin="10,0,0,0"
-                            Background="{StaticResource ChipOkBackgroundBrush}"
-                            CornerRadius="10"
-                            Padding="9,3"
-                            Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="ATIVO"
-                                   FontSize="10.5"
-                                   FontWeight="Bold"
-                                   Foreground="{StaticResource ChipOkForegroundBrush}" />
+            <!-- =====================================================
+                 Row 0 — TitleBar custom (drag region + win-controls)
+            ===================================================== -->
+            <Border Grid.Row="0"
+                    Background="{StaticResource SidebarBgBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Logo + nome curto da janela -->
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                Margin="12,0,0,0"
+                                VerticalAlignment="Center">
+                        <Border Width="18" Height="18"
+                                CornerRadius="4"
+                                VerticalAlignment="Center">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#2A6FDB" Offset="0" />
+                                    <GradientStop Color="#1F4FA8" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <TextBlock Text="E"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="10"
+                                       FontWeight="Bold"
+                                       Foreground="White" />
+                        </Border>
+                        <TextBlock Text="Inserção de Pontos de Utilização"
+                                   Margin="10,0,0,0"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Min / Max / Close — IsHitTestVisibleInChrome=True
+                         garante que os cliques cheguem aos botões em vez de
+                         serem consumidos pela região de drag. -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Style="{StaticResource WinControlButtonStyle}"
+                                Click="OnTitleBarMinimizeClicked"
+                                ToolTip="Minimizar">
+                            <Path Width="10" Height="10"
+                                  Stroke="{StaticResource TextMutedBrush}"
+                                  StrokeThickness="1"
+                                  Data="M0,5 L10,5" />
+                        </Button>
+                        <Button Style="{StaticResource WinControlButtonStyle}"
+                                Click="OnTitleBarMaximizeClicked"
+                                ToolTip="Maximizar">
+                            <Path Width="10" Height="10"
+                                  Stroke="{StaticResource TextMutedBrush}"
+                                  StrokeThickness="1"
+                                  Data="M0,0 L10,0 L10,10 L0,10 Z" />
+                        </Button>
+                        <Button Style="{StaticResource WinCloseButtonStyle}"
+                                Click="OnTitleBarCloseClicked"
+                                ToolTip="Fechar">
+                            <Path Width="10" Height="10"
+                                  Stroke="{StaticResource TextMutedBrush}"
+                                  StrokeThickness="1"
+                                  Data="M0,0 L10,10 M10,0 L0,10" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- =====================================================
+                 Row 1 — Header (título + subtítulo + pill de estado)
+            ===================================================== -->
+            <Border Grid.Row="1"
+                    Background="{StaticResource WindowBgBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="28,20,28,18">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource HeaderTitleStyle}"
+                                   Text="Inserção de Pontos de Utilização" />
+                        <TextBlock Style="{StaticResource SubtitleStyle}"
+                                   Margin="0,6,0,0"
+                                   MaxWidth="640"
+                                   HorizontalAlignment="Left"
+                                   Text="Configure grupos por ambiente e insira peças automaticamente em conectores hidráulicos livres." />
+                    </StackPanel>
+
+                    <!-- Pill: muda para amber quando IsAwaitingSelection=true.
+                         Texto vem direto de StatusMessage, mantendo a lógica
+                         atual de “qual mensagem mostrar” no ViewModel. -->
+                    <Border Grid.Column="1"
+                            x:Name="StatusPill"
+                            VerticalAlignment="Center"
+                            Margin="16,2,0,0"
+                            Height="30"
+                            Padding="12,0,14,0"
+                            CornerRadius="15"
+                            MaxWidth="380">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{StaticResource SubtleBgBrush}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAwaitingSelection}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource AmberBgBrush}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource AmberBorderBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource GreenBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAwaitingSelection}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource AmberBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Margin="8,0,0,0"
+                                       FontSize="12.5"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding StatusMessage}"
+                                       TextTrimming="CharacterEllipsis">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAwaitingSelection}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource AmberDeepBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
                     </Border>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource PrimaryButtonStyle}"
-                            MinWidth="0"
-                            Padding="12,0"
-                            Click="OnAddRuleClicked"
-                            Content="+ Adicionar ponto" />
-                </StackPanel>
-            </Grid>
-
-            <!-- Summary chips: agora ficam logo abaixo do nome do grupo, fora
-                 do bloco de nível de referência (faz mais sentido como
-                 cabeçalho do grupo do que como dependência do nível). -->
-            <WrapPanel Grid.Row="1" Margin="18,0,18,8" Orientation="Horizontal">
-                <Border Background="#FFFFFF"
-                        CornerRadius="8"
-                        Padding="8,4"
-                        Margin="0,0,6,4"
-                        BorderBrush="{StaticResource RuleCardBorderBrush}"
-                        BorderThickness="1">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource PrimaryBrush}" />
-                        <TextBlock Margin="6,0,0,0"
-                                   FontWeight="Bold"
-                                   FontSize="11.5"
-                                   Text="{Binding ActiveGroup.RulesCount, FallbackValue=0}" />
-                        <TextBlock Margin="6,0,0,0"
-                                   Foreground="{StaticResource MutedBrush}"
-                                   FontSize="11"
-                                   Text="pontos configurados" />
-                    </StackPanel>
-                </Border>
-                <Border Background="#FFFFFF"
-                        CornerRadius="8"
-                        Padding="8,4"
-                        Margin="0,0,6,4"
-                        BorderBrush="{StaticResource RuleCardBorderBrush}"
-                        BorderThickness="1">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" />
-                        <TextBlock Margin="6,0,0,0"
-                                   FontWeight="Bold"
-                                   FontSize="11.5"
-                                   Text="{Binding ActiveGroupTypesFoundLabel}" />
-                        <TextBlock Margin="6,0,0,0"
-                                   Foreground="{StaticResource MutedBrush}"
-                                   FontSize="11"
-                                   Text="tipos encontrados" />
-                    </StackPanel>
-                </Border>
-                <Border Background="#FFFFFF"
-                        CornerRadius="8"
-                        Padding="8,4"
-                        Margin="0,0,0,4"
-                        BorderBrush="{StaticResource RuleCardBorderBrush}"
-                        BorderThickness="1">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource WarningBrush}" />
-                        <TextBlock Margin="6,0,0,0"
-                                   FontWeight="Bold"
-                                   FontSize="11.5"
-                                   Text="{Binding ActiveGroupMissingTypesLabel}" />
-                        <TextBlock Margin="6,0,0,0"
-                                   Foreground="{StaticResource MutedBrush}"
-                                   FontSize="11"
-                                   Text="tipo não encontrado" />
-                    </StackPanel>
-                </Border>
-            </WrapPanel>
-
-            <TextBlock Grid.Row="2"
-                       Margin="18,0,18,8"
-                       Style="{StaticResource SubtitleStyle}"
-                       Text="Regras de inserção por faixa de altura. A peça é escolhida pela cota do conector livre em relação ao nível. A ordem das regras define a preferência em caso de empate de faixa." />
-
-            <!-- Awaiting selection hint (responsive: text wraps) -->
-            <Border Grid.Row="3"
-                    Margin="18,0,18,8"
-                    Padding="12,8"
-                    CornerRadius="8"
-                    Background="{StaticResource HintBannerBackgroundBrush}"
-                    BorderBrush="{StaticResource HintBannerBorderBrush}"
-                    BorderThickness="1"
-                    Visibility="{Binding IsAwaitingSelection, Converter={StaticResource BoolToVisibility}}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="⚠"
-                               FontSize="14"
-                               FontWeight="Bold"
-                               VerticalAlignment="Top"
-                               Margin="0,1,8,0"
-                               Foreground="{StaticResource HintBannerForegroundBrush}" />
-                    <TextBlock Grid.Column="1"
-                               VerticalAlignment="Center"
-                               FontSize="11.5"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource HintBannerForegroundBrush}"
-                               TextWrapping="Wrap"
-                               Text="{Binding AwaitingSelectionHint}" />
                 </Grid>
             </Border>
 
-            <!-- Level reference (slimmer now: só o dropdown + tolerância) -->
-            <Border Grid.Row="4"
-                    Margin="18,0,18,8"
-                    Background="#F8FAFC"
-                    CornerRadius="8"
-                    BorderBrush="{StaticResource RuleCardBorderBrush}"
-                    BorderThickness="1"
-                    Padding="12,8">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Style="{StaticResource LabelStyle}"
-                               Text="NÍVEL DE REFERÊNCIA"
-                               VerticalAlignment="Center" />
-                    <ComboBox Grid.Column="1"
-                              Margin="12,0,12,0"
-                              MaxWidth="280"
-                              HorizontalAlignment="Left"
-                              ItemsSource="{Binding Levels}"
-                              SelectedItem="{Binding SelectedLevel, Mode=TwoWay}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vmup:LevelOptionViewModel}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding DisplayName}" />
-                                    <TextBlock Text="  "
-                                               Foreground="{StaticResource MutedBrush}" />
-                                    <TextBlock Text="{Binding ElevationLabel}"
-                                               Foreground="{StaticResource MutedBrush}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Grid.Column="2"
-                               FontSize="10.5"
-                               Foreground="{StaticResource MutedBrush}"
-                               VerticalAlignment="Center"
-                               Text="Tolerância ±0.02 m" />
-                </Grid>
-            </Border>
+            <!-- =====================================================
+                 Row 2 — Body: Sidebar (280) + Main (*)
+            ===================================================== -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="280" />
+                    <ColumnDefinition Width="*" MinWidth="560" />
+                </Grid.ColumnDefinitions>
 
-            <!-- Rules list -->
-            <Grid Grid.Row="5" Margin="18,0,18,8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+                <!-- ============== Sidebar ============== -->
+                <Border Grid.Column="0"
+                        Background="{StaticResource SidebarBgBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,1,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />   <!-- Section label + count -->
+                            <RowDefinition Height="*" />      <!-- Groups list -->
+                            <RowDefinition Height="Auto" />   <!-- "+ Novo grupo" -->
+                            <RowDefinition Height="Auto" />   <!-- Tip card -->
+                            <RowDefinition Height="Auto" />   <!-- Importar / Exportar -->
+                        </Grid.RowDefinitions>
 
-                <!-- Column header. A última coluna de 8 px casa exatamente com
-                     o gutter reservado pelo SlimScrollViewerStyle, de modo
-                     que o cabeçalho permaneça alinhado às linhas haja ou não
-                     scrollbar. -->
-                <Grid Grid.Row="0" Margin="0,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="{StaticResource ColReorderWidth}" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="{StaticResource ColAltMinWidth}" />
-                        <ColumnDefinition Width="{StaticResource ColAltMaxWidth}" />
-                        <ColumnDefinition Width="{StaticResource ColStatusWidth}" />
-                        <ColumnDefinition Width="{StaticResource ColActionsWidth}" />
-                        <ColumnDefinition Width="8" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="1"
-                               Style="{StaticResource LabelStyle}"
-                               HorizontalAlignment="Left"
-                               VerticalAlignment="Center"
-                               Margin="10,0,0,0"
-                               Text="TIPO DO PONTO DE UTILIZAÇÃO" />
-                    <TextBlock Grid.Column="2"
-                               Style="{StaticResource LabelStyle}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Text="ALT. MÍN." />
-                    <TextBlock Grid.Column="3"
-                               Style="{StaticResource LabelStyle}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Text="ALT. MÁX." />
-                    <TextBlock Grid.Column="4"
-                               Style="{StaticResource LabelStyle}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Text="STATUS" />
-                    <TextBlock Grid.Column="5"
-                               Style="{StaticResource LabelStyle}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Text="AÇÕES" />
-                </Grid>
+                        <!-- Section header -->
+                        <Grid Grid.Row="0" Margin="14,16,14,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Style="{StaticResource SidebarHeaderStyle}"
+                                       Text="GRUPOS"
+                                       VerticalAlignment="Center" />
+                            <Border Grid.Column="1"
+                                    Background="#E8ECF1"
+                                    CornerRadius="10"
+                                    Padding="7,1"
+                                    MinWidth="22"
+                                    Height="20">
+                                <TextBlock FontSize="11"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           Text="{Binding GroupsCount}" />
+                            </Border>
+                        </Grid>
 
-                <ScrollViewer Grid.Row="1"
-                              Style="{StaticResource SlimScrollViewerStyle}"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}">
-                    <ItemsControl ItemsSource="{Binding ActiveRules}" AlternationCount="999">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vmup:UtilizationPointRuleViewModel}">
-                                <!-- Borda vira amarela suave quando a regra
-                                     compartilha faixa com outra do mesmo
-                                     grupo — em caso de empate, a primeira
-                                     na ordem ganha. -->
-                                <Border Margin="0,0,0,6"
-                                        CornerRadius="10"
-                                        Padding="4,6"
-                                        AllowDrop="True"
-                                        DragOver="OnRuleRowDragOver"
-                                        Drop="OnRuleRowDrop"
-                                        Focusable="True"
-                                        KeyboardNavigation.IsTabStop="False"
-                                        FocusVisualStyle="{x:Null}"
-                                        KeyDown="OnRuleRowKeyDown"
-                                        Background="{StaticResource RuleCardBackgroundBrush}"
-                                        BorderThickness="1">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="BorderBrush" Value="{StaticResource RuleCardBorderBrush}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasOverlap}" Value="True">
-                                                    <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <Grid VerticalAlignment="Center">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="{StaticResource ColReorderWidth}" />
-                                            <ColumnDefinition Width="*" MinWidth="200" />
-                                            <ColumnDefinition Width="{StaticResource ColAltMinWidth}" />
-                                            <ColumnDefinition Width="{StaticResource ColAltMaxWidth}" />
-                                            <ColumnDefinition Width="{StaticResource ColStatusWidth}" />
-                                            <ColumnDefinition Width="{StaticResource ColActionsWidth}" />
-                                        </Grid.ColumnDefinitions>
+                        <!-- Groups list / empty state -->
+                        <Grid Grid.Row="1">
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Margin="20,0,20,20"
+                                        Visibility="{Binding HasGroups, Converter={StaticResource InverseBoolToVisibility}}">
+                                <Border Width="40" Height="40"
+                                        Background="{StaticResource SubtleBgBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        HorizontalAlignment="Center">
+                                    <Path Width="20" Height="20"
+                                          Stretch="Uniform"
+                                          Data="M4,8 L4,18 L20,18 L20,8 L13,8 L11,6 L4,6 Z"
+                                          Fill="{StaticResource TextFaintBrush}" />
+                                </Border>
+                                <TextBlock Margin="0,10,0,0"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextBrush}"
+                                           HorizontalAlignment="Center"
+                                           TextAlignment="Center"
+                                           Text="Nenhum grupo ainda" />
+                                <TextBlock Margin="0,3,0,0"
+                                           FontSize="11.5"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           HorizontalAlignment="Center"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           Text="Crie um grupo para começar a configurar regras de inserção." />
+                            </StackPanel>
 
-                                        <!-- Drag handle: número da linha em cima, 6 pontinhos
-                                             embaixo. AlternationIndex vem do ContentPresenter
-                                             gerado pelo ItemsControl com AlternationCount="999"
-                                             — é 0-baseado, daí o OneBasedIndex. -->
-                                        <Border Grid.Column="0"
-                                                Width="26" Height="40"
-                                                Background="Transparent"
-                                                Cursor="SizeAll"
-                                                PreviewMouseLeftButtonDown="OnRuleDragHandleMouseDown"
-                                                ToolTip="Arraste para reordenar (a ordem define preferência em caso de empate de faixa).">
-                                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType={x:Type ContentPresenter}}, Converter={StaticResource OneBasedIndex}}"
-                                                           FontSize="9"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="{StaticResource MutedBrush}"
-                                                           HorizontalAlignment="Center" />
-                                                <TextBlock Text="⋮⋮"
-                                                           Foreground="{StaticResource MutedBrush}"
-                                                           FontSize="13"
-                                                           Margin="0,-1,0,0"
-                                                           HorizontalAlignment="Center" />
-                                            </StackPanel>
-                                        </Border>
+                            <ScrollViewer Style="{StaticResource SlimScrollViewerStyle}"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Padding="6,0,6,6"
+                                          Visibility="{Binding HasGroups, Converter={StaticResource BoolToVisibility}}">
+                                <ItemsControl ItemsSource="{Binding Groups}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vmup:UtilizationPointGroupViewModel}">
+                                            <Border Margin="0,0,0,4"
+                                                    CornerRadius="7"
+                                                    Padding="0"
+                                                    BorderThickness="1"
+                                                    MouseLeftButtonUp="OnGroupItemClicked"
+                                                    Cursor="Hand">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Background" Value="#EEF1F5" />
+                                                            </Trigger>
+                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                                                <Setter Property="BorderBrush" Value="{StaticResource AccentSoft2Brush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Grid>
+                                                    <!-- Faixa lateral azul: 3px à esquerda, visível só
+                                                         quando o grupo está ativo. -->
+                                                    <Rectangle Width="3"
+                                                               HorizontalAlignment="Left"
+                                                               Margin="0,8,0,8"
+                                                               RadiusX="2" RadiusY="2"
+                                                               Fill="{StaticResource AccentBrush}"
+                                                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibility}}" />
+                                                    <Grid Margin="12,8,10,8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="32" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
 
-                                        <ComboBox Grid.Column="1"
-                                                  Style="{StaticResource RuleTypeComboBoxStyle}"
-                                                  Margin="4,0,8,0"
-                                                  IsTextSearchEnabled="True"
-                                                  TextSearch.TextPath="DisplayName"
-                                                  ItemsSource="{Binding DataContext.FamilyTypes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  SelectedItem="{Binding SelectedFamilyType, Mode=TwoWay}">
-                                            <ComboBox.ItemTemplate>
-                                                <DataTemplate DataType="{x:Type vmup:FamilyTypeOptionViewModel}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <Grid Width="26" Height="26" Margin="0,0,8,0" VerticalAlignment="Center">
-                                                            <Border Background="#E0F2FE"
-                                                                    CornerRadius="4"
-                                                                    Visibility="{Binding HasNoThumbnail, Converter={StaticResource BoolToVisibility}}">
-                                                                <TextBlock Text="F"
-                                                                           FontWeight="Bold"
-                                                                           Foreground="{StaticResource PrimaryDarkBrush}"
-                                                                           HorizontalAlignment="Center"
-                                                                           VerticalAlignment="Center"
-                                                                           FontSize="11" />
-                                                            </Border>
-                                                            <Image Source="{Binding Thumbnail}"
-                                                                   Width="26" Height="26"
-                                                                   Stretch="Uniform"
-                                                                   RenderOptions.BitmapScalingMode="HighQuality"
-                                                                   Visibility="{Binding HasThumbnail, Converter={StaticResource BoolToVisibility}}" />
-                                                        </Grid>
-                                                        <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding FamilyName}"
-                                                                       FontSize="12"
+                                                        <!-- Avatar 32×32 -->
+                                                        <Border Grid.Column="0"
+                                                                Width="32" Height="32"
+                                                                CornerRadius="6"
+                                                                VerticalAlignment="Center">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="{StaticResource WindowBgBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                                                                    <Setter Property="BorderThickness" Value="1" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                                                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding InitialLetter}"
+                                                                       FontSize="13"
                                                                        FontWeight="SemiBold"
-                                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                <Setter Property="Foreground" Value="White" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Border>
+
+                                                        <!-- Texto: nome + meta (regras + alerta) -->
+                                                        <StackPanel Grid.Column="1"
+                                                                    Margin="10,0,0,0"
+                                                                    VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       FontSize="13.5"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource TextBrush}"
                                                                        TextTrimming="CharacterEllipsis" />
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="{Binding TypeName}"
-                                                                           FontSize="11"
-                                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                                <TextBlock Text="{Binding RulesCountLabel}"
+                                                                           FontSize="11.5"
+                                                                           Foreground="{StaticResource TextSoftBrush}"
                                                                            TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock Text=" · "
-                                                                           FontSize="11"
-                                                                           Foreground="{StaticResource MutedBrush}" />
-                                                                <TextBlock Text="{Binding CategoryName}"
-                                                                           FontSize="11"
-                                                                           Foreground="{StaticResource MutedBrush}"
-                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <!-- Ícone âmbar inline (12×12) substitui o
+                                                                     texto "1 ausente" — não corta em larguras
+                                                                     compactas. ToolTip mostra a contagem. -->
+                                                                <Border Width="14" Height="14"
+                                                                        Margin="6,0,0,0"
+                                                                        VerticalAlignment="Center"
+                                                                        Background="Transparent"
+                                                                        ToolTip="{Binding MissingTypesLabel}"
+                                                                        Visibility="{Binding HasMissingTypes, Converter={StaticResource BoolToVisibility}}">
+                                                                    <Path Width="12" Height="12"
+                                                                          Stretch="Uniform"
+                                                                          Stroke="{StaticResource AmberBrush}"
+                                                                          StrokeThickness="2"
+                                                                          StrokeStartLineCap="Round"
+                                                                          StrokeEndLineCap="Round"
+                                                                          StrokeLineJoin="Round"
+                                                                          Data="{StaticResource WarningIconGeometry}" />
+                                                                </Border>
                                                             </StackPanel>
                                                         </StackPanel>
-                                                    </StackPanel>
-                                                </DataTemplate>
-                                            </ComboBox.ItemTemplate>
-                                        </ComboBox>
 
-                                        <!-- Min/Max com sufixo "m" colado no número, deixando claro
-                                             que o valor está em metros (unidade interna do tool).
-                                             A unidade é fixa em metros independentemente da unidade
-                                             do projeto Revit: a conversão acontece no insertion
-                                             service via RevitUnitConverter.FeetToMeters. -->
-                                        <Grid Grid.Column="2" Margin="2,0,2,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBox Grid.Column="0"
-                                                     Style="{StaticResource HeightTextBoxStyle}"
-                                                     Text="{Binding MinMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
-                                            <TextBlock Grid.Column="1"
-                                                       Text="m"
-                                                       FontSize="11"
-                                                       Foreground="{StaticResource MutedBrush}"
-                                                       VerticalAlignment="Center"
-                                                       Margin="3,0,4,0" />
-                                        </Grid>
+                                                        <!-- Ações sempre visíveis (não só no hover) -->
+                                                        <StackPanel Grid.Column="2"
+                                                                    Orientation="Horizontal"
+                                                                    VerticalAlignment="Center">
+                                                            <Button Style="{StaticResource IconActionButtonStyle}"
+                                                                    Click="OnRenameGroupClicked"
+                                                                    Tag="{Binding Id}"
+                                                                    ToolTip="Renomear">
+                                                                <Path Width="14" Height="14"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                      StrokeThickness="1.8"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="{StaticResource EditIconGeometry}" />
+                                                            </Button>
+                                                            <Button Style="{StaticResource IconActionButtonStyle}"
+                                                                    Click="OnDuplicateGroupClicked"
+                                                                    Tag="{Binding Id}"
+                                                                    ToolTip="Duplicar">
+                                                                <Path Width="14" Height="14"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                      StrokeThickness="1.8"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="{StaticResource CopyIconGeometry}" />
+                                                            </Button>
+                                                            <Button Style="{StaticResource IconDangerButtonStyle}"
+                                                                    Click="OnDeleteGroupClicked"
+                                                                    Tag="{Binding Id}"
+                                                                    ToolTip="Excluir">
+                                                                <Path Width="14" Height="14"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                      StrokeThickness="1.8"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="{StaticResource TrashIconGeometry}" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
 
-                                        <Grid Grid.Column="3" Margin="2,0,2,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBox Grid.Column="0"
-                                                     Style="{StaticResource HeightTextBoxStyle}"
-                                                     Text="{Binding MaxMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
-                                            <TextBlock Grid.Column="1"
-                                                       Text="m"
-                                                       FontSize="11"
-                                                       Foreground="{StaticResource MutedBrush}"
-                                                       VerticalAlignment="Center"
-                                                       Margin="3,0,4,0" />
-                                        </Grid>
+                        <!-- + Novo grupo -->
+                        <Button Grid.Row="2"
+                                Style="{StaticResource GhostButtonStyle}"
+                                Margin="14,6,14,10"
+                                Height="34"
+                                Click="OnNewGroupClicked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="12" Height="12"
+                                      Stretch="Uniform"
+                                      Stroke="{StaticResource TextBrush}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Data="{StaticResource PlusIconGeometry}" />
+                                <TextBlock Text="Novo grupo" Margin="8,0,0,0" />
+                            </StackPanel>
+                        </Button>
 
-                                        <!-- Status: badge circular com ícone vetorial. Os Paths
-                                             usam o eixo 12×12 do Geometry; StrokeThickness 1.8
-                                             dá um traço crisp em DPI normal e Retina. -->
-                                        <Border Grid.Column="4"
-                                                ToolTip="{Binding StatusLabel}">
-                                            <Border.Style>
-                                                <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeStyle}">
-                                                    <Setter Property="Background" Value="{StaticResource ChipOkBackgroundBrush}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsOk}" Value="False">
-                                                            <Setter Property="Background" Value="{StaticResource ChipWarningBackgroundBrush}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <Grid Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Path Data="{StaticResource CheckIconGeometry}"
-                                                      Stroke="{StaticResource ChipOkForegroundBrush}"
-                                                      StrokeThickness="1.8"
-                                                      StrokeStartLineCap="Round"
-                                                      StrokeEndLineCap="Round"
-                                                      StrokeLineJoin="Round"
-                                                      Visibility="{Binding IsOk, Converter={StaticResource BoolToVisibility}}" />
-                                                <Path Data="{StaticResource WarningIconGeometry}"
-                                                      Stroke="{StaticResource ChipWarningForegroundBrush}"
-                                                      StrokeThickness="1.6"
-                                                      StrokeStartLineCap="Round"
-                                                      StrokeEndLineCap="Round"
-                                                      StrokeLineJoin="Round"
-                                                      Visibility="{Binding IsWarning, Converter={StaticResource BoolToVisibility}}" />
-                                            </Grid>
-                                        </Border>
+                        <!-- Tip card -->
+                        <Border Grid.Row="3"
+                                Margin="14,0,14,10"
+                                Padding="12,10,12,10"
+                                CornerRadius="7"
+                                Background="{StaticResource WindowBgBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Path Grid.Column="0"
+                                      Width="14" Height="14"
+                                      Stretch="Uniform"
+                                      VerticalAlignment="Top"
+                                      Margin="0,1,0,0"
+                                      Stroke="{StaticResource AccentBrush}"
+                                      StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Data="{StaticResource BulbIconGeometry}" />
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Dica"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextBrush}" />
+                                    <TextBlock Margin="0,3,0,0"
+                                               FontSize="11.5"
+                                               LineHeight="16"
+                                               LineStackingStrategy="BlockLineHeight"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Text="Exporte suas configurações para compartilhar com a equipe ou usar em outro computador." />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
 
-                                        <StackPanel Grid.Column="5"
-                                                    Orientation="Horizontal"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center">
-                                            <Button Style="{StaticResource IconActionButtonStyle}"
-                                                    Click="OnDuplicateRuleClicked"
-                                                    Tag="{Binding}"
-                                                    ToolTip="Duplicar"
-                                                    Content="❐" />
-                                            <Button Style="{StaticResource IconActionButtonStyle}"
-                                                    Click="OnDeleteRuleClicked"
-                                                    Tag="{Binding}"
-                                                    ToolTip="Excluir"
-                                                    Content="🗑" />
+                        <!-- Importar / Exportar -->
+                        <Grid Grid.Row="4" Margin="14,0,14,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0"
+                                    Style="{StaticResource GhostButtonStyle}"
+                                    Height="32"
+                                    Padding="6,0"
+                                    FontSize="12"
+                                    Click="OnImportPresetClicked"
+                                    ToolTip="Importa todos os grupos de um arquivo JSON."
+                                    Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="12" Height="12"
+                                          Stretch="Uniform"
+                                          Stroke="{StaticResource TextBrush}"
+                                          StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Data="{StaticResource ImportIconGeometry}" />
+                                    <TextBlock Text="Importar" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="1"
+                                    Style="{StaticResource GhostButtonStyle}"
+                                    Height="32"
+                                    Padding="6,0"
+                                    FontSize="12"
+                                    Click="OnExportPresetClicked"
+                                    ToolTip="Exporta todos os grupos para um arquivo JSON."
+                                    Margin="4,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="12" Height="12"
+                                          Stretch="Uniform"
+                                          Stroke="{StaticResource TextBrush}"
+                                          StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Data="{StaticResource ExportIconGeometry}" />
+                                    <TextBlock Text="Exportar" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- ============== Main pane ============== -->
+                <Grid Grid.Column="1" Background="{StaticResource WindowBgBrush}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />   <!-- Header (group + add) -->
+                        <RowDefinition Height="Auto" />   <!-- Stat strip -->
+                        <RowDefinition Height="Auto" />   <!-- Description -->
+                        <RowDefinition Height="Auto" />   <!-- Awaiting banner -->
+                        <RowDefinition Height="Auto" />   <!-- Reference bar -->
+                        <RowDefinition Height="*" />      <!-- Rules table -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Header: ActiveGroupName + ATIVO badge + "+ Adicionar ponto" -->
+                    <Grid Grid.Row="0" Margin="24,18,24,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource SectionTitleStyle}"
+                                       Text="{Binding ActiveGroupName}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <Border Margin="10,0,0,0"
+                                    Height="22"
+                                    Background="{StaticResource GreenSoftBrush}"
+                                    CornerRadius="4"
+                                    Padding="9,0"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6"
+                                             Fill="{StaticResource GreenBrush}"
+                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="ATIVO"
+                                               Margin="6,0,0,0"
+                                               FontSize="10.5"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource GreenDeepBrush}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Click="OnAddRuleClicked">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="12" Height="12"
+                                      Stretch="Uniform"
+                                      Stroke="White"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Data="{StaticResource PlusIconGeometry}" />
+                                <TextBlock Text="Adicionar ponto" Margin="8,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <!-- Stat strip: 3 células com divisória vertical -->
+                    <Border Grid.Row="1"
+                            Margin="24,0,24,10"
+                            HorizontalAlignment="Left"
+                            Background="{StaticResource SubtleBgBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="7">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Padding="14,9" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Margin="8,0,0,0"
+                                               FontSize="12.5"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource TextBrush}"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding ActiveGroup.RulesCount, FallbackValue=0}" />
+                                    <TextBlock Margin="6,0,0,0"
+                                               FontSize="12.5"
+                                               Foreground="{StaticResource TextBrush}"
+                                               VerticalAlignment="Center"
+                                               Text="configurados" />
+                                </StackPanel>
+                            </Border>
+                            <Border Padding="14,9" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="8" Height="8" Fill="{StaticResource GreenBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Margin="8,0,0,0"
+                                               FontSize="12.5"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource TextBrush}"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding ActiveGroupTypesFoundLabel}" />
+                                    <TextBlock Margin="6,0,0,0"
+                                               FontSize="12.5"
+                                               Foreground="{StaticResource TextBrush}"
+                                               VerticalAlignment="Center"
+                                               Text="encontrados" />
+                                </StackPanel>
+                            </Border>
+                            <Border Padding="14,9">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="8" Height="8" Fill="{StaticResource AmberBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Margin="8,0,0,0"
+                                               FontSize="12.5"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource TextBrush}"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding ActiveGroupMissingTypesLabel}" />
+                                    <TextBlock Margin="6,0,0,0"
+                                               FontSize="12.5"
+                                               Foreground="{StaticResource TextBrush}"
+                                               VerticalAlignment="Center"
+                                               Text="ausente(s)" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Description -->
+                    <TextBlock Grid.Row="2"
+                               Margin="24,0,24,10"
+                               Style="{StaticResource SubtitleStyle}"
+                               MaxWidth="760"
+                               HorizontalAlignment="Left"
+                               Text="Regras de inserção por faixa de altura. A peça é escolhida pela cota do conector livre em relação ao nível. A ordem das regras define a preferência em caso de empate de faixa." />
+
+                    <!-- Awaiting selection banner -->
+                    <Border Grid.Row="3"
+                            Margin="24,0,24,10"
+                            Padding="14,11"
+                            CornerRadius="7"
+                            Background="{StaticResource AmberBgBrush}"
+                            BorderBrush="{StaticResource AmberBorderBrush}"
+                            BorderThickness="1"
+                            Visibility="{Binding IsAwaitingSelection, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Path Grid.Column="0"
+                                  Width="14" Height="14"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Top"
+                                  Margin="0,2,0,0"
+                                  Stroke="{StaticResource AmberBrush}"
+                                  StrokeThickness="2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  Data="{StaticResource WarningIconGeometry}" />
+                            <TextBlock Grid.Column="1"
+                                       Margin="10,0,0,0"
+                                       FontSize="12.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource AmberDeepBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding AwaitingSelectionHint}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Reference bar -->
+                    <Border Grid.Row="4"
+                            Margin="24,0,24,10"
+                            Background="{StaticResource SubtleBgBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="7"
+                            Padding="14,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Style="{StaticResource LabelStyle}"
+                                       Text="NÍVEL DE REFERÊNCIA"
+                                       VerticalAlignment="Center" />
+                            <ComboBox Grid.Column="1"
+                                      Margin="14,0,14,0"
+                                      MinWidth="240"
+                                      MaxWidth="320"
+                                      HorizontalAlignment="Left"
+                                      ItemsSource="{Binding Levels}"
+                                      SelectedItem="{Binding SelectedLevel, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmup:LevelOptionViewModel}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding DisplayName}" />
+                                            <TextBlock Text="  "
+                                                       Foreground="{StaticResource TextSoftBrush}" />
+                                            <TextBlock Text="{Binding ElevationLabel}"
+                                                       Foreground="{StaticResource TextSoftBrush}" />
                                         </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </ScrollViewer>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Grid.Column="3"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextSoftBrush}"
+                                       VerticalAlignment="Center"
+                                       Text="Tolerância ±0.02 m" />
+                        </Grid>
+                    </Border>
 
-                <TextBlock Grid.Row="1"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           FontSize="13"
-                           Foreground="{StaticResource MutedBrush}"
-                           Text="Crie um grupo no painel à esquerda para começar."
-                           Visibility="{Binding HasActiveGroup, Converter={StaticResource InverseBoolToVisibility}}" />
+                    <!-- Rules table -->
+                    <Grid Grid.Row="5" Margin="24,0,24,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Column header -->
+                        <Border Grid.Row="0"
+                                Background="{StaticResource SubtleBgBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1,1,1,0"
+                                CornerRadius="8,8,0,0"
+                                Padding="0">
+                            <Grid Height="38">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="{StaticResource ColReorderWidth}" />
+                                    <ColumnDefinition Width="*" MinWidth="220" />
+                                    <ColumnDefinition Width="{StaticResource ColAltMinWidth}" />
+                                    <ColumnDefinition Width="{StaticResource ColAltMaxWidth}" />
+                                    <ColumnDefinition Width="{StaticResource ColStatusWidth}" />
+                                    <ColumnDefinition Width="{StaticResource ColActionsWidth}" />
+                                    <ColumnDefinition Width="8" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           Margin="14,0,0,0"
+                                           Text="TIPO DO PONTO DE UTILIZAÇÃO" />
+                                <TextBlock Grid.Column="2"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="ALT. MÍN." />
+                                <TextBlock Grid.Column="3"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="ALT. MÁX." />
+                                <TextBlock Grid.Column="4"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="STATUS" />
+                                <TextBlock Grid.Column="5"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="AÇÕES" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Rules list inside a bordered card -->
+                        <Border Grid.Row="1"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1,0,1,1"
+                                CornerRadius="0,0,8,8"
+                                Background="{StaticResource WindowBgBrush}"
+                                ClipToBounds="True">
+                            <Grid>
+                                <ScrollViewer Style="{StaticResource SlimScrollViewerStyle}"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}">
+                                    <ItemsControl ItemsSource="{Binding ActiveRules}" AlternationCount="999">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vmup:UtilizationPointRuleViewModel}">
+                                                <Border AllowDrop="True"
+                                                        DragOver="OnRuleRowDragOver"
+                                                        Drop="OnRuleRowDrop"
+                                                        Focusable="True"
+                                                        KeyboardNavigation.IsTabStop="False"
+                                                        FocusVisualStyle="{x:Null}"
+                                                        KeyDown="OnRuleRowKeyDown"
+                                                        BorderThickness="0,0,0,1">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{StaticResource WindowBgBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="#FAFBFD" />
+                                                                </Trigger>
+                                                                <DataTrigger Binding="{Binding HasOverlap}" Value="True">
+                                                                    <Setter Property="Background" Value="#FFFCEB" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid Height="60" VerticalAlignment="Center">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="{StaticResource ColReorderWidth}" />
+                                                            <ColumnDefinition Width="*" MinWidth="220" />
+                                                            <ColumnDefinition Width="{StaticResource ColAltMinWidth}" />
+                                                            <ColumnDefinition Width="{StaticResource ColAltMaxWidth}" />
+                                                            <ColumnDefinition Width="{StaticResource ColStatusWidth}" />
+                                                            <ColumnDefinition Width="{StaticResource ColActionsWidth}" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Drag handle: nº + 6 pontinhos -->
+                                                        <Border Grid.Column="0"
+                                                                Background="Transparent"
+                                                                Cursor="SizeAll"
+                                                                PreviewMouseLeftButtonDown="OnRuleDragHandleMouseDown"
+                                                                ToolTip="Arraste para reordenar (a ordem define preferência em caso de empate de faixa).">
+                                                            <StackPanel Orientation="Horizontal"
+                                                                        HorizontalAlignment="Center"
+                                                                        VerticalAlignment="Center">
+                                                                <StackPanel Margin="0,0,2,0" VerticalAlignment="Center">
+                                                                    <Ellipse Width="3" Height="3" Fill="{StaticResource TextFaintBrush}" Margin="0,1" />
+                                                                    <Ellipse Width="3" Height="3" Fill="{StaticResource TextFaintBrush}" Margin="0,1" />
+                                                                    <Ellipse Width="3" Height="3" Fill="{StaticResource TextFaintBrush}" Margin="0,1" />
+                                                                </StackPanel>
+                                                                <StackPanel Margin="2,0,6,0" VerticalAlignment="Center">
+                                                                    <Ellipse Width="3" Height="3" Fill="{StaticResource TextFaintBrush}" Margin="0,1" />
+                                                                    <Ellipse Width="3" Height="3" Fill="{StaticResource TextFaintBrush}" Margin="0,1" />
+                                                                    <Ellipse Width="3" Height="3" Fill="{StaticResource TextFaintBrush}" Margin="0,1" />
+                                                                </StackPanel>
+                                                                <TextBlock Text="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType={x:Type ContentPresenter}}, Converter={StaticResource OneBasedIndex}}"
+                                                                           FontSize="12"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- Type cell -->
+                                                        <ComboBox Grid.Column="1"
+                                                                  Style="{StaticResource RuleTypeComboBoxStyle}"
+                                                                  Margin="4,8,12,8"
+                                                                  IsTextSearchEnabled="True"
+                                                                  TextSearch.TextPath="DisplayName"
+                                                                  ItemsSource="{Binding DataContext.FamilyTypes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                  SelectedItem="{Binding SelectedFamilyType, Mode=TwoWay}">
+                                                            <ComboBox.ItemTemplate>
+                                                                <DataTemplate DataType="{x:Type vmup:FamilyTypeOptionViewModel}">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <Grid Width="30" Height="30" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                                            <Border Background="{StaticResource SubtleBgBrush}"
+                                                                                    BorderBrush="{StaticResource BorderBrush}"
+                                                                                    BorderThickness="1"
+                                                                                    CornerRadius="4"
+                                                                                    Visibility="{Binding HasNoThumbnail, Converter={StaticResource BoolToVisibility}}">
+                                                                                <TextBlock Text="F"
+                                                                                           FontWeight="SemiBold"
+                                                                                           Foreground="{StaticResource TextSoftBrush}"
+                                                                                           HorizontalAlignment="Center"
+                                                                                           VerticalAlignment="Center"
+                                                                                           FontSize="11" />
+                                                                            </Border>
+                                                                            <Image Source="{Binding Thumbnail}"
+                                                                                   Width="30" Height="30"
+                                                                                   Stretch="Uniform"
+                                                                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                                                                   Visibility="{Binding HasThumbnail, Converter={StaticResource BoolToVisibility}}" />
+                                                                        </Grid>
+                                                                        <StackPanel VerticalAlignment="Center">
+                                                                            <TextBlock Text="{Binding FamilyName}"
+                                                                                       FontSize="13"
+                                                                                       FontWeight="SemiBold"
+                                                                                       Foreground="{StaticResource TextBrush}"
+                                                                                       TextTrimming="CharacterEllipsis" />
+                                                                            <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                                                <TextBlock Text="{Binding TypeName}"
+                                                                                           FontSize="11"
+                                                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                                                           TextTrimming="CharacterEllipsis" />
+                                                                                <TextBlock Text=" · "
+                                                                                           FontSize="11"
+                                                                                           Foreground="{StaticResource TextSoftBrush}" />
+                                                                                <TextBlock Text="{Binding CategoryName}"
+                                                                                           FontSize="11"
+                                                                                           Foreground="{StaticResource TextSoftBrush}"
+                                                                                           TextTrimming="CharacterEllipsis" />
+                                                                            </StackPanel>
+                                                                        </StackPanel>
+                                                                    </StackPanel>
+                                                                </DataTemplate>
+                                                            </ComboBox.ItemTemplate>
+                                                        </ComboBox>
+
+                                                        <!-- Min / Max com sufixo "m" -->
+                                                        <Grid Grid.Column="2" Margin="2,12,2,12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBox Grid.Column="0"
+                                                                     Style="{StaticResource HeightTextBoxStyle}"
+                                                                     Text="{Binding MinMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="m"
+                                                                       FontSize="12"
+                                                                       Foreground="{StaticResource TextSoftBrush}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="4,0,4,0" />
+                                                        </Grid>
+
+                                                        <Grid Grid.Column="3" Margin="2,12,2,12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBox Grid.Column="0"
+                                                                     Style="{StaticResource HeightTextBoxStyle}"
+                                                                     Text="{Binding MaxMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="m"
+                                                                       FontSize="12"
+                                                                       Foreground="{StaticResource TextSoftBrush}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="4,0,4,0" />
+                                                        </Grid>
+
+                                                        <!-- Status badge -->
+                                                        <Border Grid.Column="4"
+                                                                ToolTip="{Binding StatusLabel}">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeStyle}">
+                                                                    <Setter Property="Background" Value="{StaticResource GreenSoftBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsOk}" Value="False">
+                                                                            <Setter Property="Background" Value="{StaticResource AmberSoftBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <Grid Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <Path Data="{StaticResource CheckIconGeometry}"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{StaticResource GreenDeepBrush}"
+                                                                      StrokeThickness="2.2"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Visibility="{Binding IsOk, Converter={StaticResource BoolToVisibility}}" />
+                                                                <Path Data="{StaticResource WarningIconGeometry}"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{StaticResource AmberDeepBrush}"
+                                                                      StrokeThickness="2"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Visibility="{Binding IsWarning, Converter={StaticResource BoolToVisibility}}" />
+                                                            </Grid>
+                                                        </Border>
+
+                                                        <!-- Action buttons -->
+                                                        <StackPanel Grid.Column="5"
+                                                                    Orientation="Horizontal"
+                                                                    HorizontalAlignment="Center"
+                                                                    VerticalAlignment="Center">
+                                                            <Button Style="{StaticResource IconActionButtonStyle}"
+                                                                    Click="OnDuplicateRuleClicked"
+                                                                    Tag="{Binding}"
+                                                                    ToolTip="Duplicar"
+                                                                    Margin="0,0,4,0">
+                                                                <Path Width="14" Height="14"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                      StrokeThickness="1.8"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="{StaticResource CopyIconGeometry}" />
+                                                            </Button>
+                                                            <Button Style="{StaticResource IconDangerButtonStyle}"
+                                                                    Click="OnDeleteRuleClicked"
+                                                                    Tag="{Binding}"
+                                                                    ToolTip="Excluir">
+                                                                <Path Width="14" Height="14"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                      StrokeThickness="1.8"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="{StaticResource TrashIconGeometry}" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <!-- Empty state quando nenhum grupo está ativo -->
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="{Binding HasActiveGroup, Converter={StaticResource InverseBoolToVisibility}}">
+                                    <Border Width="48" Height="48"
+                                            CornerRadius="10"
+                                            Background="{StaticResource SubtleBgBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1"
+                                            HorizontalAlignment="Center">
+                                        <Path Width="22" Height="22"
+                                              Stretch="Uniform"
+                                              Stroke="{StaticResource TextSoftBrush}"
+                                              StrokeThickness="1.8"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              Data="M4,8 L4,18 L20,18 L20,8 L13,8 L11,6 L4,6 Z" />
+                                    </Border>
+                                    <TextBlock Margin="0,12,0,0"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextBrush}"
+                                               HorizontalAlignment="Center"
+                                               Text="Nenhum grupo ativo" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               HorizontalAlignment="Center"
+                                               Text="Crie um grupo no painel à esquerda para começar." />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
             </Grid>
-        </Grid>
 
-        <!-- Footer: last execution + primary action -->
-        <Border Grid.Row="2" Grid.ColumnSpan="2"
-                Background="#FFFFFF"
-                BorderBrush="{StaticResource SoftBorderBrush}"
-                BorderThickness="0,1,0,0">
-            <Grid Margin="16,8,16,10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Grid Grid.Row="0">
+            <!-- =====================================================
+                 Row 3 — Última execução + chips (apenas em estado 4)
+            ===================================================== -->
+            <Border Grid.Row="3"
+                    Background="{StaticResource FooterBgBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0"
+                    Padding="24,10"
+                    Visibility="{Binding HasLastSummary, Converter={StaticResource BoolToVisibility}}">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock FontSize="11"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontWeight="SemiBold"
-                                   Text="{Binding LastSummaryHeader}" />
-                    </StackPanel>
-
-                    <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
-                               Visibility="{Binding HasLastSummary, Converter={StaticResource BoolToVisibility}}">
-                        <Border Background="#EFF6FF" CornerRadius="10" Padding="7,2" Margin="3,0,0,2">
+                    <TextBlock Grid.Column="0"
+                               FontSize="12.5"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center"
+                               Text="{Binding LastSummaryHeader}" />
+                    <WrapPanel Grid.Column="1"
+                               Orientation="Horizontal"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center">
+                        <Border Background="{StaticResource AccentSoftBrush}"
+                                BorderBrush="{StaticResource AccentSoft2Brush}"
+                                BorderThickness="1"
+                                CornerRadius="13"
+                                Padding="12,3"
+                                Margin="4,2,0,2">
                             <TextBlock Style="{StaticResource ChipTextStyle}"
-                                       Foreground="{StaticResource PrimaryDarkBrush}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource AccentDeepBrush}"
                                        Text="{Binding LastSummaryAnalyzedLabel}" />
                         </Border>
-                        <Border Background="#ECFEFF" CornerRadius="10" Padding="7,2" Margin="3,0,0,2">
+                        <Border Background="{StaticResource WindowBgBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="13"
+                                Padding="12,3"
+                                Margin="4,2,0,2">
                             <TextBlock Style="{StaticResource ChipTextStyle}"
-                                       Foreground="#0E7490"
+                                       Foreground="{StaticResource TextMutedBrush}"
                                        Text="{Binding LastSummaryFreeLabel}" />
                         </Border>
-                        <Border Background="{StaticResource ChipOkBackgroundBrush}" CornerRadius="10" Padding="7,2" Margin="3,0,0,2">
+                        <Border Background="{StaticResource GreenSoftBrush}"
+                                BorderBrush="{StaticResource GreenSoftBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="13"
+                                Padding="12,3"
+                                Margin="4,2,0,2">
                             <TextBlock Style="{StaticResource ChipTextStyle}"
-                                       Foreground="{StaticResource ChipOkForegroundBrush}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource GreenDeepBrush}"
                                        Text="{Binding LastSummaryInsertedLabel}" />
                         </Border>
-                        <Border Background="{StaticResource ChipWarningBackgroundBrush}" CornerRadius="10" Padding="7,2" Margin="3,0,0,2">
+                        <Border Background="{StaticResource AmberSoftBrush}"
+                                BorderBrush="{StaticResource AmberBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="13"
+                                Padding="12,3"
+                                Margin="4,2,0,2">
                             <TextBlock Style="{StaticResource ChipTextStyle}"
-                                       Foreground="{StaticResource ChipWarningForegroundBrush}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource AmberDeepBrush}"
                                        Text="{Binding LastSummaryWithoutRangeLabel}" />
                         </Border>
-                        <Border Background="#FEE2E2" CornerRadius="10" Padding="7,2" Margin="3,0,0,2">
+                        <Border Background="{StaticResource RedSoftBrush}"
+                                BorderBrush="{StaticResource RedSoftBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="13"
+                                Padding="12,3"
+                                Margin="4,2,0,2">
                             <TextBlock Style="{StaticResource ChipTextStyle}"
-                                       Foreground="#B91C1C"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource RedDeepBrush}"
                                        Text="{Binding LastSummaryErrorsLabel}" />
                         </Border>
                     </WrapPanel>
                 </Grid>
+            </Border>
 
-                <Grid Grid.Row="1" Margin="0,8,0,0">
+            <!-- =====================================================
+                 Row 4 — Footer: métricas + Ativar inserção
+            ===================================================== -->
+            <Border Grid.Row="4"
+                    Background="{StaticResource FooterBgBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,1,0,0"
+                    Padding="24,13">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <StackPanel Margin="0,0,14,0">
+                    <!-- Métricas (com separadores verticais) -->
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <StackPanel Margin="0,0,14,0" VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource LabelStyle}" Text="GRUPO ATIVO" />
-                            <TextBlock Margin="0,2,0,0"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       Text="{Binding ActiveGroupName}"
+                            <TextBlock Margin="0,3,0,0"
+                                       FontSize="13"
+                                       FontWeight="Medium"
+                                       Foreground="{StaticResource TextBrush}"
+                                       Text="{Binding ActiveGroupName, FallbackValue=—}"
                                        TextTrimming="CharacterEllipsis"
-                                       MaxWidth="160" />
+                                       MaxWidth="180" />
                         </StackPanel>
-                        <StackPanel Margin="0,0,14,0">
+
+                        <Rectangle Width="1" Height="22"
+                                   Fill="{StaticResource BorderBrush}"
+                                   Margin="0,0,14,0"
+                                   VerticalAlignment="Center" />
+
+                        <StackPanel Margin="0,0,14,0" VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource LabelStyle}" Text="REGRAS VÁLIDAS" />
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <TextBlock Text="✓"
-                                           Foreground="{StaticResource SuccessBrush}"
-                                           FontWeight="Bold"
-                                           FontSize="12" />
-                                <TextBlock Margin="6,0,0,0"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
+                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                <Path Width="12" Height="12"
+                                      Stretch="Uniform"
+                                      Stroke="{StaticResource GreenBrush}"
+                                      StrokeThickness="2.2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      VerticalAlignment="Center"
+                                      Data="{StaticResource CheckIconGeometry}" />
+                                <TextBlock Margin="7,0,0,0"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="{StaticResource TextBrush}"
+                                           VerticalAlignment="Center"
                                            Text="{Binding ActiveGroupValidRulesLabel}" />
                             </StackPanel>
                         </StackPanel>
-                        <StackPanel Margin="0,0,14,0">
+
+                        <Rectangle Width="1" Height="22"
+                                   Fill="{StaticResource BorderBrush}"
+                                   Margin="0,0,14,0"
+                                   VerticalAlignment="Center" />
+
+                        <StackPanel Margin="0,0,14,0" VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource LabelStyle}" Text="TIPOS AUSENTES" />
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <TextBlock Text="⚠"
-                                           Foreground="{StaticResource WarningBrush}"
-                                           FontWeight="Bold"
-                                           FontSize="12" />
-                                <TextBlock Margin="6,0,0,0"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
+                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                <Path Width="12" Height="12"
+                                      Stretch="Uniform"
+                                      Stroke="{StaticResource AmberBrush}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      VerticalAlignment="Center"
+                                      Data="{StaticResource WarningIconGeometry}" />
+                                <TextBlock Margin="7,0,0,0"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="{StaticResource TextBrush}"
+                                           VerticalAlignment="Center"
                                            Text="{Binding ActiveGroupMissingTypesLabel}" />
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>
 
+                    <!-- Ativar inserção -->
                     <Button Grid.Column="1"
                             Style="{StaticResource PrimaryButtonStyle}"
-                            Padding="14,0"
-                            MinWidth="0"
                             IsEnabled="{Binding IsIdle}"
-                            Click="OnPickAndInsertClicked"
-                            Content="▶  Ativar inserção" />
+                            Click="OnPickAndInsertClicked">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Width="11" Height="11"
+                                  Stretch="Uniform"
+                                  Fill="White"
+                                  Data="{StaticResource PlayIconGeometry}" />
+                            <TextBlock Text="Ativar inserção" Margin="9,0,0,0" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
-            </Grid>
-        </Border>
-    </Grid>
+            </Border>
+        </Grid>
+    </Border>
 </Window>
