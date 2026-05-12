@@ -69,7 +69,7 @@ namespace DarivaBIM.Plugin.Features.UtilizationPoints
 
                 Document doc = uiDoc.Document;
 
-                IReadOnlyList<long> elementIds = UseCurrentSelection
+                IReadOnlyList<long>? elementIds = UseCurrentSelection
                     ? GetCurrentSelection(uiDoc)
                     : PickElements(uiDoc, window);
 
