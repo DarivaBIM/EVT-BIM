@@ -34,6 +34,16 @@
     <NeutralLanguage>pt-BR</NeutralLanguage>
 
     <!--
+      MSB3277: "found conflicts between different versions" entre
+      Microsoft.VisualBasic 10.0.0.0 (BCL do .NET 8) e 10.1.0.0 (puxado
+      transitivamente por RevitAPI.dll / RevitAPIUI.dll). Em .NET Core+ o
+      AssemblyLoadContext faz unification automaticamente em runtime, então
+      o warning é cosmético. Sem essa supressão, builds Release falham por
+      causa de TreatWarningsAsErrors logo acima.
+    -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+
+    <!--
       Per-Revit-version target frameworks. Projects opt in by setting RevitVersion.
       Active scope per ADR-0015: Revit 2025 and 2026 only.
       Note: RevitVersion is set in each csproj's PropertyGroup, which is evaluated
