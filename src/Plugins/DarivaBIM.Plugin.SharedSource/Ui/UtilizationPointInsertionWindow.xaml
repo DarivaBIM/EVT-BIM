@@ -4,10 +4,10 @@
         xmlns:common="clr-namespace:DarivaBIM.Presentation.Wpf.Common;assembly=DarivaBIM.Presentation.Wpf"
         xmlns:vmup="clr-namespace:DarivaBIM.Presentation.Wpf.UtilizationPoints;assembly=DarivaBIM.Presentation.Wpf"
         Title="Inserção de Pontos de Utilização"
-        Width="1280"
-        Height="760"
-        MinWidth="980"
-        MinHeight="620"
+        Width="1100"
+        Height="640"
+        MinWidth="900"
+        MinHeight="560"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
         Topmost="True"
@@ -16,11 +16,14 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         Loaded="OnWindowLoaded"
-        Closing="OnWindowClosing">
+        Closing="OnWindowClosing"
+        PreviewMouseMove="OnWindowPreviewMouseMove"
+        PreviewMouseLeftButtonUp="OnWindowPreviewMouseLeftButtonUp">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <common:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <common:DoubleToGridLengthConverter x:Key="DoubleToGridLength" />
 
         <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="SoftBorderBrush" Color="#D8E0EA" />
@@ -46,15 +49,18 @@
         <SolidColorBrush x:Key="ChipOkForegroundBrush" Color="#15803D" />
         <SolidColorBrush x:Key="ChipWarningBackgroundBrush" Color="#FEF3C7" />
         <SolidColorBrush x:Key="ChipWarningForegroundBrush" Color="#B45309" />
+        <SolidColorBrush x:Key="HintBannerBackgroundBrush" Color="#FFF3CD" />
+        <SolidColorBrush x:Key="HintBannerBorderBrush" Color="#F0B429" />
+        <SolidColorBrush x:Key="HintBannerForegroundBrush" Color="#8A4B00" />
 
         <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontSize" Value="17" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
         </Style>
 
         <Style x:Key="SubtitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="11.5" />
             <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
@@ -93,8 +99,8 @@
         </Style>
 
         <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="36" />
-            <Setter Property="MinWidth" Value="140" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="MinWidth" Value="120" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="White" />
@@ -125,19 +131,40 @@
         </Style>
 
         <Style x:Key="IconActionButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="28" />
-            <Setter Property="Height" Value="28" />
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
             <Setter Property="FontSize" Value="12" />
         </Style>
+
+        <!-- Thumb fininho para arrastar e redimensionar colunas. -->
+        <Style x:Key="ColumnResizerThumbStyle" TargetType="Thumb">
+            <Setter Property="Width" Value="6" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="SizeWE" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="Transparent">
+                            <Rectangle Width="1"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Stretch"
+                                       Fill="{StaticResource RuleCardBorderBrush}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="280" />
+            <ColumnDefinition Width="260" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
@@ -151,7 +178,7 @@
                 Background="#FFFFFF"
                 BorderBrush="{StaticResource SoftBorderBrush}"
                 BorderThickness="0,0,0,1"
-                Padding="20,14">
+                Padding="18,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -176,14 +203,14 @@
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    Text="{Binding StatusMessage}"
-                                   MaxWidth="520"
+                                   MaxWidth="460"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </Border>
             </Grid>
         </Border>
 
-        <!-- Sidebar: groups -->
+        <!-- Sidebar: groups + preset I/O + tip -->
         <Border Grid.Row="1" Grid.Column="0"
                 Background="{StaticResource SidebarBackgroundBrush}"
                 BorderBrush="{StaticResource SoftBorderBrush}"
@@ -194,9 +221,10 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0" Margin="16,16,16,8">
+                <Grid Grid.Row="0" Margin="14,14,14,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -218,7 +246,7 @@
                 <ScrollViewer Grid.Row="1"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
-                              Padding="8,0,8,8">
+                              Padding="6,0,6,6">
                     <ItemsControl ItemsSource="{Binding Groups}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vmup:UtilizationPointGroupViewModel}">
@@ -237,7 +265,7 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <Border Grid.Column="0"
-                                                Width="30" Height="30"
+                                                Width="28" Height="28"
                                                 CornerRadius="8"
                                                 Background="#E0F2FE"
                                                 VerticalAlignment="Center">
@@ -299,12 +327,12 @@
 
                 <Button Grid.Row="2"
                         Style="{StaticResource GhostButtonStyle}"
-                        Margin="16,8,16,12"
+                        Margin="14,6,14,8"
                         Click="OnNewGroupClicked"
                         Content="+ Novo grupo" />
 
                 <Border Grid.Row="3"
-                        Margin="16,0,16,16"
+                        Margin="14,0,14,8"
                         Padding="12"
                         CornerRadius="10"
                         Background="#FFFFFF"
@@ -319,9 +347,35 @@
                                    FontSize="11"
                                    Foreground="{StaticResource MutedBrush}"
                                    TextWrapping="Wrap"
-                                   Text="Grupos são presets reutilizáveis. Exporte para compartilhar com a equipe." />
+                                   Text="Presets agrupam vários grupos e podem ser compartilhados com a equipe." />
                     </StackPanel>
                 </Border>
+
+                <StackPanel Grid.Row="4"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Stretch"
+                            Margin="14,0,14,14">
+                    <Button Style="{StaticResource GhostButtonStyle}"
+                            MinWidth="0"
+                            Height="30"
+                            Padding="10,0"
+                            HorizontalAlignment="Stretch"
+                            Width="111"
+                            Click="OnImportPresetClicked"
+                            ToolTip="Importa todos os grupos de um arquivo JSON."
+                            Content="📥 Importar"
+                            Margin="0,0,4,0" />
+                    <Button Style="{StaticResource GhostButtonStyle}"
+                            MinWidth="0"
+                            Height="30"
+                            Padding="10,0"
+                            HorizontalAlignment="Stretch"
+                            Width="111"
+                            Click="OnExportPresetClicked"
+                            ToolTip="Exporta todos os grupos para um arquivo JSON."
+                            Content="📤 Exportar"
+                            Margin="0,0,0,0" />
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -331,11 +385,12 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Active group header + presets buttons -->
-            <Grid Grid.Row="0" Margin="24,20,24,12">
+            <!-- Active group header + add point -->
+            <Grid Grid.Row="0" Margin="20,16,20,10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -354,40 +409,52 @@
                                    Foreground="{StaticResource ChipOkForegroundBrush}" />
                     </Border>
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource GhostButtonStyle}"
-                            MinWidth="0"
-                            Padding="14,0"
-                            Click="OnImportPresetClicked"
-                            Content="📥  Importar preset"
-                            Margin="0,0,8,0" />
-                    <Button Style="{StaticResource GhostButtonStyle}"
-                            MinWidth="0"
-                            Padding="14,0"
-                            Click="OnExportPresetClicked"
-                            Content="📤  Exportar preset"
-                            Margin="0,0,8,0" />
-                    <Button Style="{StaticResource PrimaryButtonStyle}"
-                            MinWidth="0"
-                            Padding="14,0"
-                            Click="OnAddRuleClicked"
-                            Content="+ Adicionar ponto" />
-                </StackPanel>
+                <Button Grid.Column="1"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        MinWidth="0"
+                        Padding="14,0"
+                        Click="OnAddRuleClicked"
+                        Content="+ Adicionar ponto" />
             </Grid>
 
             <TextBlock Grid.Row="1"
-                       Margin="24,0,24,12"
+                       Margin="20,0,20,10"
                        Style="{StaticResource SubtitleStyle}"
-                       Text="Regras de inserção por faixa de altura. A peça é escolhida pela cota do conector livre em relação ao nível." />
+                       Text="Regras de inserção por faixa de altura. A peça é escolhida pela cota do conector livre em relação ao nível. A ordem das regras define a preferência em caso de empate de faixa." />
+
+            <!-- Awaiting selection hint -->
+            <Border Grid.Row="2"
+                    Margin="20,0,20,10"
+                    Padding="14,10"
+                    CornerRadius="8"
+                    Background="{StaticResource HintBannerBackgroundBrush}"
+                    BorderBrush="{StaticResource HintBannerBorderBrush}"
+                    BorderThickness="1"
+                    Visibility="{Binding IsAwaitingSelection, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="⚠"
+                               FontSize="14"
+                               FontWeight="Bold"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource HintBannerForegroundBrush}" />
+                    <TextBlock Margin="8,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="11.5"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource HintBannerForegroundBrush}"
+                               TextWrapping="Wrap"
+                               Text="{Binding AwaitingSelectionHint}" />
+                </StackPanel>
+            </Border>
 
             <!-- Level dropdown + summary chips -->
-            <Border Grid.Row="2"
-                    Margin="24,0,24,12"
+            <Border Grid.Row="3"
+                    Margin="20,0,20,10"
                     Background="#F8FAFC"
                     CornerRadius="10"
                     BorderBrush="{StaticResource RuleCardBorderBrush}"
                     BorderThickness="1"
-                    Padding="14,10">
+                    Padding="12,8">
                 <StackPanel>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -400,8 +467,8 @@
                                    Text="NÍVEL DE REFERÊNCIA"
                                    VerticalAlignment="Center" />
                         <ComboBox Grid.Column="1"
-                                  Margin="14,0,14,0"
-                                  Width="280"
+                                  Margin="12,0,12,0"
+                                  Width="260"
                                   HorizontalAlignment="Left"
                                   ItemsSource="{Binding Levels}"
                                   SelectedItem="{Binding SelectedLevel, Mode=TwoWay}">
@@ -418,24 +485,24 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Grid.Column="2"
-                                   FontSize="11.5"
+                                   FontSize="11"
                                    Foreground="{StaticResource MutedBrush}"
                                    VerticalAlignment="Center"
                                    Text="Tolerância vertical: ±0.02 m" />
                     </Grid>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                         <Border Background="#FFFFFF"
                                 CornerRadius="8"
-                                Padding="12,6"
-                                Margin="0,0,8,0"
+                                Padding="10,5"
+                                Margin="0,0,6,0"
                                 BorderBrush="{StaticResource RuleCardBorderBrush}"
                                 BorderThickness="1">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse Width="8" Height="8" Fill="{StaticResource PrimaryBrush}" />
-                                <TextBlock Margin="8,0,0,0"
+                                <TextBlock Margin="6,0,0,0"
                                            FontWeight="Bold"
-                                           FontSize="13"
+                                           FontSize="12"
                                            Text="{Binding ActiveGroup.RulesCount, FallbackValue=0}" />
                                 <TextBlock Margin="6,0,0,0"
                                            Foreground="{StaticResource MutedBrush}"
@@ -445,15 +512,15 @@
                         </Border>
                         <Border Background="#FFFFFF"
                                 CornerRadius="8"
-                                Padding="12,6"
-                                Margin="0,0,8,0"
+                                Padding="10,5"
+                                Margin="0,0,6,0"
                                 BorderBrush="{StaticResource RuleCardBorderBrush}"
                                 BorderThickness="1">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" />
-                                <TextBlock Margin="8,0,0,0"
+                                <TextBlock Margin="6,0,0,0"
                                            FontWeight="Bold"
-                                           FontSize="13"
+                                           FontSize="12"
                                            Text="{Binding ActiveGroupTypesFoundLabel}" />
                                 <TextBlock Margin="6,0,0,0"
                                            Foreground="{StaticResource MutedBrush}"
@@ -463,14 +530,14 @@
                         </Border>
                         <Border Background="#FFFFFF"
                                 CornerRadius="8"
-                                Padding="12,6"
+                                Padding="10,5"
                                 BorderBrush="{StaticResource RuleCardBorderBrush}"
                                 BorderThickness="1">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse Width="8" Height="8" Fill="{StaticResource WarningBrush}" />
-                                <TextBlock Margin="8,0,0,0"
+                                <TextBlock Margin="6,0,0,0"
                                            FontWeight="Bold"
-                                           FontSize="13"
+                                           FontSize="12"
                                            Text="{Binding ActiveGroupMissingTypesLabel}" />
                                 <TextBlock Margin="6,0,0,0"
                                            Foreground="{StaticResource MutedBrush}"
@@ -483,12 +550,12 @@
             </Border>
 
             <!-- Rules list -->
-            <Border Grid.Row="3"
-                    Margin="24,0,24,12"
+            <Border Grid.Row="4"
+                    Margin="20,0,20,10"
                     Background="Transparent">
                 <Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
+                                  HorizontalScrollBarVisibility="Auto"
                                   Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -496,73 +563,128 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <!-- Column header -->
-                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <!-- Column header (resizable via thumbs) -->
+                            <Grid Grid.Row="0" Margin="0,0,0,6" Height="22">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="40" />
-                                    <ColumnDefinition Width="40" />
-                                    <ColumnDefinition Width="220" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="110" />
-                                    <ColumnDefinition Width="110" />
-                                    <ColumnDefinition Width="140" />
-                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="28" />
+                                    <ColumnDefinition Width="{Binding ColumnsLayout.NameWidth, Converter={StaticResource DoubleToGridLength}}" />
+                                    <ColumnDefinition Width="{Binding ColumnsLayout.TypeWidth, Converter={StaticResource DoubleToGridLength}}" />
+                                    <ColumnDefinition Width="{Binding ColumnsLayout.MinHeightWidth, Converter={StaticResource DoubleToGridLength}}" />
+                                    <ColumnDefinition Width="{Binding ColumnsLayout.MaxHeightWidth, Converter={StaticResource DoubleToGridLength}}" />
+                                    <ColumnDefinition Width="{Binding ColumnsLayout.StatusWidth, Converter={StaticResource DoubleToGridLength}}" />
+                                    <ColumnDefinition Width="64" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="2" Style="{StaticResource LabelStyle}" Text="NOME DO PONTO" />
-                                <TextBlock Grid.Column="3" Style="{StaticResource LabelStyle}" Text="TIPO DE FAMÍLIA" />
-                                <TextBlock Grid.Column="4" Style="{StaticResource LabelStyle}" Text="ALTURA MÍN." />
-                                <TextBlock Grid.Column="5" Style="{StaticResource LabelStyle}" Text="ALTURA MÁX." />
-                                <TextBlock Grid.Column="6" Style="{StaticResource LabelStyle}" Text="STATUS" />
-                                <TextBlock Grid.Column="7" Style="{StaticResource LabelStyle}" Text="AÇÕES" />
+                                <TextBlock Grid.Column="1"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           Margin="2,0,0,0"
+                                           Text="NOME DO PONTO" />
+                                <TextBlock Grid.Column="2"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           Margin="2,0,0,0"
+                                           Text="TIPO DE FAMÍLIA" />
+                                <TextBlock Grid.Column="3"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="ALT. MÍN." />
+                                <TextBlock Grid.Column="4"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="ALT. MÁX." />
+                                <TextBlock Grid.Column="5"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           Margin="4,0,0,0"
+                                           Text="STATUS" />
+                                <TextBlock Grid.Column="6"
+                                           Style="{StaticResource LabelStyle}"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,2,0"
+                                           Text="AÇÕES" />
+
+                                <!-- Resizer thumbs sit at the right edge of each data column. -->
+                                <Thumb Grid.Column="1"
+                                       Style="{StaticResource ColumnResizerThumbStyle}"
+                                       Tag="Name"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,-4,-3,-4"
+                                       DragDelta="OnColumnResizerDragDelta" />
+                                <Thumb Grid.Column="2"
+                                       Style="{StaticResource ColumnResizerThumbStyle}"
+                                       Tag="Type"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,-4,-3,-4"
+                                       DragDelta="OnColumnResizerDragDelta" />
+                                <Thumb Grid.Column="3"
+                                       Style="{StaticResource ColumnResizerThumbStyle}"
+                                       Tag="MinHeight"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,-4,-3,-4"
+                                       DragDelta="OnColumnResizerDragDelta" />
+                                <Thumb Grid.Column="4"
+                                       Style="{StaticResource ColumnResizerThumbStyle}"
+                                       Tag="MaxHeight"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,-4,-3,-4"
+                                       DragDelta="OnColumnResizerDragDelta" />
+                                <Thumb Grid.Column="5"
+                                       Style="{StaticResource ColumnResizerThumbStyle}"
+                                       Tag="Status"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,-4,-3,-4"
+                                       DragDelta="OnColumnResizerDragDelta" />
                             </Grid>
 
                             <ItemsControl Grid.Row="1" ItemsSource="{Binding ActiveRules}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vmup:UtilizationPointRuleViewModel}">
-                                        <Border Margin="0,0,0,8"
+                                        <Border Margin="0,0,0,6"
                                                 CornerRadius="10"
-                                                Padding="10,10"
+                                                Padding="6,8"
+                                                AllowDrop="True"
+                                                DragOver="OnRuleRowDragOver"
+                                                Drop="OnRuleRowDrop"
                                                 Background="{StaticResource RuleCardBackgroundBrush}"
                                                 BorderThickness="1"
                                                 BorderBrush="{StaticResource RuleCardBorderBrush}">
                                             <Grid VerticalAlignment="Center">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="40" />
-                                                    <ColumnDefinition Width="40" />
-                                                    <ColumnDefinition Width="220" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="110" />
-                                                    <ColumnDefinition Width="110" />
-                                                    <ColumnDefinition Width="140" />
-                                                    <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="28" />
+                                                    <ColumnDefinition Width="{Binding DataContext.ColumnsLayout.NameWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource DoubleToGridLength}}" />
+                                                    <ColumnDefinition Width="{Binding DataContext.ColumnsLayout.TypeWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource DoubleToGridLength}}" />
+                                                    <ColumnDefinition Width="{Binding DataContext.ColumnsLayout.MinHeightWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource DoubleToGridLength}}" />
+                                                    <ColumnDefinition Width="{Binding DataContext.ColumnsLayout.MaxHeightWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource DoubleToGridLength}}" />
+                                                    <ColumnDefinition Width="{Binding DataContext.ColumnsLayout.StatusWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource DoubleToGridLength}}" />
+                                                    <ColumnDefinition Width="64" />
                                                 </Grid.ColumnDefinitions>
 
-                                                <TextBlock Grid.Column="0"
-                                                           Text="⋮⋮"
-                                                           Foreground="{StaticResource MutedBrush}"
-                                                           FontSize="14"
-                                                           VerticalAlignment="Center"
-                                                           HorizontalAlignment="Center" />
-
-                                                <Border Grid.Column="1"
-                                                        Width="22" Height="22"
-                                                        Background="#F1F5F9"
-                                                        CornerRadius="11"
-                                                        VerticalAlignment="Center"
-                                                        HorizontalAlignment="Center">
-                                                    <TextBlock Text="•"
+                                                <!-- Drag handle: 6 dots, used to reorder rules -->
+                                                <Border Grid.Column="0"
+                                                        Width="24" Height="28"
+                                                        Background="Transparent"
+                                                        Cursor="SizeAll"
+                                                        PreviewMouseLeftButtonDown="OnRuleDragHandleMouseDown"
+                                                        ToolTip="Arraste para reordenar (a ordem define preferência em caso de empate de faixa).">
+                                                    <TextBlock Text="⋮⋮"
                                                                Foreground="{StaticResource MutedBrush}"
-                                                               FontWeight="Bold"
+                                                               FontSize="14"
                                                                VerticalAlignment="Center"
                                                                HorizontalAlignment="Center" />
                                                 </Border>
 
-                                                <TextBox Grid.Column="2"
-                                                         Margin="0,0,12,0"
+                                                <TextBox Grid.Column="1"
+                                                         Margin="2,0,8,0"
                                                          Text="{Binding Name, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" />
 
-                                                <ComboBox Grid.Column="3"
-                                                          Margin="0,0,12,0"
+                                                <ComboBox Grid.Column="2"
+                                                          Margin="0,0,8,0"
                                                           IsTextSearchEnabled="True"
                                                           TextSearch.TextPath="DisplayName"
                                                           ItemsSource="{Binding DataContext.FamilyTypes, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -570,17 +692,23 @@
                                                     <ComboBox.ItemTemplate>
                                                         <DataTemplate DataType="{x:Type vmup:FamilyTypeOptionViewModel}">
                                                             <StackPanel Orientation="Horizontal">
-                                                                <Border Width="22" Height="22"
-                                                                        CornerRadius="6"
-                                                                        Background="#E0F2FE"
-                                                                        Margin="0,0,8,0">
-                                                                    <TextBlock Text="F"
-                                                                               FontWeight="Bold"
-                                                                               Foreground="{StaticResource PrimaryDarkBrush}"
-                                                                               HorizontalAlignment="Center"
-                                                                               VerticalAlignment="Center"
-                                                                               FontSize="10" />
-                                                                </Border>
+                                                                <Grid Width="24" Height="24" Margin="0,0,8,0">
+                                                                    <Border Background="#E0F2FE"
+                                                                            CornerRadius="4"
+                                                                            Visibility="{Binding HasNoThumbnail, Converter={StaticResource BoolToVisibility}}">
+                                                                        <TextBlock Text="F"
+                                                                                   FontWeight="Bold"
+                                                                                   Foreground="{StaticResource PrimaryDarkBrush}"
+                                                                                   HorizontalAlignment="Center"
+                                                                                   VerticalAlignment="Center"
+                                                                                   FontSize="10" />
+                                                                    </Border>
+                                                                    <Image Source="{Binding Thumbnail}"
+                                                                           Width="24" Height="24"
+                                                                           Stretch="Uniform"
+                                                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                                                           Visibility="{Binding HasThumbnail, Converter={StaticResource BoolToVisibility}}" />
+                                                                </Grid>
                                                                 <StackPanel VerticalAlignment="Center">
                                                                     <TextBlock Text="{Binding FamilyName}"
                                                                                FontSize="12"
@@ -603,20 +731,20 @@
                                                     </ComboBox.ItemTemplate>
                                                 </ComboBox>
 
-                                                <TextBox Grid.Column="4"
-                                                         Margin="0,0,6,0"
+                                                <TextBox Grid.Column="3"
+                                                         Margin="0,0,4,0"
                                                          HorizontalContentAlignment="Center"
                                                          Text="{Binding MinMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
 
-                                                <TextBox Grid.Column="5"
-                                                         Margin="0,0,6,0"
+                                                <TextBox Grid.Column="4"
+                                                         Margin="0,0,4,0"
                                                          HorizontalContentAlignment="Center"
                                                          Text="{Binding MaxMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
 
-                                                <Border Grid.Column="6"
-                                                        Margin="0,0,8,0"
+                                                <Border Grid.Column="5"
+                                                        Margin="4,0,4,0"
                                                         CornerRadius="10"
-                                                        Padding="10,4"
+                                                        Padding="8,4"
                                                         HorizontalAlignment="Left"
                                                         VerticalAlignment="Center">
                                                     <Border.Style>
@@ -660,7 +788,7 @@
                                                     </StackPanel>
                                                 </Border>
 
-                                                <StackPanel Grid.Column="7" Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right">
                                                     <Button Style="{StaticResource IconActionButtonStyle}"
                                                             Click="OnDuplicateRuleClicked"
                                                             Tag="{Binding}"
@@ -695,12 +823,12 @@
             </Border>
         </Grid>
 
-        <!-- Footer: last execution + action buttons -->
+        <!-- Footer: last execution + primary action -->
         <Border Grid.Row="2" Grid.ColumnSpan="2"
                 Background="#FFFFFF"
                 BorderBrush="{StaticResource SoftBorderBrush}"
                 BorderThickness="0,1,0,0">
-            <Grid Margin="20,12,20,14">
+            <Grid Margin="18,10,18,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -713,7 +841,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock FontSize="11.5"
+                        <TextBlock FontSize="11"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    FontWeight="SemiBold"
                                    Text="{Binding LastSummaryHeader}" />
@@ -749,7 +877,7 @@
                     </StackPanel>
                 </Grid>
 
-                <Grid Grid.Row="1" Margin="0,12,0,0">
+                <Grid Grid.Row="1" Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -759,7 +887,7 @@
                         <StackPanel Margin="0,0,18,0">
                             <TextBlock Style="{StaticResource LabelStyle}" Text="GRUPO ATIVO" />
                             <TextBlock Margin="0,2,0,0"
-                                       FontSize="12.5"
+                                       FontSize="12"
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource TextPrimaryBrush}"
                                        Text="{Binding ActiveGroupName}" />
@@ -772,7 +900,7 @@
                                            FontWeight="Bold"
                                            FontSize="12" />
                                 <TextBlock Margin="6,0,0,0"
-                                           FontSize="12.5"
+                                           FontSize="12"
                                            FontWeight="SemiBold"
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            Text="{Binding ActiveGroupValidRulesLabel}" />
@@ -786,7 +914,7 @@
                                            FontWeight="Bold"
                                            FontSize="12" />
                                 <TextBlock Margin="6,0,0,0"
-                                           FontSize="12.5"
+                                           FontSize="12"
                                            FontWeight="SemiBold"
                                            Foreground="{StaticResource TextPrimaryBrush}"
                                            Text="{Binding ActiveGroupMissingTypesLabel}" />
@@ -794,27 +922,13 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="ContinuousModeButton"
-                                Style="{StaticResource GhostButtonStyle}"
-                                MinWidth="0"
-                                Padding="14,0"
-                                Margin="0,0,8,0"
-                                Click="OnToggleContinuousModeClicked"
-                                Content="{Binding ContinuousModeLabel}" />
-                        <Button Style="{StaticResource GhostButtonStyle}"
-                                MinWidth="0"
-                                Padding="14,0"
-                                Margin="0,0,8,0"
-                                IsEnabled="{Binding IsIdle}"
-                                Click="OnUseSelectionClicked"
-                                Content="▷  Usar seleção atual" />
-                        <Button Style="{StaticResource PrimaryButtonStyle}"
-                                Padding="14,0"
-                                IsEnabled="{Binding IsIdle}"
-                                Click="OnPickAndInsertClicked"
-                                Content="▶  Selecionar elementos e inserir" />
-                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Padding="18,0"
+                            MinWidth="0"
+                            IsEnabled="{Binding IsIdle}"
+                            Click="OnPickAndInsertClicked"
+                            Content="▶  Ativar inserção de pontos" />
                 </Grid>
             </Grid>
         </Border>

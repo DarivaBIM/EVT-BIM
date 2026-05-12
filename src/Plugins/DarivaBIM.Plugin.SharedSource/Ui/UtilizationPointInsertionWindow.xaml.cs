@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using DarivaBIM.Application.Contracts.UtilizationPoints;
@@ -24,6 +25,8 @@ namespace DarivaBIM.Plugin.Ui
     /// </summary>
     public partial class UtilizationPointInsertionWindow : Window
     {
+        private const string RuleDragFormat = "EvtBim.UtilizationPointRule";
+
         private static UtilizationPointInsertionWindow? _instance;
 
         private readonly IUtilizationPointSettingsStore _settingsStore = new UtilizationPointSettingsStore();
@@ -31,6 +34,9 @@ namespace DarivaBIM.Plugin.Ui
         private readonly UtilizationPointInsertEvent _insertEvent = new();
         private bool _suppressActiveGroupChange;
         private bool _initialLoadDone;
+
+        private Point _dragStartPoint;
+        private UtilizationPointRuleViewModel? _draggedRule;
 
         public UtilizationPointInsertionViewModel ViewModel { get; }
 
@@ -97,6 +103,7 @@ namespace DarivaBIM.Plugin.Ui
                 ViewModel.LastSummary = summary;
                 ViewModel.RefreshMessages();
                 ViewModel.IsBusy = false;
+                ViewModel.IsAwaitingSelection = false;
 
                 if (summary == null)
                 {
@@ -113,11 +120,10 @@ namespace DarivaBIM.Plugin.Ui
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ViewModel.IsBusy = false;
+                ViewModel.IsAwaitingSelection = false;
                 ViewModel.StatusMessage = message;
             }));
         }
-
-        public bool IsContinuousMode => ViewModel.IsContinuousMode;
 
         // ---------------- Event handlers ----------------
 
@@ -156,6 +162,7 @@ namespace DarivaBIM.Plugin.Ui
 
             UtilizationPointGroupViewModel group = new(Guid.NewGuid().ToString("N"), name!.Trim());
             ViewModel.Groups.Add(group);
+            HookGroupEvents(group);
             SetActiveGroup(group);
             UpdateSidebarSelection();
             SaveCurrentSettings();
@@ -185,6 +192,7 @@ namespace DarivaBIM.Plugin.Ui
 
             UtilizationPointGroupViewModel clone = UtilizationPointGroupViewModel.FromDto(dto);
             ViewModel.Groups.Add(clone);
+            HookGroupEvents(clone);
             ResolveRuleReferences(clone);
             clone.RefreshSummaries();
             SetActiveGroup(clone);
@@ -341,38 +349,114 @@ namespace DarivaBIM.Plugin.Ui
             }
         }
 
-        private void OnToggleContinuousModeClicked(object sender, RoutedEventArgs e)
-        {
-            ViewModel.IsContinuousMode = !ViewModel.IsContinuousMode;
-            ViewModel.StatusMessage = ViewModel.IsContinuousMode
-                ? "Modo contínuo ativado: cada execução reabre a seleção."
-                : "Modo contínuo desativado.";
-        }
-
-        private void OnUseSelectionClicked(object sender, RoutedEventArgs e)
-        {
-            if (!EnsureActiveGroupReadyForInsertion(out UtilizationPointGroup? domainGroup)) return;
-
-            ViewModel.IsBusy = true;
-            ViewModel.StatusMessage = "Executando inserção sobre a seleção atual do Revit…";
-            _insertEvent.Raise(
-                this,
-                domainGroup!,
-                ViewModel.SelectedLevel?.ElementId,
-                useCurrentSelection: true);
-        }
-
         private void OnPickAndInsertClicked(object sender, RoutedEventArgs e)
         {
             if (!EnsureActiveGroupReadyForInsertion(out UtilizationPointGroup? domainGroup)) return;
 
             ViewModel.IsBusy = true;
-            ViewModel.StatusMessage = "Selecione os elementos no Revit. Pressione ENTER ou ESC para finalizar.";
+            ViewModel.IsAwaitingSelection = true;
+            ViewModel.StatusMessage = "Aguardando seleção no Revit…";
             _insertEvent.Raise(
                 this,
                 domainGroup!,
-                ViewModel.SelectedLevel?.ElementId,
-                useCurrentSelection: false);
+                ViewModel.SelectedLevel?.ElementId);
+        }
+
+        // ---- Column resizers ----
+
+        private void OnColumnResizerDragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (sender is not Thumb thumb || thumb.Tag is not string column) return;
+
+            RuleColumnsLayoutViewModel layout = ViewModel.ColumnsLayout;
+            switch (column)
+            {
+                case "Name":
+                    layout.NameWidth += e.HorizontalChange;
+                    break;
+                case "Type":
+                    layout.TypeWidth += e.HorizontalChange;
+                    break;
+                case "MinHeight":
+                    layout.MinHeightWidth += e.HorizontalChange;
+                    break;
+                case "MaxHeight":
+                    layout.MaxHeightWidth += e.HorizontalChange;
+                    break;
+                case "Status":
+                    layout.StatusWidth += e.HorizontalChange;
+                    break;
+            }
+        }
+
+        // ---- Drag-drop reorder of rules ----
+
+        private void OnRuleDragHandleMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not UtilizationPointRuleViewModel rule) return;
+
+            _dragStartPoint = e.GetPosition(this);
+            _draggedRule = rule;
+        }
+
+        private void OnWindowPreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed) return;
+            if (_draggedRule == null) return;
+
+            Point pos = e.GetPosition(this);
+            if (Math.Abs(pos.X - _dragStartPoint.X) <= SystemParameters.MinimumHorizontalDragDistance
+                && Math.Abs(pos.Y - _dragStartPoint.Y) <= SystemParameters.MinimumVerticalDragDistance)
+            {
+                return;
+            }
+
+            UtilizationPointRuleViewModel rule = _draggedRule;
+            _draggedRule = null;
+
+            try
+            {
+                DataObject data = new(RuleDragFormat, rule);
+                DragDrop.DoDragDrop(this, data, DragDropEffects.Move);
+            }
+            catch
+            {
+                // DoDragDrop pode lançar se a window perde foco no meio do
+                // gesto; ignorar mantém a UI estável.
+            }
+        }
+
+        private void OnWindowPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            _draggedRule = null;
+        }
+
+        private void OnRuleRowDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(RuleDragFormat)
+                ? DragDropEffects.Move
+                : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void OnRuleRowDrop(object sender, DragEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not UtilizationPointRuleViewModel target) return;
+            if (e.Data.GetData(RuleDragFormat) is not UtilizationPointRuleViewModel source) return;
+            if (ViewModel.ActiveGroup == null) return;
+            if (ReferenceEquals(source, target)) return;
+
+            int oldIndex = ViewModel.ActiveGroup.Rules.IndexOf(source);
+            int newIndex = ViewModel.ActiveGroup.Rules.IndexOf(target);
+            if (oldIndex < 0 || newIndex < 0) return;
+
+            ViewModel.ActiveGroup.Rules.Move(oldIndex, newIndex);
+            ViewModel.ActiveGroup.RefreshSummaries();
+            ViewModel.OnActiveGroupChanged();
+            SaveCurrentSettings();
+            e.Handled = true;
         }
 
         // ---------------- Helpers ----------------

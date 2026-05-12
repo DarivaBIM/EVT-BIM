@@ -30,6 +30,8 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
 
         public ObservableCollection<LevelOptionViewModel> Levels { get; } = new();
 
+        public RuleColumnsLayoutViewModel ColumnsLayout { get; } = new();
+
         public int GroupsCount => Groups.Count;
         public bool HasGroups => Groups.Count > 0;
 
@@ -114,20 +116,22 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             set => SetField(ref _statusMessage, value);
         }
 
-        private bool _isContinuousMode;
-        public bool IsContinuousMode
+        /// <summary>
+        /// Quando <c>true</c>, a janela está aguardando o usuário selecionar
+        /// elementos no Revit e finalizar com "concluir" na ribbon. O banner
+        /// laranja-escuro de instrução fica visível enquanto isso vale.
+        /// </summary>
+        private bool _isAwaitingSelection;
+        public bool IsAwaitingSelection
         {
-            get => _isContinuousMode;
-            set
-            {
-                if (SetField(ref _isContinuousMode, value))
-                {
-                    OnPropertyChanged(nameof(ContinuousModeLabel));
-                }
-            }
+            get => _isAwaitingSelection;
+            set => SetField(ref _isAwaitingSelection, value);
         }
 
-        public string ContinuousModeLabel => IsContinuousMode ? "Desativar modo contínuo" : "Ativar modo contínuo";
+        public string AwaitingSelectionHint =>
+            "Selecione no Revit os tubos e conexões com conectores livres " +
+            "onde os pontos serão inseridos, e clique em \"Concluir\" na ribbon (ou ENTER) " +
+            "ao terminar. ESC cancela.";
 
         private InsertionSummaryDto? _lastSummary;
         public InsertionSummaryDto? LastSummary

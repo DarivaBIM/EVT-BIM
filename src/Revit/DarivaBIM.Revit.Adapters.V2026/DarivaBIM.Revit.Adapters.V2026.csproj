@@ -18,6 +18,16 @@
   </ItemGroup>
 
   <!--
+    System.Drawing.Common é usado em tempo de compilacao para chamar
+    FamilySymbol.GetPreviewImage(Size) e codificar o PNG do thumbnail. Em
+    runtime o Revit ja carrega sua propria copia, portanto deixamos a
+    assembly fora do output (ExcludeAssets=runtime) para evitar conflito.
+  -->
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="8.0.10" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <!--
     Source-shared do adapter neutro. Cada Adapters.V20XX compila os mesmos
     arquivos contra sua propria RevitAPI.dll (ver ADR-0017). Os simbolos
     REVIT2025/REVIT2026 sao injetados em src/Build/Directory.Build.targets
