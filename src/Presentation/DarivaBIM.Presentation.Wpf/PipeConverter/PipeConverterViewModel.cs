@@ -188,9 +188,33 @@ namespace DarivaBIM.Presentation.Wpf.PipeConverter
                 {
                     OnPropertyChanged(nameof(ToleranceLevel));
                     OnPropertyChanged(nameof(TolerancePercent));
+                    OnPropertyChanged(nameof(ToleranceLevelIndex));
+                    OnPropertyChanged(nameof(SelectedToleranceLabel));
                 }
             }
         }
+
+        /// <summary>
+        /// Posição (0..4) do nível atual no Slider da UI. Setter clampa
+        /// e seleciona a opção correspondente em <see cref="ToleranceOptions"/>.
+        /// </summary>
+        public int ToleranceLevelIndex
+        {
+            get => (int)ToleranceLevel;
+            set
+            {
+                int clamped = value < 0 ? 0 : value >= ToleranceOptions.Count ? ToleranceOptions.Count - 1 : value;
+                if (clamped < 0 || clamped >= ToleranceOptions.Count) return;
+                SelectedToleranceOption = ToleranceOptions[clamped];
+            }
+        }
+
+        /// <summary>
+        /// Rótulo do nível atual (ex.: "Média"). Exibido acima do Slider para
+        /// dar feedback imediato de qual posição está selecionada.
+        /// </summary>
+        public string SelectedToleranceLabel =>
+            _selectedToleranceOption?.DisplayName ?? string.Empty;
 
         /// <summary>
         /// Nível de tolerância vigente (default: Média).
