@@ -453,9 +453,14 @@ namespace DarivaBIM.Plugin.Ui
         private void OnGroupChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (_suppressActiveGroupChange) return;
-            if (sender is UtilizationPointGroupViewModel group)
+            if (sender is UtilizationPointGroupViewModel)
             {
-                group.RefreshSummaries();
+                // Não chamar group.RefreshSummaries() aqui: este handler está
+                // inscrito em group.PropertyChanged, e RefreshSummaries dispara
+                // OnPropertyChanged nas seis propriedades de sumário do próprio
+                // group — voltariam pra cá em recursão infinita (StackOverflow).
+                // O group já se auto-atualiza quando Rules muda via o
+                // CollectionChanged interno do construtor.
                 ViewModel.OnActiveGroupChanged();
                 SaveCurrentSettings();
             }
