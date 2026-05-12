@@ -29,6 +29,7 @@ permanece reservado para quando a arte for adicionada.
 | Codificar Tubos          | `pipe_codes_32.png`                | `pipe_codes_16.png`                |
 | Adicionar Prolongadores  | `floor_drain_extension_32.png`     | `floor_drain_extension_16.png`     |
 | Parâmetros em Lote       | `batch_parameter_editor_32.png`    | `batch_parameter_editor_16.png`    |
+| Pontos de Utilização     | `utilization_point_insertion_32.png` | `utilization_point_insertion_16.png` |
 
 ## Cópia para a saída do build
 

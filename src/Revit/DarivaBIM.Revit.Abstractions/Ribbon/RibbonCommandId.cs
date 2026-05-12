@@ -18,5 +18,6 @@ namespace DarivaBIM.Revit.Abstractions.Ribbon
         OpenPipeConverter,
         OpenFloorDrainExtension,
         OpenBatchParameterEditor,
+        OpenUtilizationPointInsertion,
     }
 }
