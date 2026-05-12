@@ -18,8 +18,22 @@ namespace DarivaBIM.Core.Tests.Domain.Hydraulics.UtilizationPoints
         public void Contains_returns_false_outside_range()
         {
             HeightRangeMeters range = new(0.10, 0.30);
-            Assert.False(range.Contains(0.099));
-            Assert.False(range.Contains(0.31));
+            Assert.False(range.Contains(0.05));
+            Assert.False(range.Contains(0.35));
+        }
+
+        [Fact]
+        public void Contains_tolerates_floating_point_drift_at_boundaries()
+        {
+            // Cenário típico: conector modelado exatamente no limite, mas a
+            // conversão pés→metros do Revit produz uma fração sub-milimétrica
+            // abaixo/acima. A faixa precisa absorver esse ruído.
+            HeightRangeMeters range = new(0.10, 0.30);
+            Assert.True(range.Contains(0.0995));
+            Assert.True(range.Contains(0.3005));
+            // Folga maior que 1 mm já é "fora" — adjacentes não se sobrepõem.
+            Assert.False(range.Contains(0.098));
+            Assert.False(range.Contains(0.302));
         }
 
         [Fact]

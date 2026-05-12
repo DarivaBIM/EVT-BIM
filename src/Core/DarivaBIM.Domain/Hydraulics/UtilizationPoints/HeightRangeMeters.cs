@@ -7,9 +7,23 @@ namespace DarivaBIM.Domain.Hydraulics.UtilizationPoints
     /// determina quando uma <see cref="UtilizationPointRule"/> é aplicável a um
     /// conector hidráulico livre. Os limites são inclusivos: a regra casa
     /// quando <c>Min ≤ altura ≤ Max</c>.
+    ///
+    /// A comparação aplica uma tolerância simétrica de
+    /// <see cref="BoundaryToleranceMeters"/> em torno de cada limite — sem ela
+    /// a altura calculada em pés → metros podia escapar do limite por
+    /// fração de mícron quando o conector estava modelado exatamente na cota
+    /// (ex.: 0,60 m configurado, 0,5999999998 m vindo de Revit).
     /// </summary>
     public readonly struct HeightRangeMeters : IEquatable<HeightRangeMeters>
     {
+        /// <summary>
+        /// Tolerância aplicada nos limites para neutralizar ruído de
+        /// arredondamento na conversão pés↔metros do Revit. 1 mm é folga
+        /// suficiente sem alargar a faixa o bastante para sobrepor regras
+        /// adjacentes do tipo [0.10, 0.30] / [0.30, 0.50].
+        /// </summary>
+        public const double BoundaryToleranceMeters = 0.001;
+
         public HeightRangeMeters(double minMeters, double maxMeters)
         {
             MinMeters = minMeters;
@@ -22,7 +36,8 @@ namespace DarivaBIM.Domain.Hydraulics.UtilizationPoints
         public bool IsValid => MinMeters <= MaxMeters;
 
         public bool Contains(double heightMeters)
-            => heightMeters >= MinMeters && heightMeters <= MaxMeters;
+            => heightMeters >= MinMeters - BoundaryToleranceMeters
+            && heightMeters <= MaxMeters + BoundaryToleranceMeters;
 
         public bool Equals(HeightRangeMeters other)
             => MinMeters.Equals(other.MinMeters) && MaxMeters.Equals(other.MaxMeters);

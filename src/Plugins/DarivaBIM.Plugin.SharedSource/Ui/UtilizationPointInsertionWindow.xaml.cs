@@ -127,24 +127,42 @@ namespace DarivaBIM.Plugin.Ui
         // continua true — o usuário ainda pode emendar outro lote.
         public void OnInsertionBatchCompleted(InsertionSummaryDto summary)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            if (_isClosing) return;
+            TryDispatch(() =>
             {
                 ViewModel.LastSummary = summary;
                 ViewModel.RefreshMessages();
                 ViewModel.StatusMessage = BuildExecutionStatus(summary);
-            }));
+            });
         }
 
-        // Chamado quando o loop termina (ESC, erro ou janela fechada).
+        // Chamado quando o loop termina (ESC, erro ou janela fechada). Pode
+        // ser chamado DEPOIS de a janela ter sido fechada (o handler do Revit
+        // ainda finaliza após a janela sumir); por isso o dispatch é
+        // tolerante e os property setters são skipados quando _isClosing.
         public void NotifyInsertionEnded(string message)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            TryDispatch(() =>
             {
                 _isLoopActive = false;
+                if (_isClosing) return;
                 ViewModel.IsBusy = false;
                 ViewModel.IsAwaitingSelection = false;
                 ViewModel.StatusMessage = message;
-            }));
+            });
+        }
+
+        private void TryDispatch(Action action)
+        {
+            try
+            {
+                if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
+                Dispatcher.BeginInvoke(action);
+            }
+            catch
+            {
+                // Janela já foi descartada antes do callback do Revit chegar.
+            }
         }
 
         // ---------------- Event handlers ----------------
@@ -160,9 +178,16 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnWindowClosing(object sender, CancelEventArgs e)
         {
+            // Marca o flag de fechamento ANTES de limpar IsLoopActive. O
+            // handler de inserção lê IsLoopActive como (_isLoopActive &&
+            // !_isClosing), então a próxima iteração do loop sai por si só
+            // — mesmo que o PickObjects ainda esteja bloqueado esperando o
+            // ESC do usuário. Esse contrato evita uma janela de corrida em
+            // que o loop continuaria após o fechamento.
             _isClosing = true;
             _isLoopActive = false;
             ViewModel.IsAwaitingSelection = false;
+            ViewModel.IsBusy = false;
 
             if (!_initialLoadDone) return;
 
