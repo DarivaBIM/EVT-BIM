@@ -78,11 +78,13 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 }
             }
 
-            // Folga MUITO generosa: 0,3× do menor diâmetro para baixo,
-            // 2,5× do maior para cima. Para um tipo só com 50mm o range
-            // fica 15..125mm, o que aceita tubos desenhados 25..100mm
-            // (DiameterSnapper depois os arruma).
-            double minEdgeMm = Math.Max(2.0, minDiamMm * 0.3);
+            // Limite inferior: NUNCA menor que o menor diâmetro nominal -2mm
+            // (folga apenas para imprecisão de desenho). Sem isso, paredes de
+            // caixas e janelas com gap pequeno entre seus lados eram pareadas
+            // como se fossem tubo. Limite superior generoso (2,5× do maior
+            // nominal) para tubos desenhados acima do esperado entrarem e
+            // serem snappados pelo DiameterSnapper.
+            double minEdgeMm = Math.Max(2.0, minDiamMm - 2.0);
             double maxEdgeMm = Math.Max(minEdgeMm + 30.0, maxDiamMm * 2.5);
 
             int maxHard;
