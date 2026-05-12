@@ -5,6 +5,7 @@ using DarivaBIM.Plugin.Features.FamiliesImporter;
 using DarivaBIM.Plugin.Features.FloorDrainExtension;
 using DarivaBIM.Plugin.Features.PipeCadMapper;
 using DarivaBIM.Plugin.Features.PipeCodes;
+using DarivaBIM.Plugin.Features.UtilizationPoints;
 using DarivaBIM.Revit.Abstractions.Ribbon;
 
 namespace DarivaBIM.Plugin.Ribbon
@@ -24,6 +25,7 @@ namespace DarivaBIM.Plugin.Ribbon
             { PipeCadMapperFeature.CommandId,     PipeCadMapperFeature.CommandType },
             { FloorDrainExtensionFeature.CommandId, FloorDrainExtensionFeature.CommandType },
             { BatchParameterEditorFeature.CommandId, BatchParameterEditorFeature.CommandType },
+            { UtilizationPointInsertionFeature.CommandId, UtilizationPointInsertionFeature.CommandType },
         };
 
         public Type GetCommandType(RibbonCommandId commandId)

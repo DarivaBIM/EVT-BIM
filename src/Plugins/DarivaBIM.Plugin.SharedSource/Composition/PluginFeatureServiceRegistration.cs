@@ -3,6 +3,7 @@ using DarivaBIM.Plugin.Features.FamiliesImporter;
 using DarivaBIM.Plugin.Features.FloorDrainExtension;
 using DarivaBIM.Plugin.Features.PipeCadMapper;
 using DarivaBIM.Plugin.Features.PipeCodes;
+using DarivaBIM.Plugin.Features.UtilizationPoints;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DarivaBIM.Plugin.Composition
@@ -21,6 +22,7 @@ namespace DarivaBIM.Plugin.Composition
             FloorDrainExtensionFeature.AddServices(services);
             BatchParameterEditorFeature.AddServices(services);
             FamiliesImporterFeature.AddServices(services);
+            UtilizationPointInsertionFeature.AddServices(services);
 
             return services;
         }

@@ -3,6 +3,7 @@ using DarivaBIM.Plugin.Features.FamiliesImporter;
 using DarivaBIM.Plugin.Features.FloorDrainExtension;
 using DarivaBIM.Plugin.Features.PipeCadMapper;
 using DarivaBIM.Plugin.Features.PipeCodes;
+using DarivaBIM.Plugin.Features.UtilizationPoints;
 using DarivaBIM.Revit.Abstractions.Ribbon;
 
 namespace DarivaBIM.Plugin.Ribbon.Panels
@@ -19,7 +20,8 @@ namespace DarivaBIM.Plugin.Ribbon.Panels
                 PipeCadMapperFeature.Button,
                 PipeCodesFeature.Button,
                 FloorDrainExtensionFeature.Button,
-                BatchParameterEditorFeature.Button
+                BatchParameterEditorFeature.Button,
+                UtilizationPointInsertionFeature.Button
             });
         }
     }
