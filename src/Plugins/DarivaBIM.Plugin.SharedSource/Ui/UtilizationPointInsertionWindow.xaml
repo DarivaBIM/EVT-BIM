@@ -377,9 +377,8 @@
                 </Grid>
 
                 <Grid Grid.Row="1">
-                    <!-- Empty state quando o usuário apagou todos os grupos.
-                         O default-loader recria um Banheiro padrão na primeira
-                         abertura, então isso só aparece após delete manual. -->
+                    <!-- Empty state: nenhum grupo cadastrado. Aparece na primeira
+                         abertura e depois que o usuário apaga todos os grupos. -->
                     <StackPanel HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 Margin="20,0,20,20"
@@ -591,15 +590,7 @@
                     </Border>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource GhostButtonStyle}"
-                            MinWidth="0"
-                            Padding="10,0"
-                            Click="OnRestoreDefaultsClicked"
-                            ToolTip="Substitui as regras atuais pelo preset padrão de banheiro."
-                            Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}"
-                            Content="↻ Restaurar padrões" />
                     <Button Style="{StaticResource PrimaryButtonStyle}"
-                            Margin="8,0,0,0"
                             MinWidth="0"
                             Padding="12,0"
                             Click="OnAddRuleClicked"
@@ -815,7 +806,7 @@
                                         DragOver="OnRuleRowDragOver"
                                         Drop="OnRuleRowDrop"
                                         Focusable="True"
-                                        IsTabStop="False"
+                                        KeyboardNavigation.IsTabStop="False"
                                         FocusVisualStyle="{x:Null}"
                                         KeyDown="OnRuleRowKeyDown"
                                         Background="{StaticResource RuleCardBackgroundBrush}"
@@ -957,7 +948,6 @@
                                              usam o eixo 12×12 do Geometry; StrokeThickness 1.8
                                              dá um traço crisp em DPI normal e Retina. -->
                                         <Border Grid.Column="4"
-                                                Style="{StaticResource StatusBadgeStyle}"
                                                 ToolTip="{Binding StatusLabel}">
                                             <Border.Style>
                                                 <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeStyle}">

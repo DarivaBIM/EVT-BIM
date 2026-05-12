@@ -299,41 +299,6 @@ namespace DarivaBIM.Plugin.Ui
             DuplicateRule(rule);
         }
 
-        private void OnRestoreDefaultsClicked(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.ActiveGroup == null) return;
-
-            MessageBoxResult result = MessageBox.Show(
-                this,
-                $"Substituir as regras de \"{ViewModel.ActiveGroup.Name}\" pelo preset padrão de banheiro?\n\n" +
-                "As 4 regras atuais (Bacia, Ducha higiênica, Lavatório, Chuveiro) serão recriadas " +
-                "com as faixas de altura padrão. Tipos selecionados serão perdidos.",
-                "Restaurar padrões",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Question);
-            if (result != MessageBoxResult.OK) return;
-
-            UtilizationPointGroupViewModel active = ViewModel.ActiveGroup;
-            for (int i = active.Rules.Count - 1; i >= 0; i--)
-            {
-                UnhookRuleEvents(active.Rules[i]);
-            }
-            active.Rules.Clear();
-
-            UtilizationPointGroupViewModel template = BuildDefaultBathroomGroup();
-            for (int i = 0; i < template.Rules.Count; i++)
-            {
-                UtilizationPointRuleViewModel imported = template.Rules[i];
-                active.Rules.Add(imported);
-                HookRuleEvents(imported);
-                RefreshRuleStatus(imported);
-            }
-
-            active.RefreshSummaries();
-            ViewModel.OnActiveGroupChanged();
-            ScheduleSave();
-        }
-
         private void OnDeleteRuleClicked(object sender, RoutedEventArgs e)
         {
             if (sender is not FrameworkElement fe) return;
@@ -573,14 +538,7 @@ namespace DarivaBIM.Plugin.Ui
                 HookGroupEvents(g);
             }
 
-            if (ViewModel.Groups.Count == 0)
-            {
-                UtilizationPointGroupViewModel defaultGroup = BuildDefaultBathroomGroup();
-                ViewModel.Groups.Add(defaultGroup);
-                HookGroupEvents(defaultGroup);
-            }
-
-            SetActiveGroup(ViewModel.Groups[0]);
+            SetActiveGroup(ViewModel.Groups.Count > 0 ? ViewModel.Groups[0] : null);
         }
 
         // ScheduleSave reinicia o timer; SaveCurrentSettingsNow grava de fato.
@@ -669,17 +627,24 @@ namespace DarivaBIM.Plugin.Ui
             if (_suppressActiveGroupChange) return;
             if (sender is not UtilizationPointRuleViewModel rule) return;
 
+            // HasOverlap é escrito pelo próprio RecalculateRuleOverlaps (chamado
+            // por RefreshSummaries). Disparar RefreshSummaries daqui criaria
+            // recursão infinita. O DataTrigger no XAML liga direto à propriedade
+            // do rule, então o visual já atualiza sem refresh do grupo.
+            if (e.PropertyName == nameof(UtilizationPointRuleViewModel.HasOverlap))
+            {
+                return;
+            }
+
             // Propriedades derivadas (Status, StatusLabel, IsOk, IsWarning,
-            // IsRangeInvalid) e estado puramente de UI (HasOverlap) não
-            // refletem mudanças no DTO — quando elas notificam, já
-            // recalculamos. Pular evita um round trip que dispararia outro
-            // RefreshSummaries e outra escrita em disco.
+            // IsRangeInvalid) não refletem mudanças no DTO — só atualizam os
+            // sumários do grupo. Pular o ScheduleSave evita escrita em disco
+            // para uma mudança de UI.
             if (e.PropertyName == nameof(UtilizationPointRuleViewModel.Status)
                 || e.PropertyName == nameof(UtilizationPointRuleViewModel.StatusLabel)
                 || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsOk)
                 || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsWarning)
-                || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsRangeInvalid)
-                || e.PropertyName == nameof(UtilizationPointRuleViewModel.HasOverlap))
+                || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsRangeInvalid))
             {
                 if (ViewModel.ActiveGroup != null)
                 {
@@ -843,20 +808,6 @@ namespace DarivaBIM.Plugin.Ui
             }
             if (fe.DataContext is UtilizationPointGroupViewModel g2) return g2;
             return null;
-        }
-
-        // Grupo padrão para a primeira abertura: faixas comuns de banheiro,
-        // sem tipos preenchidos (o usuário escolhe a partir do catálogo do
-        // documento). Mantém o "starting kit" útil sem amarrar a UI a nomes
-        // específicos de famílias.
-        private static UtilizationPointGroupViewModel BuildDefaultBathroomGroup()
-        {
-            UtilizationPointGroupViewModel group = new(Guid.NewGuid().ToString("N"), "Banheiro");
-            group.Rules.Add(new UtilizationPointRuleViewModel { MinMeters = 1.9, MaxMeters = 2.2 });
-            group.Rules.Add(new UtilizationPointRuleViewModel { MinMeters = 0.10, MaxMeters = 0.30 });
-            group.Rules.Add(new UtilizationPointRuleViewModel { MinMeters = 0.30, MaxMeters = 0.50 });
-            group.Rules.Add(new UtilizationPointRuleViewModel { MinMeters = 0.50, MaxMeters = 0.80 });
-            return group;
         }
 
         private string? PromptInline(string title, string hint, string? initial)
