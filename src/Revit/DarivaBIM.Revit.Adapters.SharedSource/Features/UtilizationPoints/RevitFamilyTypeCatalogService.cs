@@ -18,15 +18,6 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
     /// </summary>
     public sealed class RevitFamilyTypeCatalogService : IFamilyTypeCatalogService
     {
-        private static readonly BuiltInCategory[] PreferredCategories =
-        {
-            BuiltInCategory.OST_PlumbingFixtures,
-            BuiltInCategory.OST_PipeAccessory,
-            BuiltInCategory.OST_PipeFitting,
-            BuiltInCategory.OST_MechanicalEquipment,
-            BuiltInCategory.OST_GenericModel,
-        };
-
         // Tamanho intencionalmente pequeno: o dropdown da WPF redimensiona
         // para ~28 px, então 48 px já cobre exibições em DPI alto sem
         // inchar o JSON/persistência se algum dia decidirmos cachear.
@@ -43,7 +34,7 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
         {
             List<FamilyTypeOptionDto> result = new();
 
-            ElementMulticategoryFilter filter = new(PreferredCategories);
+            ElementCategoryFilter filter = new(BuiltInCategory.OST_PlumbingFixtures);
 
             FilteredElementCollector collector = new(_doc);
             collector.OfClass(typeof(FamilySymbol)).WherePasses(filter);
