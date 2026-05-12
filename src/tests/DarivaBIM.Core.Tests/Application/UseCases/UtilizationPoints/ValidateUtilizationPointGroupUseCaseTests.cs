@@ -6,10 +6,9 @@ namespace DarivaBIM.Core.Tests.Application.UseCases.UtilizationPoints
 {
     public class ValidateUtilizationPointGroupUseCaseTests
     {
-        private static UtilizationPointRule MakeRule(string name, double min, double max, string familyName = "FAM", string typeName = "TYPE")
+        private static UtilizationPointRule MakeRule(double min, double max, string familyName = "FAM", string typeName = "TYPE")
         {
             return new UtilizationPointRule(
-                name,
                 new FamilyTypeReference(familyName, typeName),
                 new HeightRangeMeters(min, max));
         }
@@ -18,7 +17,7 @@ namespace DarivaBIM.Core.Tests.Application.UseCases.UtilizationPoints
         public void Group_with_one_valid_rule_is_valid()
         {
             UtilizationPointGroup group = new("g1", "Banheiro");
-            group.Rules.Add(MakeRule("Chuveiro", 1.90, 2.20));
+            group.Rules.Add(MakeRule(1.90, 2.20));
 
             ValidateUtilizationPointGroupUseCase useCase = new();
             UtilizationPointGroupValidationResult result = useCase.Execute(group);
@@ -42,7 +41,7 @@ namespace DarivaBIM.Core.Tests.Application.UseCases.UtilizationPoints
         public void Invalid_height_range_is_reported()
         {
             UtilizationPointGroup group = new("g1", "Banheiro");
-            group.Rules.Add(MakeRule("Inválida", 0.8, 0.4));
+            group.Rules.Add(MakeRule(0.8, 0.4));
 
             ValidateUtilizationPointGroupUseCase useCase = new();
             UtilizationPointGroupValidationResult result = useCase.Execute(group);
@@ -56,7 +55,6 @@ namespace DarivaBIM.Core.Tests.Application.UseCases.UtilizationPoints
         {
             UtilizationPointGroup group = new("g1", "Banheiro");
             group.Rules.Add(new UtilizationPointRule(
-                "Chuveiro",
                 new FamilyTypeReference(string.Empty, string.Empty),
                 new HeightRangeMeters(1.90, 2.20)));
 

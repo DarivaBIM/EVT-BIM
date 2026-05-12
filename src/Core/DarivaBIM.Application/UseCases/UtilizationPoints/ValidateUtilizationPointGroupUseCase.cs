@@ -11,9 +11,8 @@ namespace DarivaBIM.Application.UseCases.UtilizationPoints
     /// </summary>
     public enum UtilizationPointRuleIssue
     {
-        NameMissing = 0,
-        FamilyTypeMissing = 1,
-        HeightRangeInvalid = 2,
+        FamilyTypeMissing = 0,
+        HeightRangeInvalid = 1,
     }
 
     public sealed class UtilizationPointRuleValidation
@@ -43,10 +42,9 @@ namespace DarivaBIM.Application.UseCases.UtilizationPoints
     }
 
     /// <summary>
-    /// Validações estruturais do grupo ativo antes da inserção. Reflete os
-    /// critérios listados no escopo da ferramenta:
-    /// nome obrigatório, faixa min ≤ max, e existência de tipo de família
-    /// referenciado.
+    /// Validações estruturais do grupo ativo antes da inserção. Cada regra
+    /// precisa ter um tipo de família escolhido e uma faixa de altura coerente
+    /// (min ≤ max).
     /// </summary>
     public sealed class ValidateUtilizationPointGroupUseCase
     {
@@ -58,9 +56,6 @@ namespace DarivaBIM.Application.UseCases.UtilizationPoints
             for (int i = 0; i < group.Rules.Count; i++)
             {
                 UtilizationPointRule rule = group.Rules[i];
-
-                if (string.IsNullOrWhiteSpace(rule.Name))
-                    issues.Add(new UtilizationPointRuleValidation(i, UtilizationPointRuleIssue.NameMissing));
 
                 if (rule.FamilyType == null || rule.FamilyType.IsEmpty)
                     issues.Add(new UtilizationPointRuleValidation(i, UtilizationPointRuleIssue.FamilyTypeMissing));

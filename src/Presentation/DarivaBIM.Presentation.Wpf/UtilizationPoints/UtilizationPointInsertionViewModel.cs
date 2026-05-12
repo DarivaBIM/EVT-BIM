@@ -30,8 +30,6 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
 
         public ObservableCollection<LevelOptionViewModel> Levels { get; } = new();
 
-        public RuleColumnsLayoutViewModel ColumnsLayout { get; } = new();
-
         public int GroupsCount => Groups.Count;
         public bool HasGroups => Groups.Count > 0;
 

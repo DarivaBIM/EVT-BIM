@@ -4,9 +4,9 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using DarivaBIM.Application.Contracts.UtilizationPoints;
 using DarivaBIM.Application.DTOs.UtilizationPoints;
 using DarivaBIM.Application.UseCases.UtilizationPoints;
@@ -22,21 +22,29 @@ namespace DarivaBIM.Plugin.Ui
     /// somente da coreografia entre o <see cref="UtilizationPointInsertionViewModel"/>
     /// e os ExternalEvents que interagem com a Revit API; toda a lógica de
     /// inserção vive em <c>RevitUtilizationPointInsertionService</c>.
+    ///
+    /// Estado do loop de inserção: ao clicar em "Ativar inserção de pontos",
+    /// o handler entra num loop <c>pick → insert → repeat</c>; o usuário
+    /// finaliza cada lote com ENTER/Concluir e encerra com ESC. Fechar a
+    /// janela limpa <see cref="IsLoopActive"/> para o loop sair na próxima
+    /// volta.
     /// </summary>
     public partial class UtilizationPointInsertionWindow : Window
     {
-        private const string RuleDragFormat = "EvtBim.UtilizationPointRule";
+        // Debounce para não escrever JSON em disco a cada keystroke / clique
+        // de seta. 400 ms balanceia "salva rápido" e "não satura I/O".
+        private const int SaveDebounceMilliseconds = 400;
 
         private static UtilizationPointInsertionWindow? _instance;
 
         private readonly IUtilizationPointSettingsStore _settingsStore = new UtilizationPointSettingsStore();
         private readonly UtilizationPointLoadExternalEvent _loadEvent = new();
         private readonly UtilizationPointInsertEvent _insertEvent = new();
+        private readonly DispatcherTimer _saveTimer;
         private bool _suppressActiveGroupChange;
         private bool _initialLoadDone;
-
-        private Point _dragStartPoint;
-        private UtilizationPointRuleViewModel? _draggedRule;
+        private bool _isLoopActive;
+        private bool _isClosing;
 
         public UtilizationPointInsertionViewModel ViewModel { get; }
 
@@ -45,6 +53,12 @@ namespace DarivaBIM.Plugin.Ui
             InitializeComponent();
             ViewModel = new UtilizationPointInsertionViewModel();
             DataContext = ViewModel;
+
+            _saveTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(SaveDebounceMilliseconds),
+            };
+            _saveTimer.Tick += OnSaveTimerTick;
         }
 
         public static UtilizationPointInsertionWindow ShowSingleton()
@@ -61,6 +75,8 @@ namespace DarivaBIM.Plugin.Ui
             _instance.Activate();
             return _instance;
         }
+
+        public bool IsLoopActive => _isLoopActive && !_isClosing;
 
         public void ApplyCatalog(
             IReadOnlyList<FamilyTypeOptionDto> familyTypes,
@@ -96,29 +112,25 @@ namespace DarivaBIM.Plugin.Ui
             }));
         }
 
-        public void ApplyInsertionSummary(InsertionSummaryDto summary)
+        // Chamado depois de CADA lote inserido durante o loop contínuo.
+        // O banner amarelo permanece visível porque IsAwaitingSelection
+        // continua true — o usuário ainda pode emendar outro lote.
+        public void OnInsertionBatchCompleted(InsertionSummaryDto summary)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ViewModel.LastSummary = summary;
                 ViewModel.RefreshMessages();
-                ViewModel.IsBusy = false;
-                ViewModel.IsAwaitingSelection = false;
-
-                if (summary == null)
-                {
-                    ViewModel.StatusMessage = "Execução concluída.";
-                    return;
-                }
-
                 ViewModel.StatusMessage = BuildExecutionStatus(summary);
             }));
         }
 
-        public void NotifyCancelled(string message)
+        // Chamado quando o loop termina (ESC, erro ou janela fechada).
+        public void NotifyInsertionEnded(string message)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                _isLoopActive = false;
                 ViewModel.IsBusy = false;
                 ViewModel.IsAwaitingSelection = false;
                 ViewModel.StatusMessage = message;
@@ -138,8 +150,15 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnWindowClosing(object sender, CancelEventArgs e)
         {
+            _isClosing = true;
+            _isLoopActive = false;
+            ViewModel.IsAwaitingSelection = false;
+
             if (!_initialLoadDone) return;
-            SaveCurrentSettings();
+
+            // Garante salvamento síncrono final, ignorando o debounce.
+            _saveTimer.Stop();
+            SaveCurrentSettingsNow();
         }
 
         private void OnGroupItemClicked(object sender, MouseButtonEventArgs e)
@@ -147,25 +166,22 @@ namespace DarivaBIM.Plugin.Ui
             if (sender is FrameworkElement fe && fe.DataContext is UtilizationPointGroupViewModel group)
             {
                 SetActiveGroup(group);
-                UpdateSidebarSelection();
             }
         }
 
         private void OnNewGroupClicked(object sender, RoutedEventArgs e)
         {
-            string defaultName = "Novo grupo";
             string? name = PromptInline(
                 "Nome do novo grupo",
                 "Ex.: Banheiro, Cozinha, Área de serviço.",
-                defaultName);
+                "Novo grupo");
             if (string.IsNullOrWhiteSpace(name)) return;
 
             UtilizationPointGroupViewModel group = new(Guid.NewGuid().ToString("N"), name!.Trim());
             ViewModel.Groups.Add(group);
             HookGroupEvents(group);
             SetActiveGroup(group);
-            UpdateSidebarSelection();
-            SaveCurrentSettings();
+            ScheduleSave();
         }
 
         private void OnRenameGroupClicked(object sender, RoutedEventArgs e)
@@ -178,7 +194,7 @@ namespace DarivaBIM.Plugin.Ui
 
             group.Name = name!.Trim();
             ViewModel.OnActiveGroupChanged();
-            SaveCurrentSettings();
+            ScheduleSave();
         }
 
         private void OnDuplicateGroupClicked(object sender, RoutedEventArgs e)
@@ -196,8 +212,7 @@ namespace DarivaBIM.Plugin.Ui
             ResolveRuleReferences(clone);
             clone.RefreshSummaries();
             SetActiveGroup(clone);
-            UpdateSidebarSelection();
-            SaveCurrentSettings();
+            ScheduleSave();
         }
 
         private void OnDeleteGroupClicked(object sender, RoutedEventArgs e)
@@ -218,8 +233,7 @@ namespace DarivaBIM.Plugin.Ui
             if (ReferenceEquals(ViewModel.ActiveGroup, group))
                 SetActiveGroup(ViewModel.Groups.FirstOrDefault());
 
-            UpdateSidebarSelection();
-            SaveCurrentSettings();
+            ScheduleSave();
         }
 
         private void OnAddRuleClicked(object sender, RoutedEventArgs e)
@@ -232,7 +246,6 @@ namespace DarivaBIM.Plugin.Ui
 
             UtilizationPointRuleViewModel rule = new()
             {
-                Name = "Novo ponto",
                 MinMeters = 0.0,
                 MaxMeters = 0.5,
             };
@@ -241,7 +254,7 @@ namespace DarivaBIM.Plugin.Ui
             ViewModel.ActiveGroup.RefreshSummaries();
             ViewModel.OnActiveGroupChanged();
             HookRuleEvents(rule);
-            SaveCurrentSettings();
+            ScheduleSave();
         }
 
         private void OnDuplicateRuleClicked(object sender, RoutedEventArgs e)
@@ -262,7 +275,7 @@ namespace DarivaBIM.Plugin.Ui
             HookRuleEvents(clone);
             ViewModel.ActiveGroup.RefreshSummaries();
             ViewModel.OnActiveGroupChanged();
-            SaveCurrentSettings();
+            ScheduleSave();
         }
 
         private void OnDeleteRuleClicked(object sender, RoutedEventArgs e)
@@ -275,7 +288,37 @@ namespace DarivaBIM.Plugin.Ui
             ViewModel.ActiveGroup.Rules.Remove(rule);
             ViewModel.ActiveGroup.RefreshSummaries();
             ViewModel.OnActiveGroupChanged();
-            SaveCurrentSettings();
+            ScheduleSave();
+        }
+
+        private void OnMoveRuleUpClicked(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.Tag is not UtilizationPointRuleViewModel rule) return;
+            if (ViewModel.ActiveGroup == null) return;
+
+            int index = ViewModel.ActiveGroup.Rules.IndexOf(rule);
+            if (index <= 0) return;
+
+            ViewModel.ActiveGroup.Rules.Move(index, index - 1);
+            ViewModel.ActiveGroup.RefreshSummaries();
+            ViewModel.OnActiveGroupChanged();
+            ScheduleSave();
+        }
+
+        private void OnMoveRuleDownClicked(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.Tag is not UtilizationPointRuleViewModel rule) return;
+            if (ViewModel.ActiveGroup == null) return;
+
+            int index = ViewModel.ActiveGroup.Rules.IndexOf(rule);
+            if (index < 0 || index >= ViewModel.ActiveGroup.Rules.Count - 1) return;
+
+            ViewModel.ActiveGroup.Rules.Move(index, index + 1);
+            ViewModel.ActiveGroup.RefreshSummaries();
+            ViewModel.OnActiveGroupChanged();
+            ScheduleSave();
         }
 
         private void OnImportPresetClicked(object sender, RoutedEventArgs e)
@@ -308,8 +351,7 @@ namespace DarivaBIM.Plugin.Ui
                 if (ViewModel.ActiveGroup == null)
                     SetActiveGroup(ViewModel.Groups.FirstOrDefault());
 
-                UpdateSidebarSelection();
-                SaveCurrentSettings();
+                ScheduleSave();
                 ViewModel.StatusMessage = $"Preset importado de {dlg.FileName}.";
             }
             catch (Exception ex)
@@ -353,110 +395,11 @@ namespace DarivaBIM.Plugin.Ui
         {
             if (!EnsureActiveGroupReadyForInsertion(out UtilizationPointGroup? domainGroup)) return;
 
+            _isLoopActive = true;
             ViewModel.IsBusy = true;
             ViewModel.IsAwaitingSelection = true;
             ViewModel.StatusMessage = "Aguardando seleção no Revit…";
-            _insertEvent.Raise(
-                this,
-                domainGroup!,
-                ViewModel.SelectedLevel?.ElementId);
-        }
-
-        // ---- Column resizers ----
-
-        private void OnColumnResizerDragDelta(object sender, DragDeltaEventArgs e)
-        {
-            if (sender is not Thumb thumb || thumb.Tag is not string column) return;
-
-            RuleColumnsLayoutViewModel layout = ViewModel.ColumnsLayout;
-            switch (column)
-            {
-                case "Name":
-                    layout.NameWidth += e.HorizontalChange;
-                    break;
-                case "Type":
-                    layout.TypeWidth += e.HorizontalChange;
-                    break;
-                case "MinHeight":
-                    layout.MinHeightWidth += e.HorizontalChange;
-                    break;
-                case "MaxHeight":
-                    layout.MaxHeightWidth += e.HorizontalChange;
-                    break;
-                case "Status":
-                    layout.StatusWidth += e.HorizontalChange;
-                    break;
-            }
-        }
-
-        // ---- Drag-drop reorder of rules ----
-
-        private void OnRuleDragHandleMouseDown(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is not FrameworkElement fe) return;
-            if (fe.DataContext is not UtilizationPointRuleViewModel rule) return;
-
-            _dragStartPoint = e.GetPosition(this);
-            _draggedRule = rule;
-        }
-
-        private void OnWindowPreviewMouseMove(object sender, MouseEventArgs e)
-        {
-            if (e.LeftButton != MouseButtonState.Pressed) return;
-            if (_draggedRule == null) return;
-
-            Point pos = e.GetPosition(this);
-            if (Math.Abs(pos.X - _dragStartPoint.X) <= SystemParameters.MinimumHorizontalDragDistance
-                && Math.Abs(pos.Y - _dragStartPoint.Y) <= SystemParameters.MinimumVerticalDragDistance)
-            {
-                return;
-            }
-
-            UtilizationPointRuleViewModel rule = _draggedRule;
-            _draggedRule = null;
-
-            try
-            {
-                DataObject data = new(RuleDragFormat, rule);
-                DragDrop.DoDragDrop(this, data, DragDropEffects.Move);
-            }
-            catch
-            {
-                // DoDragDrop pode lançar se a window perde foco no meio do
-                // gesto; ignorar mantém a UI estável.
-            }
-        }
-
-        private void OnWindowPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            _draggedRule = null;
-        }
-
-        private void OnRuleRowDragOver(object sender, DragEventArgs e)
-        {
-            e.Effects = e.Data.GetDataPresent(RuleDragFormat)
-                ? DragDropEffects.Move
-                : DragDropEffects.None;
-            e.Handled = true;
-        }
-
-        private void OnRuleRowDrop(object sender, DragEventArgs e)
-        {
-            if (sender is not FrameworkElement fe) return;
-            if (fe.DataContext is not UtilizationPointRuleViewModel target) return;
-            if (e.Data.GetData(RuleDragFormat) is not UtilizationPointRuleViewModel source) return;
-            if (ViewModel.ActiveGroup == null) return;
-            if (ReferenceEquals(source, target)) return;
-
-            int oldIndex = ViewModel.ActiveGroup.Rules.IndexOf(source);
-            int newIndex = ViewModel.ActiveGroup.Rules.IndexOf(target);
-            if (oldIndex < 0 || newIndex < 0) return;
-
-            ViewModel.ActiveGroup.Rules.Move(oldIndex, newIndex);
-            ViewModel.ActiveGroup.RefreshSummaries();
-            ViewModel.OnActiveGroupChanged();
-            SaveCurrentSettings();
-            e.Handled = true;
+            _insertEvent.Raise(this, domainGroup!, ViewModel.SelectedLevel?.ElementId);
         }
 
         // ---------------- Helpers ----------------
@@ -475,22 +418,43 @@ namespace DarivaBIM.Plugin.Ui
 
             if (ViewModel.Groups.Count == 0)
             {
-                ViewModel.Groups.Add(BuildDefaultBathroomGroup());
-                HookGroupEvents(ViewModel.Groups[0]);
+                UtilizationPointGroupViewModel defaultGroup = BuildDefaultBathroomGroup();
+                ViewModel.Groups.Add(defaultGroup);
+                HookGroupEvents(defaultGroup);
             }
 
             SetActiveGroup(ViewModel.Groups[0]);
-            UpdateSidebarSelection();
         }
 
-        private void SaveCurrentSettings()
+        // ScheduleSave reinicia o timer; SaveCurrentSettingsNow grava de fato.
+        private void ScheduleSave()
+        {
+            if (_isClosing) return;
+            _saveTimer.Stop();
+            _saveTimer.Start();
+        }
+
+        private void OnSaveTimerTick(object? sender, EventArgs e)
+        {
+            _saveTimer.Stop();
+            SaveCurrentSettingsNow();
+        }
+
+        private void SaveCurrentSettingsNow()
         {
             UtilizationPointProfilesDto profiles = new();
             for (int i = 0; i < ViewModel.Groups.Count; i++)
             {
                 profiles.Groups.Add(ViewModel.Groups[i].ToDto());
             }
-            _settingsStore.Save(profiles);
+            try
+            {
+                _settingsStore.Save(profiles);
+            }
+            catch
+            {
+                // Persistência best-effort — não quebrar UX por falha de disco.
+            }
         }
 
         private void SetActiveGroup(UtilizationPointGroupViewModel? group)
@@ -508,16 +472,11 @@ namespace DarivaBIM.Plugin.Ui
             ViewModel.OnActiveGroupChanged();
         }
 
-        private void UpdateSidebarSelection()
-        {
-            // Visual selection is implicit via DataTemplate styling; we
-            // simply ensure the active group is visible.
-        }
-
         private void HookGroupEvents(UtilizationPointGroupViewModel group)
         {
             group.PropertyChanged += OnGroupChanged;
-            group.Rules.CollectionChanged += (_, _) => OnGroupChanged(group, new PropertyChangedEventArgs(nameof(group.Rules)));
+            group.Rules.CollectionChanged += (_, _) =>
+                OnGroupChanged(group, new PropertyChangedEventArgs(nameof(group.Rules)));
             for (int i = 0; i < group.Rules.Count; i++)
             {
                 HookRuleEvents(group.Rules[i]);
@@ -539,14 +498,8 @@ namespace DarivaBIM.Plugin.Ui
             if (_suppressActiveGroupChange) return;
             if (sender is UtilizationPointGroupViewModel)
             {
-                // Não chamar group.RefreshSummaries() aqui: este handler está
-                // inscrito em group.PropertyChanged, e RefreshSummaries dispara
-                // OnPropertyChanged nas seis propriedades de sumário do próprio
-                // group — voltariam pra cá em recursão infinita (StackOverflow).
-                // O group já se auto-atualiza quando Rules muda via o
-                // CollectionChanged interno do construtor.
                 ViewModel.OnActiveGroupChanged();
-                SaveCurrentSettings();
+                ScheduleSave();
             }
         }
 
@@ -554,13 +507,30 @@ namespace DarivaBIM.Plugin.Ui
         {
             if (_suppressActiveGroupChange) return;
             if (sender is not UtilizationPointRuleViewModel rule) return;
+
+            // Status é propriedade derivada — quando ele muda, é porque já
+            // recalculamos. Evitamos um round trip que dispararia outro
+            // RefreshSummaries desnecessário e outra escrita em disco.
+            if (e.PropertyName == nameof(UtilizationPointRuleViewModel.Status)
+                || e.PropertyName == nameof(UtilizationPointRuleViewModel.StatusLabel)
+                || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsOk)
+                || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsWarning))
+            {
+                if (ViewModel.ActiveGroup != null)
+                {
+                    ViewModel.ActiveGroup.RefreshSummaries();
+                    ViewModel.OnActiveGroupChanged();
+                }
+                return;
+            }
+
             RefreshRuleStatus(rule);
             if (ViewModel.ActiveGroup != null)
             {
                 ViewModel.ActiveGroup.RefreshSummaries();
                 ViewModel.OnActiveGroupChanged();
             }
-            SaveCurrentSettings();
+            ScheduleSave();
         }
 
         private void ResolveAllRuleReferences()
@@ -611,18 +581,12 @@ namespace DarivaBIM.Plugin.Ui
 
         private static void RefreshRuleStatus(UtilizationPointRuleViewModel rule)
         {
-            if (string.IsNullOrWhiteSpace(rule.Name))
-            {
-                rule.Status = UtilizationPointRuleStatus.NameMissing;
-                return;
-            }
-
             if (rule.SelectedFamilyType == null)
             {
-                if (!string.IsNullOrWhiteSpace(rule.SavedFamilyName) || !string.IsNullOrWhiteSpace(rule.SavedTypeName))
-                    rule.Status = UtilizationPointRuleStatus.FamilyTypeNotFoundInDocument;
-                else
-                    rule.Status = UtilizationPointRuleStatus.FamilyTypeMissing;
+                rule.Status = !string.IsNullOrWhiteSpace(rule.SavedFamilyName)
+                              || !string.IsNullOrWhiteSpace(rule.SavedTypeName)
+                    ? UtilizationPointRuleStatus.FamilyTypeNotFoundInDocument
+                    : UtilizationPointRuleStatus.FamilyTypeMissing;
                 return;
             }
 
@@ -651,7 +615,7 @@ namespace DarivaBIM.Plugin.Ui
             UtilizationPointGroupValidationResult validation = validator.Execute(domain);
             if (!validation.IsValid)
             {
-                ViewModel.StatusMessage = "O grupo ativo precisa ter pelo menos uma regra válida (nome, tipo e faixa de altura).";
+                ViewModel.StatusMessage = "O grupo ativo precisa ter pelo menos uma regra válida (tipo e faixa de altura).";
                 return false;
             }
 
@@ -659,9 +623,9 @@ namespace DarivaBIM.Plugin.Ui
             return true;
         }
 
-        private string BuildExecutionStatus(InsertionSummaryDto summary)
+        private static string BuildExecutionStatus(InsertionSummaryDto summary)
         {
-            return $"Última execução: {summary.PointsInserted} inseridos ({summary.PointsConnected} conectados), " +
+            return $"Último lote: {summary.PointsInserted} inseridos ({summary.PointsConnected} conectados), " +
                 $"{summary.ConnectorsWithoutRange} sem faixa, {summary.Errors} erros.";
         }
 
@@ -676,33 +640,17 @@ namespace DarivaBIM.Plugin.Ui
             return null;
         }
 
+        // Grupo padrão para a primeira abertura: faixas comuns de banheiro,
+        // sem tipos preenchidos (o usuário escolhe a partir do catálogo do
+        // documento). Mantém o "starting kit" útil sem amarrar a UI a nomes
+        // específicos de famílias.
         private static UtilizationPointGroupViewModel BuildDefaultBathroomGroup()
         {
             UtilizationPointGroupViewModel group = new(Guid.NewGuid().ToString("N"), "Banheiro");
-            group.Rules.Add(new UtilizationPointRuleViewModel
-            {
-                Name = "Chuveiro",
-                MinMeters = 1.9,
-                MaxMeters = 2.2,
-            });
-            group.Rules.Add(new UtilizationPointRuleViewModel
-            {
-                Name = "Vaso sanitário",
-                MinMeters = 0.10,
-                MaxMeters = 0.30,
-            });
-            group.Rules.Add(new UtilizationPointRuleViewModel
-            {
-                Name = "Ducha higiênica",
-                MinMeters = 0.30,
-                MaxMeters = 0.50,
-            });
-            group.Rules.Add(new UtilizationPointRuleViewModel
-            {
-                Name = "Lavatório",
-                MinMeters = 0.50,
-                MaxMeters = 0.80,
-            });
+            group.Rules.Add(new UtilizationPointRuleViewModel { MinMeters = 1.9, MaxMeters = 2.2 });
+            group.Rules.Add(new UtilizationPointRuleViewModel { MinMeters = 0.10, MaxMeters = 0.30 });
+            group.Rules.Add(new UtilizationPointRuleViewModel { MinMeters = 0.30, MaxMeters = 0.50 });
+            group.Rules.Add(new UtilizationPointRuleViewModel { MinMeters = 0.50, MaxMeters = 0.80 });
             return group;
         }
 

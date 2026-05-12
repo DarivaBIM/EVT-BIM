@@ -6,11 +6,10 @@ namespace DarivaBIM.Core.Tests.Application.UseCases.UtilizationPoints
 {
     public class ResolveUtilizationPointRuleUseCaseTests
     {
-        private static UtilizationPointRule MakeRule(string name, double min, double max)
+        private static UtilizationPointRule MakeRule(string id, double min, double max)
         {
             return new UtilizationPointRule(
-                name,
-                new FamilyTypeReference($"Família {name}", $"Tipo {name}", "Plumbing"),
+                new FamilyTypeReference($"Família {id}", $"Tipo {id}", "Plumbing"),
                 new HeightRangeMeters(min, max));
         }
 
@@ -26,7 +25,7 @@ namespace DarivaBIM.Core.Tests.Application.UseCases.UtilizationPoints
             ResolveRuleResult result = useCase.Execute(group, 0.20);
 
             Assert.True(result.HasMatch);
-            Assert.Equal("Vaso sanitário", result.Rule!.Name);
+            Assert.Equal("Tipo Vaso sanitário", result.Rule!.FamilyType.TypeName);
             Assert.False(result.OverlapDetected);
         }
 
@@ -55,7 +54,7 @@ namespace DarivaBIM.Core.Tests.Application.UseCases.UtilizationPoints
             ResolveRuleResult result = useCase.Execute(group, 0.85);
 
             Assert.True(result.HasMatch);
-            Assert.Equal("Lavatório", result.Rule!.Name);
+            Assert.Equal("Tipo Lavatório", result.Rule!.FamilyType.TypeName);
             Assert.True(result.OverlapDetected);
         }
 
@@ -72,7 +71,7 @@ namespace DarivaBIM.Core.Tests.Application.UseCases.UtilizationPoints
             ResolveRuleResult result = useCase.Execute(group, 0.75);
 
             Assert.True(result.HasMatch);
-            Assert.Equal("Válida", result.Rule!.Name);
+            Assert.Equal("Tipo Válida", result.Rule!.FamilyType.TypeName);
         }
 
         [Fact]
