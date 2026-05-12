@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using Autodesk.Revit.DB;
 using DarivaBIM.Application.Contracts.UtilizationPoints;
 using DarivaBIM.Application.DTOs.UtilizationPoints;
@@ -23,6 +26,11 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
             BuiltInCategory.OST_MechanicalEquipment,
             BuiltInCategory.OST_GenericModel,
         };
+
+        // Tamanho intencionalmente pequeno: o dropdown da WPF redimensiona
+        // para ~28 px, então 48 px já cobre exibições em DPI alto sem
+        // inchar o JSON/persistência se algum dia decidirmos cachear.
+        private static readonly Size PreviewSize = new(48, 48);
 
         private readonly Document _doc;
 
@@ -60,12 +68,15 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
                 try { uniqueId = symbol.UniqueId ?? string.Empty; }
                 catch { uniqueId = string.Empty; }
 
+                byte[]? thumbnail = TryGetThumbnail(symbol);
+
                 result.Add(new FamilyTypeOptionDto(
                     elementId: symbol.Id.Value,
                     uniqueId: uniqueId,
                     familyName: familyName,
                     typeName: typeName,
-                    categoryName: categoryName));
+                    categoryName: categoryName,
+                    thumbnailPng: thumbnail));
             }
 
             result.Sort((a, b) =>
@@ -104,6 +115,26 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
 
             result.Sort((a, b) => a.ElevationMeters.CompareTo(b.ElevationMeters));
             return result;
+        }
+
+        // Best-effort: alguns FamilySymbols (família in-place, instâncias
+        // corrompidas, etc.) lançam ao pedir a preview. Tratar como "sem
+        // thumbnail" e deixar a WPF cair no badge "F" mantém a UX consistente.
+        private static byte[]? TryGetThumbnail(FamilySymbol symbol)
+        {
+            try
+            {
+                using Bitmap? bitmap = symbol.GetPreviewImage(PreviewSize);
+                if (bitmap == null) return null;
+
+                using MemoryStream stream = new();
+                bitmap.Save(stream, ImageFormat.Png);
+                return stream.ToArray();
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }
