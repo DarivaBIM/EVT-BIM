@@ -167,6 +167,27 @@ namespace DarivaBIM.Plugin.Ui
 
         // ---------------- Event handlers ----------------
 
+        // Botões da title bar custom. WindowStyle="None" + WindowChrome no
+        // XAML retiram o chrome padrão do OS, então precisamos comandar o
+        // ciclo de janela manualmente. Nenhuma regra de negócio aqui — só
+        // espelham o que o chrome nativo faria.
+        private void OnTitleBarMinimizeClicked(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        private void OnTitleBarMaximizeClicked(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState == WindowState.Maximized
+                ? WindowState.Normal
+                : WindowState.Maximized;
+        }
+
+        private void OnTitleBarCloseClicked(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+
         private void OnWindowLoaded(object sender, RoutedEventArgs e)
         {
             LoadGroupsFromSettings();
