@@ -23,6 +23,7 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <common:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <common:OneBasedIndexConverter x:Key="OneBasedIndex" />
 
         <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="SoftBorderBrush" Color="#D8E0EA" />
@@ -139,12 +140,158 @@
         </Style>
 
         <!-- Larguras das colunas: cabeçalho e linhas compartilham. Tipo é Star
-             para flexar com o tamanho da janela; demais são fixas e enxutas. -->
+             para flexar com o tamanho da janela; demais são fixas e enxutas.
+             Min/Max ganharam 8 px a mais para acomodar o sufixo " m" depois
+             do campo numérico. -->
         <GridLength x:Key="ColReorderWidth">28</GridLength>
-        <GridLength x:Key="ColAltMinWidth">64</GridLength>
-        <GridLength x:Key="ColAltMaxWidth">64</GridLength>
+        <GridLength x:Key="ColAltMinWidth">72</GridLength>
+        <GridLength x:Key="ColAltMaxWidth">72</GridLength>
         <GridLength x:Key="ColStatusWidth">56</GridLength>
         <GridLength x:Key="ColActionsWidth">70</GridLength>
+
+        <!-- ScrollBar slim: trilho transparente, polegar arredondado e
+             discreto, com leve realce no hover. Auto-hide é mantido via
+             VerticalScrollBarVisibility="Auto" no ScrollViewer; quando some,
+             o gutter reservado no cabeçalho cobre a diferença de largura. -->
+        <Style x:Key="SlimScrollBarThumbStyle" TargetType="Thumb">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ThumbBorder"
+                                Background="#C8D2DE"
+                                CornerRadius="4"
+                                Margin="2,2,2,2" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#94A3B8" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#64748B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SlimScrollBarStyle" TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Width" Value="8" />
+            <Setter Property="MinWidth" Value="8" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent" SnapsToDevicePixels="True">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource SlimScrollBarThumbStyle}" />
+                                </Track.Thumb>
+                                <!-- Page-up/page-down botões invisíveis para
+                                     manter o gesto de clicar no trilho. -->
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand"
+                                                  Opacity="0"
+                                                  Focusable="False"
+                                                  IsTabStop="False" />
+                                </Track.IncreaseRepeatButton>
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand"
+                                                  Opacity="0"
+                                                  Focusable="False"
+                                                  IsTabStop="False" />
+                                </Track.DecreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="8" />
+                    <Setter Property="MinHeight" Value="8" />
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="MinWidth" Value="0" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ScrollViewer que aplica a SlimScrollBar como padrão. A coluna do
+             scrollbar é fixa em 8 px sempre — isso reserva o "gutter"
+             permanente para que o cabeçalho de colunas não desalinhe quando a
+             barra entra/sai. Quando não há overflow, a coluna fica
+             transparente. -->
+        <Style x:Key="SlimScrollViewerStyle" TargetType="ScrollViewer">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <ScrollContentPresenter Grid.Column="0" Grid.Row="0"
+                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                    Margin="{TemplateBinding Padding}" />
+                            <ScrollBar x:Name="PART_VerticalScrollBar"
+                                       Grid.Column="1" Grid.Row="0"
+                                       Style="{StaticResource SlimScrollBarStyle}"
+                                       Orientation="Vertical"
+                                       Maximum="{TemplateBinding ScrollableHeight}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}"
+                                       Value="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                            <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                       Grid.Column="0" Grid.Row="1"
+                                       Style="{StaticResource SlimScrollBarStyle}"
+                                       Orientation="Horizontal"
+                                       Maximum="{TemplateBinding ScrollableWidth}"
+                                       ViewportSize="{TemplateBinding ViewportWidth}"
+                                       Value="{Binding HorizontalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Ícones vetoriais (Path) usados nos badges de status. Trocam os
+             glifos Unicode ✓/⚠, que ficavam dependentes da fonte instalada e
+             desalinhavam por causa do baseline. -->
+        <Geometry x:Key="CheckIconGeometry">M2,6 L5,9 L10,2.5</Geometry>
+        <Geometry x:Key="WarningIconGeometry">M6,1 L11,10 L1,10 Z M6,4.2 L6,7.2 M6,8.4 L6,9.0</Geometry>
+
+        <Style x:Key="StatusBadgeStyle" TargetType="Border">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="CornerRadius" Value="11" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="UseLayoutRounding" Value="True" />
+        </Style>
+
+        <!-- TextBox dedicado às colunas Alt.Mín/Alt.Máx: alinhamento à
+             direita (deixa o sufixo "m" colado no número) e borda vermelha
+             quando a regra está com Max < Min. Reage a IsRangeInvalid do
+             RuleViewModel via DataTrigger. -->
+        <Style x:Key="HeightTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+            <Setter Property="Padding" Value="6,4,2,4" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsRangeInvalid}" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -229,10 +376,39 @@
                     </Border>
                 </Grid>
 
-                <ScrollViewer Grid.Row="1"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Padding="4,0,4,6">
+                <Grid Grid.Row="1">
+                    <!-- Empty state quando o usuário apagou todos os grupos.
+                         O default-loader recria um Banheiro padrão na primeira
+                         abertura, então isso só aparece após delete manual. -->
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Margin="20,0,20,20"
+                                Visibility="{Binding HasGroups, Converter={StaticResource InverseBoolToVisibility}}">
+                        <TextBlock Text="📁"
+                                   FontSize="22"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   Text="Nenhum grupo ainda" />
+                        <TextBlock Margin="0,2,0,0"
+                                   FontSize="10.5"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Text="Crie um para começar a configurar as regras de inserção." />
+                    </StackPanel>
+
+                    <ScrollViewer Style="{StaticResource SlimScrollViewerStyle}"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="4,0,4,6"
+                                  Visibility="{Binding HasGroups, Converter={StaticResource BoolToVisibility}}">
                     <ItemsControl ItemsSource="{Binding Groups}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vmup:UtilizationPointGroupViewModel}">
@@ -240,9 +416,19 @@
                                         CornerRadius="8"
                                         Padding="8,6"
                                         BorderThickness="1"
-                                        Background="{StaticResource SidebarItemBackgroundBrush}"
-                                        BorderBrush="{StaticResource RuleCardBorderBrush}"
                                         MouseLeftButtonUp="OnGroupItemClicked">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource SidebarItemBackgroundBrush}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource RuleCardBorderBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                    <Setter Property="Background" Value="#EFF6FF" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -311,7 +497,8 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
+                    </ScrollViewer>
+                </Grid>
 
                 <Button Grid.Row="2"
                         Style="{StaticResource GhostButtonStyle}"
@@ -403,12 +590,21 @@
                                    Foreground="{StaticResource ChipOkForegroundBrush}" />
                     </Border>
                 </StackPanel>
-                <Button Grid.Column="1"
-                        Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="0"
-                        Padding="12,0"
-                        Click="OnAddRuleClicked"
-                        Content="+ Adicionar ponto" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource GhostButtonStyle}"
+                            MinWidth="0"
+                            Padding="10,0"
+                            Click="OnRestoreDefaultsClicked"
+                            ToolTip="Substitui as regras atuais pelo preset padrão de banheiro."
+                            Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}"
+                            Content="↻ Restaurar padrões" />
+                    <Button Style="{StaticResource PrimaryButtonStyle}"
+                            Margin="8,0,0,0"
+                            MinWidth="0"
+                            Padding="12,0"
+                            Click="OnAddRuleClicked"
+                            Content="+ Adicionar ponto" />
+                </StackPanel>
             </Grid>
 
             <!-- Summary chips: agora ficam logo abaixo do nome do grupo, fora
@@ -558,7 +754,10 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- Column header -->
+                <!-- Column header. A última coluna de 8 px casa exatamente com
+                     o gutter reservado pelo SlimScrollViewerStyle, de modo
+                     que o cabeçalho permaneça alinhado às linhas haja ou não
+                     scrollbar. -->
                 <Grid Grid.Row="0" Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="{StaticResource ColReorderWidth}" />
@@ -567,6 +766,7 @@
                         <ColumnDefinition Width="{StaticResource ColAltMaxWidth}" />
                         <ColumnDefinition Width="{StaticResource ColStatusWidth}" />
                         <ColumnDefinition Width="{StaticResource ColActionsWidth}" />
+                        <ColumnDefinition Width="8" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="1"
                                Style="{StaticResource LabelStyle}"
@@ -597,21 +797,39 @@
                 </Grid>
 
                 <ScrollViewer Grid.Row="1"
+                              Style="{StaticResource SlimScrollViewerStyle}"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}">
-                    <ItemsControl ItemsSource="{Binding ActiveRules}">
+                    <ItemsControl ItemsSource="{Binding ActiveRules}" AlternationCount="999">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vmup:UtilizationPointRuleViewModel}">
+                                <!-- Borda vira amarela suave quando a regra
+                                     compartilha faixa com outra do mesmo
+                                     grupo — em caso de empate, a primeira
+                                     na ordem ganha. -->
                                 <Border Margin="0,0,0,6"
                                         CornerRadius="10"
                                         Padding="4,6"
                                         AllowDrop="True"
                                         DragOver="OnRuleRowDragOver"
                                         Drop="OnRuleRowDrop"
+                                        Focusable="True"
+                                        IsTabStop="False"
+                                        FocusVisualStyle="{x:Null}"
+                                        KeyDown="OnRuleRowKeyDown"
                                         Background="{StaticResource RuleCardBackgroundBrush}"
-                                        BorderThickness="1"
-                                        BorderBrush="{StaticResource RuleCardBorderBrush}">
+                                        BorderThickness="1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="{StaticResource RuleCardBorderBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasOverlap}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid VerticalAlignment="Center">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="{StaticResource ColReorderWidth}" />
@@ -622,18 +840,28 @@
                                             <ColumnDefinition Width="{StaticResource ColActionsWidth}" />
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Drag handle: 6 pontinhos para segurar e arrastar -->
+                                        <!-- Drag handle: número da linha em cima, 6 pontinhos
+                                             embaixo. AlternationIndex vem do ContentPresenter
+                                             gerado pelo ItemsControl com AlternationCount="999"
+                                             — é 0-baseado, daí o OneBasedIndex. -->
                                         <Border Grid.Column="0"
-                                                Width="24" Height="32"
+                                                Width="26" Height="40"
                                                 Background="Transparent"
                                                 Cursor="SizeAll"
                                                 PreviewMouseLeftButtonDown="OnRuleDragHandleMouseDown"
                                                 ToolTip="Arraste para reordenar (a ordem define preferência em caso de empate de faixa).">
-                                            <TextBlock Text="⋮⋮"
-                                                       Foreground="{StaticResource MutedBrush}"
-                                                       FontSize="14"
-                                                       VerticalAlignment="Center"
-                                                       HorizontalAlignment="Center" />
+                                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType={x:Type ContentPresenter}}, Converter={StaticResource OneBasedIndex}}"
+                                                           FontSize="9"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           HorizontalAlignment="Center" />
+                                                <TextBlock Text="⋮⋮"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           FontSize="13"
+                                                           Margin="0,-1,0,0"
+                                                           HorizontalAlignment="Center" />
+                                            </StackPanel>
                                         </Border>
 
                                         <ComboBox Grid.Column="1"
@@ -688,25 +916,51 @@
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
 
-                                        <TextBox Grid.Column="2"
-                                                 Margin="2,0,2,0"
-                                                 HorizontalContentAlignment="Center"
-                                                 Text="{Binding MinMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
+                                        <!-- Min/Max com sufixo "m" colado no número, deixando claro
+                                             que o valor está em metros (unidade interna do tool).
+                                             A unidade é fixa em metros independentemente da unidade
+                                             do projeto Revit: a conversão acontece no insertion
+                                             service via RevitUnitConverter.FeetToMeters. -->
+                                        <Grid Grid.Column="2" Margin="2,0,2,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0"
+                                                     Style="{StaticResource HeightTextBoxStyle}"
+                                                     Text="{Binding MinMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="m"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="3,0,4,0" />
+                                        </Grid>
 
-                                        <TextBox Grid.Column="3"
-                                                 Margin="2,0,2,0"
-                                                 HorizontalContentAlignment="Center"
-                                                 Text="{Binding MaxMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
+                                        <Grid Grid.Column="3" Margin="2,0,2,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0"
+                                                     Style="{StaticResource HeightTextBoxStyle}"
+                                                     Text="{Binding MaxMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="m"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="3,0,4,0" />
+                                        </Grid>
 
-                                        <!-- Status: badge circular só com ícone. Texto vai no tooltip. -->
+                                        <!-- Status: badge circular com ícone vetorial. Os Paths
+                                             usam o eixo 12×12 do Geometry; StrokeThickness 1.8
+                                             dá um traço crisp em DPI normal e Retina. -->
                                         <Border Grid.Column="4"
-                                                Width="28" Height="28"
-                                                CornerRadius="14"
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
+                                                Style="{StaticResource StatusBadgeStyle}"
                                                 ToolTip="{Binding StatusLabel}">
                                             <Border.Style>
-                                                <Style TargetType="Border">
+                                                <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeStyle}">
                                                     <Setter Property="Background" Value="{StaticResource ChipOkBackgroundBrush}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsOk}" Value="False">
@@ -715,23 +969,22 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
-                                            <TextBlock VerticalAlignment="Center"
-                                                       HorizontalAlignment="Center"
-                                                       FontSize="13"
-                                                       FontWeight="Bold">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Text" Value="✓" />
-                                                        <Setter Property="Foreground" Value="{StaticResource ChipOkForegroundBrush}" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsOk}" Value="False">
-                                                                <Setter Property="Text" Value="⚠" />
-                                                                <Setter Property="Foreground" Value="{StaticResource ChipWarningForegroundBrush}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
+                                            <Grid Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Path Data="{StaticResource CheckIconGeometry}"
+                                                      Stroke="{StaticResource ChipOkForegroundBrush}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Visibility="{Binding IsOk, Converter={StaticResource BoolToVisibility}}" />
+                                                <Path Data="{StaticResource WarningIconGeometry}"
+                                                      Stroke="{StaticResource ChipWarningForegroundBrush}"
+                                                      StrokeThickness="1.6"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Visibility="{Binding IsWarning, Converter={StaticResource BoolToVisibility}}" />
+                                            </Grid>
                                         </Border>
 
                                         <StackPanel Grid.Column="5"
