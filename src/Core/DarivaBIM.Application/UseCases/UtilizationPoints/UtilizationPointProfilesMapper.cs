@@ -24,7 +24,6 @@ namespace DarivaBIM.Application.UseCases.UtilizationPoints
                     uniqueId: rd.UniqueId);
 
                 rules.Add(new UtilizationPointRule(
-                    rd.Name ?? string.Empty,
                     reference,
                     new HeightRangeMeters(rd.MinMeters, rd.MaxMeters)));
             }
@@ -48,7 +47,6 @@ namespace DarivaBIM.Application.UseCases.UtilizationPoints
                 UtilizationPointRule r = group.Rules[i];
                 dto.Rules.Add(new UtilizationPointRuleDto
                 {
-                    Name = r.Name,
                     FamilyName = r.FamilyType.FamilyName,
                     TypeName = r.FamilyType.TypeName,
                     CategoryName = r.FamilyType.CategoryName,

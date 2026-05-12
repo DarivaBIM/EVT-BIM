@@ -203,7 +203,7 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
                 summary.Errors++;
                 summary.Messages.Add(new InsertionMessageDto(
                     UtilizationPointInsertionOutcome.FamilyMissing,
-                    $"Regra '{rule.Name}' aponta para um tipo de família não encontrado no documento."));
+                    $"Regra '{rule.FamilyType}' aponta para um tipo de família não encontrado no documento."));
                 return;
             }
 
@@ -223,7 +223,7 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
                     summary.PointsConnected++;
                     summary.Messages.Add(new InsertionMessageDto(
                         UtilizationPointInsertionOutcome.InsertedAndConnected,
-                        $"{rule.Name} inserido a {heightMeters:0.000} m no elemento {element.Id.Value}."));
+                        $"{rule.FamilyType} inserido a {heightMeters:0.000} m no elemento {element.Id.Value}."));
                     break;
 
                 case RevitFamilyInstancePlacementService.PlacementOutcome.CreatedNotConnected:
@@ -231,7 +231,7 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
                     summary.PointsInserted++;
                     summary.Messages.Add(new InsertionMessageDto(
                         UtilizationPointInsertionOutcome.InsertedNotConnected,
-                        $"{rule.Name} a {heightMeters:0.000} m no elemento {element.Id.Value}: {result.Message}"));
+                        $"{rule.FamilyType} a {heightMeters:0.000} m no elemento {element.Id.Value}: {result.Message}"));
                     break;
 
                 case RevitFamilyInstancePlacementService.PlacementOutcome.CreationFailed:
@@ -239,7 +239,7 @@ namespace DarivaBIM.Revit.Adapters.Features.UtilizationPoints
                     summary.Errors++;
                     summary.Messages.Add(new InsertionMessageDto(
                         UtilizationPointInsertionOutcome.CreationError,
-                        $"Falha ao inserir '{rule.Name}' no elemento {element.Id.Value}: {result.Message}"));
+                        $"Falha ao inserir '{rule.FamilyType}' no elemento {element.Id.Value}: {result.Message}"));
                     break;
             }
         }

@@ -5,28 +5,13 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
 {
     /// <summary>
     /// Linha de regra dentro de um <see cref="UtilizationPointGroupViewModel"/>.
-    /// Mantém os campos editáveis pela UI (nome, tipo, faixa) e o estado de
+    /// Mantém os campos editáveis pela UI (tipo, faixa) e o estado de
     /// validação, sem qualquer dependência de Revit API. As propriedades de
-    /// "saved type" servem para mostrar "Tipo não encontrado" quando o
-    /// dropdown não consegue resolver a referência persistida.
+    /// "saved type" servem para mostrar "Tipo ausente" quando o dropdown não
+    /// consegue resolver a referência persistida no documento atual.
     /// </summary>
     public class UtilizationPointRuleViewModel : ObservableObject
     {
-        private string _name = string.Empty;
-        public string Name
-        {
-            get => _name;
-            set
-            {
-                if (SetField(ref _name, value))
-                {
-                    OnPropertyChanged(nameof(HasName));
-                }
-            }
-        }
-
-        public bool HasName => !string.IsNullOrWhiteSpace(Name);
-
         private FamilyTypeOptionViewModel? _selectedFamilyType;
         public FamilyTypeOptionViewModel? SelectedFamilyType
         {
@@ -147,7 +132,7 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             }
         }
 
-        private UtilizationPointRuleStatus _status = UtilizationPointRuleStatus.Ok;
+        private UtilizationPointRuleStatus _status = UtilizationPointRuleStatus.FamilyTypeMissing;
         public UtilizationPointRuleStatus Status
         {
             get => _status;
@@ -162,13 +147,15 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             }
         }
 
+        // Textos curtos para caberem confortavelmente no pill de status sem
+        // truncamento. "Sem tipo" / "Tipo ausente" / "Faixa inválida" ficam
+        // visualmente equivalentes ao "Ok".
         public string StatusLabel => Status switch
         {
             UtilizationPointRuleStatus.Ok => "Ok",
-            UtilizationPointRuleStatus.FamilyTypeMissing => "Tipo não informado",
-            UtilizationPointRuleStatus.FamilyTypeNotFoundInDocument => "Tipo não encontrado",
-            UtilizationPointRuleStatus.HeightRangeInvalid => "Altura inválida",
-            UtilizationPointRuleStatus.NameMissing => "Sem nome",
+            UtilizationPointRuleStatus.FamilyTypeMissing => "Sem tipo",
+            UtilizationPointRuleStatus.FamilyTypeNotFoundInDocument => "Tipo ausente",
+            UtilizationPointRuleStatus.HeightRangeInvalid => "Faixa inválida",
             _ => "—",
         };
 
@@ -179,7 +166,6 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
         {
             return new UtilizationPointRuleDto
             {
-                Name = Name ?? string.Empty,
                 FamilyName = SelectedFamilyType?.FamilyName ?? SavedFamilyName,
                 TypeName = SelectedFamilyType?.TypeName ?? SavedTypeName,
                 CategoryName = SelectedFamilyType?.CategoryName ?? SavedCategoryName,
@@ -194,7 +180,6 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
         {
             return new UtilizationPointRuleViewModel
             {
-                Name = dto.Name ?? string.Empty,
                 SavedFamilyName = dto.FamilyName ?? string.Empty,
                 SavedTypeName = dto.TypeName ?? string.Empty,
                 SavedCategoryName = dto.CategoryName,

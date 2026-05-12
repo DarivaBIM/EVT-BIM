@@ -12,10 +12,11 @@ using DarivaBIM.Revit.Adapters.Features.UtilizationPoints;
 namespace DarivaBIM.Plugin.Features.UtilizationPoints
 {
     /// <summary>
-    /// ExternalEvent que executa o fluxo de inserção: dispara um
-    /// <c>PickObjects</c> mostrando o prompt da ribbon do Revit ("Concluir" /
-    /// ENTER finalizam, ESC cancela), filtra elementos hidráulicos e invoca o
-    /// adapter Revit-side dentro de uma transação.
+    /// ExternalEvent que executa o ciclo de inserção: enquanto a janela
+    /// mantém o flag <c>IsLoopActive</c>, dispara <c>PickObjects</c> mostrando
+    /// o prompt da ribbon do Revit ("Concluir"/ENTER finaliza um lote, ESC
+    /// encerra o ciclo). Cada lote inserido é refletido nas chips de resumo
+    /// sem interromper o loop.
     /// </summary>
     public class UtilizationPointInsertEvent
     {
@@ -54,47 +55,61 @@ namespace DarivaBIM.Plugin.Features.UtilizationPoints
             UtilizationPointGroup? group = Group;
             if (window == null || group == null) return;
 
+            string endMessage = "Inserção encerrada.";
+            int batches = 0;
+
             try
             {
                 UIDocument? uiDoc = app.ActiveUIDocument;
                 if (uiDoc == null || uiDoc.Document.IsFamilyDocument)
                 {
-                    window.NotifyCancelled("Abra um projeto Revit para usar a ferramenta.");
+                    window.NotifyInsertionEnded("Abra um projeto Revit para usar a ferramenta.");
                     return;
                 }
 
                 Document doc = uiDoc.Document;
-
-                IReadOnlyList<long>? elementIds = PickElements(uiDoc, window);
-                if (elementIds == null)
-                {
-                    // Pick cancelado pelo usuário (NotifyCancelled já chamado).
-                    return;
-                }
-
-                if (elementIds.Count == 0)
-                {
-                    window.NotifyCancelled("Nenhum elemento hidráulico válido selecionado.");
-                    return;
-                }
-
                 RevitUtilizationPointInsertionService service = new(doc);
-                InsertionSummaryDto summary = service.Insert(elementIds, group, ReferenceLevelId);
 
-                window.ApplyInsertionSummary(summary);
+                while (window.IsLoopActive)
+                {
+                    IReadOnlyList<long>? elementIds = PickElements(uiDoc);
+                    if (elementIds == null)
+                    {
+                        endMessage = batches == 0
+                            ? "Seleção cancelada."
+                            : $"Inserção encerrada após {batches} lote(s).";
+                        break;
+                    }
+
+                    if (elementIds.Count == 0)
+                    {
+                        // PickObjects retornou lista vazia (raro). Mantém o loop.
+                        continue;
+                    }
+
+                    InsertionSummaryDto summary = service.Insert(elementIds, group, ReferenceLevelId);
+                    batches++;
+                    window.OnInsertionBatchCompleted(summary);
+                }
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
-                window.NotifyCancelled("Seleção cancelada.");
+                endMessage = batches == 0
+                    ? "Seleção cancelada."
+                    : $"Inserção encerrada após {batches} lote(s).";
             }
             catch (Exception ex)
             {
-                window.NotifyCancelled($"Erro inesperado: {ex.Message}");
+                endMessage = $"Erro inesperado: {ex.Message}";
                 TaskDialog.Show("EVT-BIM", $"Erro ao inserir pontos de utilização:\n{ex.Message}");
+            }
+            finally
+            {
+                window.NotifyInsertionEnded(endMessage);
             }
         }
 
-        private static IReadOnlyList<long>? PickElements(UIDocument uiDoc, UtilizationPointInsertionWindow window)
+        private static IReadOnlyList<long>? PickElements(UIDocument uiDoc)
         {
             HydraulicSelectionFilter filter = new();
             IList<Reference> refs;
@@ -103,11 +118,10 @@ namespace DarivaBIM.Plugin.Features.UtilizationPoints
                 refs = uiDoc.Selection.PickObjects(
                     ObjectType.Element,
                     filter,
-                    "Selecione tubos/conexões/acessórios com conectores livres. ENTER para confirmar, ESC para cancelar.");
+                    "Selecione tubos/conexões com conectores livres. ENTER ou Concluir aplica o lote; ESC encerra.");
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
-                window.NotifyCancelled("Seleção cancelada.");
                 return null;
             }
 
