@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Concurrent;
 using System.IO;
-using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -11,18 +9,15 @@ using DarivaBIM.Application.Common;
 namespace DarivaBIM.Infrastructure.Persistence.Cache
 {
     /// <summary>
-    /// On-disk cache for thumbnail images fetched from remote URLs. The cache
-    /// key is a SHA1 of the URL, so the same image referenced from anywhere
-    /// in the app resolves to a single file. Concurrent requests for the same
-    /// URL are deduplicated through an in-flight task table to avoid wasting
-    /// bandwidth when many cards are realized at once during scroll.
+    /// On-disk cache for thumbnail images. Owns the cache folder, the
+    /// URL-to-path hashing, and atomic writes through a sibling temp file.
+    /// HTTP fetching lives in <c>Infrastructure.Api.Clients.ThumbnailDownloader</c>
+    /// — Persistence/ must not depend on System.Net.Http (see ADR-0016 and
+    /// the InfrastructureBoundariesTests).
     /// </summary>
     public class ThumbnailCacheService
     {
-        private static readonly HttpClient HttpClient = CreateHttpClient();
-
         private readonly string _cacheFolder;
-        private readonly ConcurrentDictionary<string, Task<string?>> _inFlight = new();
 
         public ThumbnailCacheService()
         {
@@ -52,50 +47,46 @@ namespace DarivaBIM.Infrastructure.Persistence.Cache
             return File.Exists(cachePath) ? cachePath : null;
         }
 
-        public Task<string?> GetOrDownloadAsync(string url, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Canonical on-disk path for a given URL. Stable across sessions so
+        /// the downloader can decide whether to fetch and where to write.
+        /// </summary>
+        public string ComputeCachePath(string url)
         {
-            if (string.IsNullOrWhiteSpace(url))
+            return Path.Combine(_cacheFolder, ComputeStableFileName(url));
+        }
+
+        /// <summary>
+        /// Persists <paramref name="source"/> at the canonical cache path for
+        /// <paramref name="url"/>, writing first to a sibling <c>.download</c>
+        /// temp file and atomically moving it into place. Returns the final
+        /// path on success, or <c>null</c> if the write failed.
+        /// </summary>
+        public async Task<string?> StoreFromStreamAsync(
+            string url,
+            Stream source,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(url) || source == null)
             {
-                return Task.FromResult<string?>(null);
+                return null;
             }
 
             string cachePath = ComputeCachePath(url);
-
-            if (File.Exists(cachePath))
-            {
-                return Task.FromResult<string?>(cachePath);
-            }
-
-            return _inFlight.GetOrAdd(url, capturedUrl => DownloadAsync(capturedUrl, cachePath, cancellationToken));
-        }
-
-        private async Task<string?> DownloadAsync(string url, string cachePath, CancellationToken cancellationToken)
-        {
             string tempPath = cachePath + ".download";
 
             try
             {
-                using (HttpResponseMessage response = await HttpClient
-                    .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                    .ConfigureAwait(false))
+                using (FileStream outputStream = new FileStream(
+                    tempPath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 81920,
+                    useAsync: true))
                 {
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        return null;
-                    }
-
-                    using (Stream inputStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
-                    using (FileStream outputStream = new FileStream(
-                        tempPath,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.None,
-                        bufferSize: 81920,
-                        useAsync: true))
-                    {
-                        await inputStream.CopyToAsync(outputStream, 81920, cancellationToken).ConfigureAwait(false);
-                        await outputStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-                    }
+                    await source.CopyToAsync(outputStream, 81920, cancellationToken).ConfigureAwait(false);
+                    await outputStream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 }
 
                 if (File.Exists(cachePath))
@@ -121,15 +112,6 @@ namespace DarivaBIM.Infrastructure.Persistence.Cache
 
                 return null;
             }
-            finally
-            {
-                _inFlight.TryRemove(url, out _);
-            }
-        }
-
-        private string ComputeCachePath(string url)
-        {
-            return Path.Combine(_cacheFolder, ComputeStableFileName(url));
         }
 
         private static string ComputeStableFileName(string url)
@@ -184,17 +166,6 @@ namespace DarivaBIM.Infrastructure.Persistence.Cache
             }
 
             return new string(result);
-        }
-
-        private static HttpClient CreateHttpClient()
-        {
-            var client = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(30)
-            };
-
-            client.DefaultRequestHeaders.Add("User-Agent", FeatureNames.FamiliesImporter);
-            return client;
         }
     }
 }

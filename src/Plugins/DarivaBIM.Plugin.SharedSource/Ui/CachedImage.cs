@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using DarivaBIM.Infrastructure.Api.Clients;
 using DarivaBIM.Infrastructure.Persistence.Cache;
 
 namespace DarivaBIM.Plugin.Ui
@@ -20,7 +21,7 @@ namespace DarivaBIM.Plugin.Ui
         // 110 logical px * 2 covers HiDPI displays without holding full-resolution decodes.
         private const int DecodePixelWidth = 220;
 
-        private static readonly ThumbnailCacheService Cache = new();
+        private static readonly ThumbnailDownloader Cache = new(new ThumbnailCacheService());
 
         public static readonly DependencyProperty SourceUrlProperty =
             DependencyProperty.RegisterAttached(
