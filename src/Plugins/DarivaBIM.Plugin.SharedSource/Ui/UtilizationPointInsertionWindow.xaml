@@ -23,6 +23,7 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <common:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <common:OneBasedIndexConverter x:Key="OneBasedIndex" />
 
         <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="SoftBorderBrush" Color="#D8E0EA" />
@@ -276,6 +277,21 @@
             <Setter Property="SnapsToDevicePixels" Value="True" />
             <Setter Property="UseLayoutRounding" Value="True" />
         </Style>
+
+        <!-- TextBox dedicado às colunas Alt.Mín/Alt.Máx: alinhamento à
+             direita (deixa o sufixo "m" colado no número) e borda vermelha
+             quando a regra está com Max < Min. Reage a IsRangeInvalid do
+             RuleViewModel via DataTrigger. -->
+        <Style x:Key="HeightTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+            <Setter Property="Padding" Value="6,4,2,4" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsRangeInvalid}" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -360,11 +376,39 @@
                     </Border>
                 </Grid>
 
-                <ScrollViewer Grid.Row="1"
-                              Style="{StaticResource SlimScrollViewerStyle}"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Padding="4,0,4,6">
+                <Grid Grid.Row="1">
+                    <!-- Empty state quando o usuário apagou todos os grupos.
+                         O default-loader recria um Banheiro padrão na primeira
+                         abertura, então isso só aparece após delete manual. -->
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Margin="20,0,20,20"
+                                Visibility="{Binding HasGroups, Converter={StaticResource InverseBoolToVisibility}}">
+                        <TextBlock Text="📁"
+                                   FontSize="22"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   Text="Nenhum grupo ainda" />
+                        <TextBlock Margin="0,2,0,0"
+                                   FontSize="10.5"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Text="Crie um para começar a configurar as regras de inserção." />
+                    </StackPanel>
+
+                    <ScrollViewer Style="{StaticResource SlimScrollViewerStyle}"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="4,0,4,6"
+                                  Visibility="{Binding HasGroups, Converter={StaticResource BoolToVisibility}}">
                     <ItemsControl ItemsSource="{Binding Groups}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vmup:UtilizationPointGroupViewModel}">
@@ -372,9 +416,19 @@
                                         CornerRadius="8"
                                         Padding="8,6"
                                         BorderThickness="1"
-                                        Background="{StaticResource SidebarItemBackgroundBrush}"
-                                        BorderBrush="{StaticResource RuleCardBorderBrush}"
                                         MouseLeftButtonUp="OnGroupItemClicked">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource SidebarItemBackgroundBrush}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource RuleCardBorderBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                    <Setter Property="Background" Value="#EFF6FF" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -443,7 +497,8 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
+                    </ScrollViewer>
+                </Grid>
 
                 <Button Grid.Row="2"
                         Style="{StaticResource GhostButtonStyle}"
@@ -535,12 +590,21 @@
                                    Foreground="{StaticResource ChipOkForegroundBrush}" />
                     </Border>
                 </StackPanel>
-                <Button Grid.Column="1"
-                        Style="{StaticResource PrimaryButtonStyle}"
-                        MinWidth="0"
-                        Padding="12,0"
-                        Click="OnAddRuleClicked"
-                        Content="+ Adicionar ponto" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource GhostButtonStyle}"
+                            MinWidth="0"
+                            Padding="10,0"
+                            Click="OnRestoreDefaultsClicked"
+                            ToolTip="Substitui as regras atuais pelo preset padrão de banheiro."
+                            Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}"
+                            Content="↻ Restaurar padrões" />
+                    <Button Style="{StaticResource PrimaryButtonStyle}"
+                            Margin="8,0,0,0"
+                            MinWidth="0"
+                            Padding="12,0"
+                            Click="OnAddRuleClicked"
+                            Content="+ Adicionar ponto" />
+                </StackPanel>
             </Grid>
 
             <!-- Summary chips: agora ficam logo abaixo do nome do grupo, fora
@@ -737,18 +801,35 @@
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Visibility="{Binding HasActiveGroup, Converter={StaticResource BoolToVisibility}}">
-                    <ItemsControl ItemsSource="{Binding ActiveRules}">
+                    <ItemsControl ItemsSource="{Binding ActiveRules}" AlternationCount="999">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vmup:UtilizationPointRuleViewModel}">
+                                <!-- Borda vira amarela suave quando a regra
+                                     compartilha faixa com outra do mesmo
+                                     grupo — em caso de empate, a primeira
+                                     na ordem ganha. -->
                                 <Border Margin="0,0,0,6"
                                         CornerRadius="10"
                                         Padding="4,6"
                                         AllowDrop="True"
                                         DragOver="OnRuleRowDragOver"
                                         Drop="OnRuleRowDrop"
+                                        Focusable="True"
+                                        IsTabStop="False"
+                                        FocusVisualStyle="{x:Null}"
+                                        KeyDown="OnRuleRowKeyDown"
                                         Background="{StaticResource RuleCardBackgroundBrush}"
-                                        BorderThickness="1"
-                                        BorderBrush="{StaticResource RuleCardBorderBrush}">
+                                        BorderThickness="1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="{StaticResource RuleCardBorderBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasOverlap}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid VerticalAlignment="Center">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="{StaticResource ColReorderWidth}" />
@@ -759,18 +840,28 @@
                                             <ColumnDefinition Width="{StaticResource ColActionsWidth}" />
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Drag handle: 6 pontinhos para segurar e arrastar -->
+                                        <!-- Drag handle: número da linha em cima, 6 pontinhos
+                                             embaixo. AlternationIndex vem do ContentPresenter
+                                             gerado pelo ItemsControl com AlternationCount="999"
+                                             — é 0-baseado, daí o OneBasedIndex. -->
                                         <Border Grid.Column="0"
-                                                Width="24" Height="32"
+                                                Width="26" Height="40"
                                                 Background="Transparent"
                                                 Cursor="SizeAll"
                                                 PreviewMouseLeftButtonDown="OnRuleDragHandleMouseDown"
                                                 ToolTip="Arraste para reordenar (a ordem define preferência em caso de empate de faixa).">
-                                            <TextBlock Text="⋮⋮"
-                                                       Foreground="{StaticResource MutedBrush}"
-                                                       FontSize="14"
-                                                       VerticalAlignment="Center"
-                                                       HorizontalAlignment="Center" />
+                                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType={x:Type ContentPresenter}}, Converter={StaticResource OneBasedIndex}}"
+                                                           FontSize="9"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           HorizontalAlignment="Center" />
+                                                <TextBlock Text="⋮⋮"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           FontSize="13"
+                                                           Margin="0,-1,0,0"
+                                                           HorizontalAlignment="Center" />
+                                            </StackPanel>
                                         </Border>
 
                                         <ComboBox Grid.Column="1"
@@ -836,8 +927,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                     HorizontalContentAlignment="Right"
-                                                     Padding="6,4,2,4"
+                                                     Style="{StaticResource HeightTextBoxStyle}"
                                                      Text="{Binding MinMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
                                             <TextBlock Grid.Column="1"
                                                        Text="m"
@@ -853,8 +943,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBox Grid.Column="0"
-                                                     HorizontalContentAlignment="Right"
-                                                     Padding="6,4,2,4"
+                                                     Style="{StaticResource HeightTextBoxStyle}"
                                                      Text="{Binding MaxMetersText, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
                                             <TextBlock Grid.Column="1"
                                                        Text="m"

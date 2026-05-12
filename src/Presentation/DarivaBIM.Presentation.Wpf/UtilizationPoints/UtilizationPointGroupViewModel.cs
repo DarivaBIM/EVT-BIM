@@ -38,6 +38,16 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             ? "?"
             : Name.Trim()[..1].ToUpperInvariant();
 
+        // Marcado pelo InsertionViewModel quando o grupo se torna ativo,
+        // permitindo que o card do sidebar mude o background sem precisar de
+        // converter ou MultiBinding referenciando a janela inteira.
+        private bool _isActive;
+        public bool IsActive
+        {
+            get => _isActive;
+            set => SetField(ref _isActive, value);
+        }
+
         public ObservableCollection<UtilizationPointRuleViewModel> Rules { get; } = new();
 
         public int RulesCount => Rules.Count;
@@ -84,6 +94,32 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             OnPropertyChanged(nameof(MissingTypesLabel));
             OnPropertyChanged(nameof(HasMissingTypes));
             OnPropertyChanged(nameof(ValidRulesCount));
+            RecalculateRuleOverlaps();
+        }
+
+        // Marca cada regra com HasOverlap=true se houver QUALQUER outra regra
+        // do grupo cuja faixa de altura intersecta a dela (ignora regras com
+        // faixa inválida, que já têm o próprio status). Complexidade O(n²),
+        // ok para o número típico de regras (< 20).
+        private void RecalculateRuleOverlaps()
+        {
+            int n = Rules.Count;
+            for (int i = 0; i < n; i++) Rules[i].HasOverlap = false;
+            for (int i = 0; i < n; i++)
+            {
+                UtilizationPointRuleViewModel a = Rules[i];
+                if (a.IsRangeInvalid) continue;
+                for (int j = i + 1; j < n; j++)
+                {
+                    UtilizationPointRuleViewModel b = Rules[j];
+                    if (b.IsRangeInvalid) continue;
+                    if (a.MinMeters <= b.MaxMeters && b.MinMeters <= a.MaxMeters)
+                    {
+                        a.HasOverlap = true;
+                        b.HasOverlap = true;
+                    }
+                }
+            }
         }
 
         public UtilizationPointGroupDto ToDto()

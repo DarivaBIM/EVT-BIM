@@ -296,8 +296,64 @@ namespace DarivaBIM.Plugin.Ui
         {
             if (sender is not FrameworkElement fe) return;
             if (fe.Tag is not UtilizationPointRuleViewModel rule) return;
+            DuplicateRule(rule);
+        }
+
+        private void OnRestoreDefaultsClicked(object sender, RoutedEventArgs e)
+        {
             if (ViewModel.ActiveGroup == null) return;
 
+            MessageBoxResult result = MessageBox.Show(
+                this,
+                $"Substituir as regras de \"{ViewModel.ActiveGroup.Name}\" pelo preset padrão de banheiro?\n\n" +
+                "As 4 regras atuais (Bacia, Ducha higiênica, Lavatório, Chuveiro) serão recriadas " +
+                "com as faixas de altura padrão. Tipos selecionados serão perdidos.",
+                "Restaurar padrões",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question);
+            if (result != MessageBoxResult.OK) return;
+
+            UtilizationPointGroupViewModel active = ViewModel.ActiveGroup;
+            for (int i = active.Rules.Count - 1; i >= 0; i--)
+            {
+                UnhookRuleEvents(active.Rules[i]);
+            }
+            active.Rules.Clear();
+
+            UtilizationPointGroupViewModel template = BuildDefaultBathroomGroup();
+            for (int i = 0; i < template.Rules.Count; i++)
+            {
+                UtilizationPointRuleViewModel imported = template.Rules[i];
+                active.Rules.Add(imported);
+                HookRuleEvents(imported);
+                RefreshRuleStatus(imported);
+            }
+
+            active.RefreshSummaries();
+            ViewModel.OnActiveGroupChanged();
+            ScheduleSave();
+        }
+
+        private void OnDeleteRuleClicked(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.Tag is not UtilizationPointRuleViewModel rule) return;
+            DeleteRule(rule);
+        }
+
+        private void DeleteRule(UtilizationPointRuleViewModel rule)
+        {
+            if (ViewModel.ActiveGroup == null) return;
+            UnhookRuleEvents(rule);
+            ViewModel.ActiveGroup.Rules.Remove(rule);
+            ViewModel.ActiveGroup.RefreshSummaries();
+            ViewModel.OnActiveGroupChanged();
+            ScheduleSave();
+        }
+
+        private void DuplicateRule(UtilizationPointRuleViewModel rule)
+        {
+            if (ViewModel.ActiveGroup == null) return;
             UtilizationPointRuleViewModel clone = UtilizationPointRuleViewModel.FromDto(rule.ToDto());
             clone.SelectedFamilyType = rule.SelectedFamilyType;
             int index = ViewModel.ActiveGroup.Rules.IndexOf(rule);
@@ -313,17 +369,41 @@ namespace DarivaBIM.Plugin.Ui
             ScheduleSave();
         }
 
-        private void OnDeleteRuleClicked(object sender, RoutedEventArgs e)
+        // Atalhos de teclado dentro da linha. Delete só dispara quando o foco
+        // NÃO está num editor (TextBox/ComboBox), senão o usuário não
+        // conseguiria apagar caracteres digitando. Ctrl+D duplica sempre, já
+        // que essa combinação não é reservada por editores nativos do WPF.
+        private void OnRuleRowKeyDown(object sender, KeyEventArgs e)
         {
             if (sender is not FrameworkElement fe) return;
-            if (fe.Tag is not UtilizationPointRuleViewModel rule) return;
-            if (ViewModel.ActiveGroup == null) return;
+            if (fe.DataContext is not UtilizationPointRuleViewModel rule) return;
 
-            UnhookRuleEvents(rule);
-            ViewModel.ActiveGroup.Rules.Remove(rule);
-            ViewModel.ActiveGroup.RefreshSummaries();
-            ViewModel.OnActiveGroupChanged();
-            ScheduleSave();
+            bool ctrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+            bool inEditor = e.OriginalSource is TextBox || e.OriginalSource is ComboBox
+                            || IsInsideEditor(e.OriginalSource as DependencyObject);
+
+            if (ctrl && e.Key == Key.D)
+            {
+                DuplicateRule(rule);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Delete && !inEditor)
+            {
+                DeleteRule(rule);
+                e.Handled = true;
+            }
+        }
+
+        private static bool IsInsideEditor(DependencyObject? element)
+        {
+            while (element != null)
+            {
+                if (element is TextBox || element is ComboBox) return true;
+                element = VisualTreeHelper.GetParent(element);
+            }
+            return false;
         }
 
         // ---------- Drag-and-drop reorder ----------
@@ -573,6 +653,10 @@ namespace DarivaBIM.Plugin.Ui
         private void OnGroupChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (_suppressActiveGroupChange) return;
+            // IsActive é estado puramente de UI (qual card está realçado no
+            // sidebar) — não persiste e não influencia sumários. Ignorar
+            // evita um save em disco a cada troca de grupo ativo.
+            if (e.PropertyName == nameof(UtilizationPointGroupViewModel.IsActive)) return;
             if (sender is UtilizationPointGroupViewModel)
             {
                 ViewModel.OnActiveGroupChanged();
@@ -585,13 +669,17 @@ namespace DarivaBIM.Plugin.Ui
             if (_suppressActiveGroupChange) return;
             if (sender is not UtilizationPointRuleViewModel rule) return;
 
-            // Status é propriedade derivada — quando ele muda, é porque já
-            // recalculamos. Evitamos um round trip que dispararia outro
-            // RefreshSummaries desnecessário e outra escrita em disco.
+            // Propriedades derivadas (Status, StatusLabel, IsOk, IsWarning,
+            // IsRangeInvalid) e estado puramente de UI (HasOverlap) não
+            // refletem mudanças no DTO — quando elas notificam, já
+            // recalculamos. Pular evita um round trip que dispararia outro
+            // RefreshSummaries e outra escrita em disco.
             if (e.PropertyName == nameof(UtilizationPointRuleViewModel.Status)
                 || e.PropertyName == nameof(UtilizationPointRuleViewModel.StatusLabel)
                 || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsOk)
-                || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsWarning))
+                || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsWarning)
+                || e.PropertyName == nameof(UtilizationPointRuleViewModel.IsRangeInvalid)
+                || e.PropertyName == nameof(UtilizationPointRuleViewModel.HasOverlap))
             {
                 if (ViewModel.ActiveGroup != null)
                 {

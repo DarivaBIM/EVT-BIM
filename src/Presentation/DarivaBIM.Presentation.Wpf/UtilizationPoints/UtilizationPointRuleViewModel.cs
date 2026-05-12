@@ -143,8 +143,23 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
                     OnPropertyChanged(nameof(StatusLabel));
                     OnPropertyChanged(nameof(IsOk));
                     OnPropertyChanged(nameof(IsWarning));
+                    OnPropertyChanged(nameof(IsRangeInvalid));
                 }
             }
+        }
+
+        // Sinaliza que MaxMeters < MinMeters — usado para pintar borda vermelha
+        // nos TextBoxes de altura, dando feedback inline além do badge de status.
+        public bool IsRangeInvalid => Status == UtilizationPointRuleStatus.HeightRangeInvalid;
+
+        // Marcado pela janela quando outra regra do mesmo grupo cobre uma
+        // faixa que se sobrepõe a esta. A primeira regra na ordem ganha em
+        // caso de empate; o chip serve só para alertar o usuário.
+        private bool _hasOverlap;
+        public bool HasOverlap
+        {
+            get => _hasOverlap;
+            set => SetField(ref _hasOverlap, value);
         }
 
         // Textos curtos para caberem confortavelmente no pill de status sem

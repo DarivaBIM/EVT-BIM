@@ -18,11 +18,12 @@ namespace DarivaBIM.Domain.Hydraulics.UtilizationPoints
     {
         /// <summary>
         /// Tolerância aplicada nos limites para neutralizar ruído de
-        /// arredondamento na conversão pés↔metros do Revit. 1 mm é folga
-        /// suficiente sem alargar a faixa o bastante para sobrepor regras
-        /// adjacentes do tipo [0.10, 0.30] / [0.30, 0.50].
+        /// arredondamento na conversão pés↔metros do Revit e dar uma folga
+        /// prática de modelagem. 0.02 m (2 cm) é o valor exibido na UI
+        /// ("Tolerância ±0.02 m") — gaps típicos entre regras do tool são
+        /// de pelo menos 10 cm, então não há risco de overlap acidental.
         /// </summary>
-        public const double BoundaryToleranceMeters = 0.001;
+        public const double BoundaryToleranceMeters = 0.02;
 
         public HeightRangeMeters(double minMeters, double maxMeters)
         {

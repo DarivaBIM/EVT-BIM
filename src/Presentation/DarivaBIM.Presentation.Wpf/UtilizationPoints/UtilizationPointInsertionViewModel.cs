@@ -39,8 +39,11 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             get => _activeGroup;
             set
             {
+                UtilizationPointGroupViewModel? previous = _activeGroup;
                 if (SetField(ref _activeGroup, value))
                 {
+                    if (previous != null) previous.IsActive = false;
+                    if (value != null) value.IsActive = true;
                     OnPropertyChanged(nameof(HasActiveGroup));
                     OnPropertyChanged(nameof(ActiveRules));
                     OnPropertyChanged(nameof(ActiveGroupName));

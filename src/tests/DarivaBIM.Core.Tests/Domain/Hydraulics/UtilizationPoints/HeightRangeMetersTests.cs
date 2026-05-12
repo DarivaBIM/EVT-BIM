@@ -23,17 +23,17 @@ namespace DarivaBIM.Core.Tests.Domain.Hydraulics.UtilizationPoints
         }
 
         [Fact]
-        public void Contains_tolerates_floating_point_drift_at_boundaries()
+        public void Contains_tolerates_drift_within_two_centimeters()
         {
-            // Cenário típico: conector modelado exatamente no limite, mas a
-            // conversão pés→metros do Revit produz uma fração sub-milimétrica
-            // abaixo/acima. A faixa precisa absorver esse ruído.
+            // A UI promete "Tolerância ±0.02 m". Esse teste fixa esse contrato:
+            // pontos até 2 cm fora do limite ainda são aceitos. Maior que 2 cm
+            // está fora — gaps típicos entre regras do tool (≥ 10 cm) preservam
+            // exclusividade.
             HeightRangeMeters range = new(0.10, 0.30);
-            Assert.True(range.Contains(0.0995));
-            Assert.True(range.Contains(0.3005));
-            // Folga maior que 1 mm já é "fora" — adjacentes não se sobrepõem.
-            Assert.False(range.Contains(0.098));
-            Assert.False(range.Contains(0.302));
+            Assert.True(range.Contains(0.085));
+            Assert.True(range.Contains(0.319));
+            Assert.False(range.Contains(0.07));
+            Assert.False(range.Contains(0.33));
         }
 
         [Fact]
