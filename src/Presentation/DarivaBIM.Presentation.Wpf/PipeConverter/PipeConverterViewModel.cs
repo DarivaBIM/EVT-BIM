@@ -75,9 +75,11 @@ namespace DarivaBIM.Presentation.Wpf.PipeConverter
 
         private bool _useCadElevation;
         /// <summary>
-        /// Quando true, o Z dos marcadores é tomado do próprio CAD (e o
-        /// nível de referência é usado apenas como host do placeholder).
-        /// Quando false, usa <see cref="SelectedLevel"/> + <see cref="OffsetMm"/>.
+        /// Quando true, o nível de referência dos marcadores é o nível do
+        /// próprio vínculo CAD (auto-preenchido em <see cref="SelectedLevel"/>
+        /// e bloqueado para edição). O offset continua editável e somado
+        /// normalmente sobre esse nível. Quando false, o usuário escolhe
+        /// livremente o nível no dropdown.
         /// </summary>
         public bool UseCadElevation
         {
@@ -87,15 +89,50 @@ namespace DarivaBIM.Presentation.Wpf.PipeConverter
                 if (SetField(ref _useCadElevation, value))
                 {
                     OnPropertyChanged(nameof(IsLevelInputEnabled));
+                    if (_useCadElevation) TryApplyCadLinkLevel();
                 }
             }
         }
 
         /// <summary>
-        /// Inverso de <see cref="UseCadElevation"/>. Usado pela UI para
-        /// desabilitar o combo de nível e o offset enquanto a cota vier do CAD.
+        /// True quando o usuário pode escolher o nível manualmente no combo.
+        /// False quando o nível vem do vínculo CAD (checkbox marcada).
+        /// O input de offset NÃO depende disso — ele continua editável
+        /// independentemente do checkbox.
         /// </summary>
         public bool IsLevelInputEnabled => !_useCadElevation;
+
+        private long? _cadLinkLevelId;
+        /// <summary>
+        /// Id do nível ao qual o vínculo CAD selecionado está associado no
+        /// Revit. Setado pelo handler que faz o pick do CAD. Quando
+        /// <see cref="UseCadElevation"/> está true, este id é usado para
+        /// auto-selecionar a opção correspondente em <see cref="SelectedLevel"/>.
+        /// </summary>
+        public long? CadLinkLevelId
+        {
+            get => _cadLinkLevelId;
+            set
+            {
+                if (SetField(ref _cadLinkLevelId, value) && _useCadElevation)
+                {
+                    TryApplyCadLinkLevel();
+                }
+            }
+        }
+
+        private void TryApplyCadLinkLevel()
+        {
+            if (!_cadLinkLevelId.HasValue) return;
+            foreach (LevelOptionViewModel level in Levels)
+            {
+                if (level.Id == _cadLinkLevelId.Value)
+                {
+                    SelectedLevel = level;
+                    return;
+                }
+            }
+        }
 
         // ----- CAD link / layer / mode -----
 

@@ -180,14 +180,14 @@
                               IsEnabled="{Binding IsLevelInputEnabled}"
                               DisplayMemberPath="Name" />
 
-                    <CheckBox Content="Usar cota Z do próprio CAD selecionado"
+                    <CheckBox Content="Usar nível do vínculo CAD"
+                              ToolTip="Quando marcado, o nível de referência é fixado no nível associado ao vínculo CAD selecionado."
                               IsChecked="{Binding UseCadElevation}"
                               Margin="0,0,0,10"
                               VerticalAlignment="Center" />
 
                     <TextBlock Text="Cota em relação ao nível (mm)" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="OffsetTextBox"
-                             IsEnabled="{Binding IsLevelInputEnabled}"
                              Text="{Binding OffsetMm, StringFormat={}{0:0.##}}" />
 
                     <Grid Margin="0,0,0,0">

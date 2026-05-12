@@ -37,8 +37,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper.Tools
                 RevitElementIdConversions.ToElementId(level.Id),
                 diameter.Value,
                 level.ElevationFeet,
-                vm.OffsetMm,
-                vm.UseCadElevation);
+                vm.OffsetMm);
 
             return true;
         }

@@ -33,11 +33,8 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
 
             foreach ((XYZ startRaw, XYZ endRaw) in segments)
             {
-                double zStart = config.UseCadElevation ? startRaw.Z : targetZWhenLevel;
-                double zEnd = config.UseCadElevation ? endRaw.Z : targetZWhenLevel;
-
-                XYZ start = new(startRaw.X, startRaw.Y, zStart);
-                XYZ end = new(endRaw.X, endRaw.Y, zEnd);
+                XYZ start = new(startRaw.X, startRaw.Y, targetZWhenLevel);
+                XYZ end = new(endRaw.X, endRaw.Y, targetZWhenLevel);
 
                 if (start.DistanceTo(end) < tol)
                 {
@@ -84,11 +81,8 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
 
             foreach (BifilarCenterline center in centerlines)
             {
-                double zStart = config.UseCadElevation ? center.Start.Z : targetZWhenLevel;
-                double zEnd = config.UseCadElevation ? center.End.Z : targetZWhenLevel;
-
-                XYZ start = new(center.Start.X, center.Start.Y, zStart);
-                XYZ end = new(center.End.X, center.End.Y, zEnd);
+                XYZ start = new(center.Start.X, center.Start.Y, targetZWhenLevel);
+                XYZ end = new(center.End.X, center.End.Y, targetZWhenLevel);
 
                 if (start.DistanceTo(end) < tol)
                 {

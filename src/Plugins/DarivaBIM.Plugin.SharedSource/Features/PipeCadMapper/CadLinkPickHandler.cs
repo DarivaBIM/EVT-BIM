@@ -67,6 +67,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
 
                 vm.SelectedCadLinkId = RevitElementIdConversions.ToLong(importInstance.Id);
                 vm.SelectedCadLinkName = TryGetName(importInstance) ?? "vínculo sem nome";
+                vm.CadLinkLevelId = TryGetCadLinkLevelId(importInstance);
 
                 if (vm.CadLayers.Count == 0)
                 {
@@ -96,6 +97,26 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
         {
             try { return element.Name; }
             catch { return null; }
+        }
+
+        // ImportInstance pode ser hosteado em um nível (caso "Place by: Auto -
+        // by Shared Coordinates" ou "Place by: Origin to Internal Origin"
+        // ancorado em um nível) ou em uma vista (caso "Current view only").
+        // Element.LevelId cobre o primeiro caso; o segundo retorna
+        // ElementId.InvalidElementId e propagamos como null.
+        private static long? TryGetCadLinkLevelId(Element importInstance)
+        {
+            try
+            {
+                ElementId levelId = importInstance.LevelId;
+                if (levelId == null || levelId == ElementId.InvalidElementId)
+                    return null;
+                return RevitElementIdConversions.ToLong(levelId);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private sealed class ImportInstanceSelectionFilter : ISelectionFilter

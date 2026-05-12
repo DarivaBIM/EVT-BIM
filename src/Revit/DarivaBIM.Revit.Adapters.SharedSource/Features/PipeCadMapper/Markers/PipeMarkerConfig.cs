@@ -4,9 +4,9 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
 {
     /// <summary>
     /// Parâmetros usados ao criar marcadores (placeholders de tubo
-    /// taggeados como DBIM_PIPE_MARKER): sistema, tipo, nível host,
-    /// elevação alvo e flag que indica se o Z deve vir do CAD ou do
-    /// nível+offset.
+    /// taggeados como DBIM_PIPE_MARKER): sistema, tipo, nível host e
+    /// elevação alvo. O Z dos marcadores é sempre derivado de
+    /// <see cref="LevelElevationFeet"/> + <see cref="OffsetMm"/>.
     ///
     /// <see cref="DefaultDiameterMm"/> é o diâmetro nominal usado para
     /// modo unifilar (onde a geometria não nos diz o diâmetro). No modo
@@ -22,8 +22,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
             ElementId levelId,
             double defaultDiameterMm,
             double levelElevationFeet,
-            double offsetMm,
-            bool useCadElevation)
+            double offsetMm)
         {
             SystemTypeId = systemTypeId;
             PipeTypeId = pipeTypeId;
@@ -31,7 +30,6 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
             DefaultDiameterMm = defaultDiameterMm;
             LevelElevationFeet = levelElevationFeet;
             OffsetMm = offsetMm;
-            UseCadElevation = useCadElevation;
         }
 
         public ElementId SystemTypeId { get; }
@@ -40,6 +38,5 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
         public double DefaultDiameterMm { get; }
         public double LevelElevationFeet { get; }
         public double OffsetMm { get; }
-        public bool UseCadElevation { get; }
     }
 }

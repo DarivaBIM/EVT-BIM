@@ -30,9 +30,11 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
         // tolerar evolução do enum sem quebrar settings existentes.
         public string? Mode { get; set; }
 
-        // Quando true, os marcadores são criados na cota Z dos pontos do CAD
-        // (ignorando o nível de referência selecionado para fins de elevação).
-        // O nível selecionado continua sendo o host do placeholder.
+        // Quando true, o nível de referência é fixado no nível associado ao
+        // vínculo CAD selecionado (e o dropdown de nível fica bloqueado). O
+        // offset continua editável e somado sobre esse nível. Quando false,
+        // o usuário escolhe o nível manualmente.
+        // Nome do campo preservado para compat com settings antigos no disco.
         public bool UseCadElevation { get; set; }
 
         // Nível discreto de tolerância do detector bifilar.
