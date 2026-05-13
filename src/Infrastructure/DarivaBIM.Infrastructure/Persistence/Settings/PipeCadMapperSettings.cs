@@ -43,20 +43,6 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
         // "VeryLow" / "Low" / "Medium" / "High" / "VeryHigh".
         public string? ToleranceLevel { get; set; }
 
-        // Restrição de ângulos de bend nas polylines geradoras de marcadores
-        // (unifilar e bifilar). Quando AllowAnyBendAngle é true OU não há
-        // ângulos marcados, o detector preserva a geometria original; caso
-        // contrário, snappa cada bend para o nominal mais próximo dentro
-        // de ±15°. Bends |bend|<15° viram retas (independente de checkbox)
-        // exceto quando "qualquer ângulo" estiver marcado.
-        // Nullable para detectar settings antigos (sem o campo) e aplicar
-        // os defaults — preserva o comportamento de versões anteriores.
-        public bool? AllowAnyBendAngle { get; set; }
-        public bool? AllowBendAngle22_5 { get; set; }
-        public bool? AllowBendAngle45 { get; set; }
-        public bool? AllowBendAngle60 { get; set; }
-        public bool? AllowBendAngle90 { get; set; }
-
         private static string SettingsPath
         {
             get

@@ -42,14 +42,6 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         public bool LockEdgeAfterPair { get; init; }
         public IReadOnlyList<double> AvailableDiametersMm { get; init; } = Array.Empty<double>();
 
-        // Restrição de bend angles aplicada na cadeia de centerlines do
-        // pareamento polyline-aware. Vazia + AllowAnyBendAngle=true ⇒ não
-        // aplica snap (geometria preservada). Senão, cada bend é forçado
-        // ao ângulo permitido mais próximo dentro de ±15°. Bends |b|<15°
-        // viram retas, exceto quando AllowAnyBendAngle=true.
-        public IReadOnlyList<double> AllowedBendAnglesDeg { get; init; } = Array.Empty<double>();
-        public bool AllowAnyBendAngle { get; init; } = true;
-
         /// <summary>
         /// Mapeia o slider 0..100 para todos os limiares.
         ///
@@ -71,9 +63,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         /// </summary>
         public static BifilarDetectionParameters FromTolerance(
             double tolerancePercent,
-            IReadOnlyList<double> availableDiametersMm,
-            IReadOnlyList<double>? allowedBendAnglesDeg = null,
-            bool allowAnyBendAngle = true)
+            IReadOnlyList<double> availableDiametersMm)
         {
             double t = Math.Clamp(tolerancePercent / 100.0, 0.0, 1.0);
 
@@ -142,8 +132,6 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 SegmentGridCellMm = 400.0,
                 LockEdgeAfterPair = true,
                 AvailableDiametersMm = availableDiametersMm,
-                AllowedBendAnglesDeg = allowedBendAnglesDeg ?? Array.Empty<double>(),
-                AllowAnyBendAngle = allowAnyBendAngle,
             };
         }
 
@@ -159,10 +147,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         /// O picker existe para "limpar" o que escapou do batch; com regras
         /// idênticas ao batch, ele ofereceria zero valor adicional.
         /// </summary>
-        public static BifilarDetectionParameters ForPicker(
-            IReadOnlyList<double> availableDiametersMm,
-            IReadOnlyList<double>? allowedBendAnglesDeg = null,
-            bool allowAnyBendAngle = true)
+        public static BifilarDetectionParameters ForPicker(IReadOnlyList<double> availableDiametersMm)
         {
             double minDiamMm = 10.0;
             double maxDiamMm = 200.0;
@@ -212,8 +197,6 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 SegmentGridCellMm = 400.0,
                 LockEdgeAfterPair = false,
                 AvailableDiametersMm = availableDiametersMm,
-                AllowedBendAnglesDeg = allowedBendAnglesDeg ?? Array.Empty<double>(),
-                AllowAnyBendAngle = allowAnyBendAngle,
             };
         }
 

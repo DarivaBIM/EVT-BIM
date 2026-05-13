@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using DarivaBIM.Presentation.Wpf.Common;
 using DarivaBIM.Presentation.Wpf.Models;
@@ -285,64 +283,6 @@ namespace DarivaBIM.Presentation.Wpf.PipeConverter
                     SelectedToleranceOption = opt;
                     return;
                 }
-            }
-        }
-
-        // ----- Bend angle constraints -----
-
-        // Quando true (default), o detector NÃO aplica snap nos bends das
-        // polylines geradoras de marcadores — preserva a geometria original
-        // do CAD. Quando false, os 4 ângulos abaixo (os que estiverem
-        // marcados) viram um conjunto de "ângulos permitidos"; bends fora
-        // da janela de ±15° de algum permitido ficam intactos. Bends muito
-        // próximos de 0° (|bend|<15°) viram retas — isto independe deste
-        // flag, exceto quando ele está true (a rota é totalmente neutra).
-        private bool _allowAnyBendAngle = true;
-        public bool AllowAnyBendAngle
-        {
-            get => _allowAnyBendAngle;
-            set
-            {
-                if (SetField(ref _allowAnyBendAngle, value))
-                {
-                    OnPropertyChanged(nameof(AreSpecificBendAnglesEnabled));
-                }
-            }
-        }
-
-        // Habilita/desabilita os 4 checkboxes de ângulos específicos no XAML.
-        // Quando "qualquer ângulo" está marcado, eles aparecem opacos e
-        // bloqueados — comunicação visual de que não fazem efeito.
-        public bool AreSpecificBendAnglesEnabled => !_allowAnyBendAngle;
-
-        private bool _allowBend22_5 = true;
-        public bool AllowBend22_5 { get => _allowBend22_5; set => SetField(ref _allowBend22_5, value); }
-
-        private bool _allowBend45 = true;
-        public bool AllowBend45 { get => _allowBend45; set => SetField(ref _allowBend45, value); }
-
-        private bool _allowBend60 = true;
-        public bool AllowBend60 { get => _allowBend60; set => SetField(ref _allowBend60, value); }
-
-        private bool _allowBend90 = true;
-        public bool AllowBend90 { get => _allowBend90; set => SetField(ref _allowBend90, value); }
-
-        /// <summary>
-        /// Lista de ângulos permitidos (em graus) construída a partir dos
-        /// checkboxes. Vazia quando "qualquer ângulo" está marcado — o
-        /// adapter interpreta como "não aplicar snap".
-        /// </summary>
-        public IReadOnlyList<double> AllowedBendAnglesDeg
-        {
-            get
-            {
-                if (_allowAnyBendAngle) return Array.Empty<double>();
-                List<double> list = new(4);
-                if (_allowBend22_5) list.Add(22.5);
-                if (_allowBend45) list.Add(45.0);
-                if (_allowBend60) list.Add(60.0);
-                if (_allowBend90) list.Add(90.0);
-                return list;
             }
         }
 

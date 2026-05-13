@@ -109,32 +109,53 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
 
                 Transform transform = CadGeometryExtractor.GetTransformForElement(element);
 
-                // Extrai a cadeia de vértices da geometria picada. Line → 2
-                // vértices; PolyLine → N vértices. Valida o layer via
-                // UnifilarLineCollector pra reusar a checagem já existente.
+                // Valida o layer via UnifilarLineCollector pra reusar a
+                // checagem já existente.
                 if (UnifilarLineCollector.CollectFromReference(doc, geom, transform, vm.SelectedLayer!) == null)
                 {
                     vm.StatusMessage = $"A linha clicada não está no layer '{vm.SelectedLayer}'.";
                     return;
                 }
 
-                List<XYZ> anchorVertices = new();
+                // Quebra a geometria picada em SEGMENTOS RETOS individuais.
+                // Line: 1 segmento. PolyLine de N vértices: N-1 segmentos,
+                // cada um filtrado pelo comprimento mínimo (≥4cm). Pequenas
+                // curvas em sequência dentro da polyline (caso comum em
+                // bends arredondados aproximados por muitos tracinhos) ficam
+                // de fora — só os trechos retos GRANDES viram marcador.
+                const double MinPickedSegmentLengthMm = 40.0;
+                const double MmPerFoot = 304.8;
+
+                List<(XYZ Start, XYZ End)> anchorSegments = new();
                 switch (geom)
                 {
                     case Line line:
-                        anchorVertices.Add(transform.OfPoint(line.GetEndPoint(0)));
-                        anchorVertices.Add(transform.OfPoint(line.GetEndPoint(1)));
+                    {
+                        XYZ s = transform.OfPoint(line.GetEndPoint(0));
+                        XYZ e = transform.OfPoint(line.GetEndPoint(1));
+                        // Line individual: aceita sem o filtro 40mm — o
+                        // usuário escolheu explicitamente, deve ser honrado.
+                        anchorSegments.Add((s, e));
                         break;
+                    }
                     case PolyLine pl:
+                    {
                         IList<XYZ> rawPts = pl.GetCoordinates();
-                        for (int i = 0; i < rawPts.Count; i++)
-                            anchorVertices.Add(transform.OfPoint(rawPts[i]));
+                        for (int i = 0; i < rawPts.Count - 1; i++)
+                        {
+                            XYZ s = transform.OfPoint(rawPts[i]);
+                            XYZ e = transform.OfPoint(rawPts[i + 1]);
+                            double lenMm = s.DistanceTo(e) * MmPerFoot;
+                            if (lenMm >= MinPickedSegmentLengthMm)
+                                anchorSegments.Add((s, e));
+                        }
                         break;
+                    }
                 }
 
-                if (anchorVertices.Count < 2)
+                if (anchorSegments.Count == 0)
                 {
-                    vm.StatusMessage = "Geometria não suportada (apenas linhas e polylines retas).";
+                    vm.StatusMessage = "Nenhum trecho reto ≥4cm encontrado na geometria selecionada.";
                     return;
                 }
 
@@ -145,14 +166,11 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 // permissivos que o batch (overlap mínimo, ângulo, símbolos).
                 // O ÚNICO filtro estrito mantido é ±2mm de algum nominal,
                 // que mora dentro do detector e vale para qualquer caminho.
-                // O snap de bend-angles vem do mesmo VM e se aplica também
-                // ao midline produzido aqui.
-                BifilarDetectionParameters parameters = BifilarDetectionParameters.ForPicker(
-                    availableDiameters, vm.AllowedBendAnglesDeg, vm.AllowAnyBendAngle);
+                BifilarDetectionParameters parameters = BifilarDetectionParameters.ForPicker(availableDiameters);
 
                 BifilarCenterlineDetector detector = new(doc, parameters);
-                IReadOnlyList<BifilarCenterline> centerlines = detector.DetectForAnchor(
-                    importInstance, vm.SelectedLayer!, anchorVertices);
+                IReadOnlyList<BifilarCenterline> centerlines = detector.DetectForAnchors(
+                    importInstance, vm.SelectedLayer!, anchorSegments);
 
                 if (centerlines.Count == 0)
                 {
@@ -201,9 +219,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 }
                 else
                 {
-                    // Polyline pareada: vários marcadores conectados seguindo
-                    // os bends. Mostra a contagem em vez de um único diâmetro.
-                    vm.StatusMessage = $"Traçado bifilar criado: {created} marcador(es){skipNote}. Total na vista: {vm.ActiveViewMarkerCount}.";
+                    vm.StatusMessage = $"{created} marcador(es) bifilar criado(s) a partir da polyline picada{skipNote}. Total na vista: {vm.ActiveViewMarkerCount}.";
                 }
             }
             catch (Exception ex)

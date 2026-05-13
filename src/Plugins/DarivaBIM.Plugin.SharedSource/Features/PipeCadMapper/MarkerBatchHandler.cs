@@ -7,7 +7,6 @@ using DarivaBIM.Plugin.Features.PipeCadMapper.Tools;
 using DarivaBIM.Presentation.Wpf.PipeConverter;
 using DarivaBIM.Revit.Adapters.Common.Transactions.FailurePreprocessors;
 using DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar;
-using DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Geometry;
 using DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers;
 using DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Unifilar;
 
@@ -74,22 +73,16 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 int skippedShort;
                 string detail;
 
-                IReadOnlyList<double> allowedBendAngles = vm.AllowedBendAnglesDeg;
-                bool allowAnyBend = vm.AllowAnyBendAngle;
-
                 if (vm.Mode == PipeCadMappingMode.Unifilar)
                 {
-                    (created, skippedShort, detail) = RunUnifilar(
-                        doc, activeView, importInstance, vm.SelectedLayer!, config!,
-                        allowedBendAngles, allowAnyBend);
+                    (created, skippedShort, detail) = RunUnifilar(doc, activeView, importInstance, vm.SelectedLayer!, config!);
                 }
                 else
                 {
                     (created, skippedShort, detail) = RunBifilar(
                         doc, activeView, importInstance, vm.SelectedLayer!, config!,
                         vm.TolerancePercent,
-                        vm.SelectedPipeType?.AvailableDiametersMm ?? Array.Empty<double>(),
-                        allowedBendAngles, allowAnyBend);
+                        vm.SelectedPipeType?.AvailableDiametersMm ?? Array.Empty<double>());
                 }
 
                 vm.ActiveViewMarkerCount = PipeMarkerCollector.CountInView(doc, activeView);
@@ -124,32 +117,11 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             View activeView,
             ImportInstance importInstance,
             string layer,
-            PipeMarkerConfig config,
-            IReadOnlyList<double> allowedBendAnglesDeg,
-            bool allowAnyBendAngle)
+            PipeMarkerConfig config)
         {
             UnifilarSegmentBatch batch = UnifilarLineCollector.CollectFromLayer(doc, importInstance, layer);
 
-            if (batch.Polylines.Count == 0)
-            {
-                return (0, 0, $"Nenhuma linha reta encontrada no layer '{layer}'.");
-            }
-
-            // Aplica bend-angle snap por polyline. Quando o usuário marcou
-            // "qualquer ângulo", o snapper devolve a polyline original
-            // (no-op). Senão, bends são forçados ao ângulo permitido mais
-            // próximo dentro de ±15° e bends < 15° viram retas (segmentos
-            // colineares fundidos).
-            List<(XYZ, XYZ)> snappedSegments = new();
-            foreach (UnifilarPolyline polyline in batch.Polylines)
-            {
-                List<XYZ> snapped = BendAngleSnapper.SnapPolylineBends(
-                    polyline.Vertices, allowedBendAnglesDeg, allowAnyBendAngle);
-                for (int i = 0; i < snapped.Count - 1; i++)
-                    snappedSegments.Add((snapped[i], snapped[i + 1]));
-            }
-
-            if (snappedSegments.Count == 0)
+            if (batch.Segments.Count == 0)
             {
                 return (0, 0, $"Nenhuma linha reta encontrada no layer '{layer}'.");
             }
@@ -168,7 +140,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             int previous = ResetExistingMarkers(doc, activeView);
 
             PipeMarkerBatch result = PipeMarkerCreator.CreateFromSegments(
-                doc, activeView, snappedSegments, config);
+                doc, activeView, batch.Segments, config);
 
             if (result.Created == 0)
             {
@@ -194,13 +166,10 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             string layer,
             PipeMarkerConfig config,
             double tolerancePercent,
-            IReadOnlyList<double> availableDiametersMm,
-            IReadOnlyList<double> allowedBendAnglesDeg,
-            bool allowAnyBendAngle)
+            IReadOnlyList<double> availableDiametersMm)
         {
             BifilarDetectionParameters parameters = BifilarDetectionParameters.FromTolerance(
-                tolerancePercent, availableDiametersMm,
-                allowedBendAnglesDeg, allowAnyBendAngle);
+                tolerancePercent, availableDiametersMm);
 
             BifilarCenterlineDetector detector = new(doc, parameters);
             IReadOnlyList<BifilarCenterline> centerlines = detector.Detect(importInstance, layer);
