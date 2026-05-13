@@ -869,6 +869,16 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             if (edgeDistanceMm < _params.MinEdgeDistanceMm) return null;
             if (edgeDistanceMm > _params.MaxEdgeDistanceMm) return null;
 
+            // Filtro estrito independente da tolerância: a distância entre
+            // paredes precisa bater com algum diâmetro nominal do tipo
+            // selecionado dentro de ±EdgeMatchToleranceMm. Sem isso, gaps
+            // grandes (ex.: 400mm entre duas paredes desenhadas longe)
+            // passavam e o DiameterSnapper depois "arredondava" para o
+            // nominal mais próximo (200mm), criando marcadores de diâmetro
+            // que não corresponde à geometria do CAD. A regra é universal
+            // — vale em qualquer tolerância, inclusive máxima.
+            if (!IsEdgeNearAnyNominal(edgeDistanceMm)) return null;
+
             // Linha central entre as duas: t corre ao longo de u; s_mid = média
             // dos s das duas paredes; z = média dos z (mantemos o Z do CAD).
             double sMid = (sa + sb) / 2.0;
@@ -921,6 +931,24 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 if (diff < best) best = diff;
             }
             return best;
+        }
+
+        // Tolerância FIXA (não escala com o slider): a distância entre paredes
+        // PRECISA bater com algum nominal do tipo dentro de ±2mm. Folga apenas
+        // para imprecisão de desenho. Quando o tipo não tem nominais (raro),
+        // o filtro fica liberado — o batch volta a se apoiar só no Min/MaxEdge.
+        private const double EdgeMatchToleranceMm = 2.0;
+
+        private bool IsEdgeNearAnyNominal(double edgeMm)
+        {
+            IReadOnlyList<double> diams = _params.AvailableDiametersMm;
+            if (diams.Count == 0) return true;
+
+            foreach (double d in diams)
+            {
+                if (Math.Abs(d - edgeMm) <= EdgeMatchToleranceMm) return true;
+            }
+            return false;
         }
 
         private static (XYZ a, XYZ b) NormalizeSegmentDirection(XYZ p0, XYZ p1)

@@ -47,10 +47,12 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         ///
         /// Decisões importantes:
         /// <list type="bullet">
-        /// <item>Range de distância entre paredes BEM amplo (0,3× a 2,5× dos
-        /// nominais do tipo). Tubos desenhados levemente fora do nominal
-        /// — 47mm em vez de 50, 90mm em vez de 100 — entram e o
-        /// <c>DiameterSnapper</c> os arruma para o nominal mais próximo.</item>
+        /// <item>Distância entre paredes filtrada em DOIS estágios: aqui um
+        /// sanity belt amplo (Min/MaxEdgeDistanceMm em torno do menor/maior
+        /// nominal); no detector, um filtro estrito de ±2mm de algum
+        /// nominal (<c>IsEdgeNearAnyNominal</c>). O segundo é universal e
+        /// não escala com a tolerância — gaps fora dessa janela JAMAIS
+        /// viram marcador, mesmo na tolerância máxima.</item>
         /// <item>Filtro de símbolos praticamente desligado a partir de 80%.
         /// Como já filtramos por layer, símbolos remanescentes vêm do
         /// próprio sistema (juntas, T-fittings); em alta tolerância o
@@ -78,14 +80,16 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 }
             }
 
-            // Limite inferior: NUNCA menor que o menor diâmetro nominal -2mm
-            // (folga apenas para imprecisão de desenho). Sem isso, paredes de
-            // caixas e janelas com gap pequeno entre seus lados eram pareadas
-            // como se fossem tubo. Limite superior generoso (2,5× do maior
-            // nominal) para tubos desenhados acima do esperado entrarem e
-            // serem snappados pelo DiameterSnapper.
-            double minEdgeMm = Math.Max(2.0, minDiamMm - 2.0);
-            double maxEdgeMm = Math.Max(minEdgeMm + 30.0, maxDiamMm * 2.5);
+            // Limites Min/Max servem como sanity belt rápido — o filtro
+            // estrito mora no detector (IsEdgeNearAnyNominal: ±2mm de algum
+            // nominal). Aqui mantemos uma janela um pouco maior em volta do
+            // menor/maior nominal só para descartar pares grosseiramente
+            // fora antes de chegar no filtro fino. O upper bound antes era
+            // 2,5× do maior nominal e deixava passar gaps de 200..500mm
+            // quando o maior nominal era 200 — geometria errada virava
+            // marcador snappado. Agora amarramos em maxDiam + 5mm.
+            double minEdgeMm = Math.Max(2.0, minDiamMm - 5.0);
+            double maxEdgeMm = maxDiamMm + 5.0;
 
             int maxHard;
             int maxTotal;
