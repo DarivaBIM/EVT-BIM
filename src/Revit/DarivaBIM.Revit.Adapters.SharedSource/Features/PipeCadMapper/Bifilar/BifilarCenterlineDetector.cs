@@ -213,12 +213,21 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
 
             if (pairs.Count == 0) return Array.Empty<BifilarCenterline>();
 
+            // Mesmo critério do batch: nominal + similaridade de comprimento +
+            // cluster + overlap. Aqui o "A" do par é sempre a âncora (anchorIdx),
+            // então a similaridade compara "comprimento do parceiro" com
+            // "comprimento da âncora".
             pairs.Sort((p, q) =>
             {
                 double pScore = DiameterMatchScoreMm(p.EdgeDistanceMm);
                 double qScore = DiameterMatchScoreMm(q.EdgeDistanceMm);
                 int matchCmp = pScore.CompareTo(qScore);
                 if (matchCmp != 0) return matchCmp;
+
+                double pLenDiff = Math.Abs(_candidates[p.AIndex].LengthMm - _candidates[p.BIndex].LengthMm);
+                double qLenDiff = Math.Abs(_candidates[q.AIndex].LengthMm - _candidates[q.BIndex].LengthMm);
+                int lenCmp = pLenDiff.CompareTo(qLenDiff);
+                if (lenCmp != 0) return lenCmp;
 
                 int sameCmp = (q.SameCluster ? 1 : 0) - (p.SameCluster ? 1 : 0);
                 if (sameCmp != 0) return sameCmp;
@@ -876,14 +885,24 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
 
         private PolylineGroup? FindBestPartnerPolyline(PolylineGroup p, HashSet<int> excludedIds)
         {
-            // Score: comprimento total do midline que conseguimos extrair
-            // entre p e o candidate, somando apenas trechos cujos endpoints
-            // estão a ±2mm de algum nominal. Quanto maior, mais cobertura
-            // a parceira oferece — vence a que cobre mais do caminho de p.
-            const double MinMatchedLengthMm = 50.0; // 5cm de midline acumulado
+            // Score combinado:
+            //   score = midlineLength × lengthSimilarity
+            // onde lengthSimilarity = min(totalLenP, totalLenQ) / max(totalLenP, totalLenQ).
+            // A multiplicação garante que uma parceira que cobre só um pedaço
+            // de p (midline curta) NUNCA bate uma "gêmea" de comprimento
+            // parecido (mesmo que cubra um pouco menos por causa de bends
+            // levemente diferentes). Sem essa similaridade, um fragmento de
+            // conexão paralelo casualmente a um trecho do tubo virava o
+            // "par" escolhido em vez da outra parede longa do tubo.
+            //
+            // Filtro mínimo de midline mantido (50mm acumulados) — qualquer
+            // candidate abaixo disso é descartado mesmo se a similaridade
+            // de comprimento total for alta (ambos curtos).
+            const double MinMatchedLengthMm = 50.0;
 
             PolylineGroup? best = null;
             double bestScore = 0;
+            double bestMidline = 0;
 
             foreach (PolylineGroup q in _polylines)
             {
@@ -891,18 +910,36 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 if (excludedIds.Contains(q.Id)) continue;
                 if (q.Vertices.Count < 2) continue;
 
-                double score = ComputePolylineMatchScoreMm(p, q);
+                double midlineMm = ComputeMidlineLengthMm(p, q);
+                if (midlineMm < MinMatchedLengthMm) continue;
+
+                double similarity = LengthSimilarityFactor(p.TotalLengthMm, q.TotalLengthMm);
+                double score = midlineMm * similarity;
+
                 if (score > bestScore)
                 {
                     bestScore = score;
+                    bestMidline = midlineMm;
                     best = q;
                 }
             }
 
-            return bestScore >= MinMatchedLengthMm ? best : null;
+            // bestMidline herda o threshold mínimo do filtro acima.
+            return bestMidline >= MinMatchedLengthMm ? best : null;
         }
 
-        private double ComputePolylineMatchScoreMm(PolylineGroup p, PolylineGroup q)
+        // Similaridade ∈ [0, 1]: 1.0 quando comprimentos idênticos; tende a 0
+        // quando uma das polylines é muito maior que a outra. Usada como
+        // FATOR MULTIPLICATIVO no score de pareamento polyline-aware.
+        private static double LengthSimilarityFactor(double lengthAMm, double lengthBMm)
+        {
+            if (lengthAMm <= 0 || lengthBMm <= 0) return 0;
+            double min = Math.Min(lengthAMm, lengthBMm);
+            double max = Math.Max(lengthAMm, lengthBMm);
+            return min / max;
+        }
+
+        private double ComputeMidlineLengthMm(PolylineGroup p, PolylineGroup q)
         {
             // Walks p's vertices, projeta perpendicular em q, soma comprimento
             // dos segmentos midline cujos endpoints passam no ±2mm-de-nominal.
@@ -1089,19 +1126,26 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 }
             }
 
-            // Ordenação: PARES CUJA DISTÂNCIA ENTRE PAREDES BATE COM UM
-            // DIÂMETRO NOMINAL DO TIPO ganham preferência. Isso evita que
-            // um par "errado" (ex.: gap estreito entre dois tubos
-            // diferentes, ou dois trechos de polilinha que casam por sorte)
-            // venha antes do par CORRETO (que tem distância igual ao
-            // diâmetro real do tubo) na hora de travar candidates via
-            // LockEdgeAfterPair. Empates por mesmo cluster e maior overlap.
+            // Ordenação:
+            // 1) Distância entre paredes mais próxima de um nominal vence.
+            // 2) Pares cujas paredes têm COMPRIMENTOS PARECIDOS vencem —
+            //    evita que um pedacinho de conexão "engane" o detector
+            //    quando casualmente fica paralelo a uma linha grande de
+            //    tubo dentro da margem de distância. O par natural do tubo
+            //    é a outra parede longa, não o fragmento da conexão.
+            // 3) Empates por mesmo cluster.
+            // 4) Empates por maior overlap (mais cobertura ao longo do eixo).
             pairs.Sort((p, q) =>
             {
                 double pScore = DiameterMatchScoreMm(p.EdgeDistanceMm);
                 double qScore = DiameterMatchScoreMm(q.EdgeDistanceMm);
                 int matchCmp = pScore.CompareTo(qScore);
                 if (matchCmp != 0) return matchCmp;
+
+                double pLenDiff = Math.Abs(_candidates[p.AIndex].LengthMm - _candidates[p.BIndex].LengthMm);
+                double qLenDiff = Math.Abs(_candidates[q.AIndex].LengthMm - _candidates[q.BIndex].LengthMm);
+                int lenCmp = pLenDiff.CompareTo(qLenDiff);
+                if (lenCmp != 0) return lenCmp;
 
                 int sameCmp = (q.SameCluster ? 1 : 0) - (p.SameCluster ? 1 : 0);
                 if (sameCmp != 0) return sameCmp;
