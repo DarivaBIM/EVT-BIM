@@ -91,6 +91,133 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             return FindCenterlines();
         }
 
+        /// <summary>
+        /// Variante de <see cref="Detect"/> para o picker bifilar: roda o
+        /// mesmo scan + coalesce + reject-curves no layer, mas em vez de
+        /// procurar TODOS os pares, devolve apenas o melhor par que envolve
+        /// a linha que o usuário clicou (definida pelos endpoints da
+        /// geometria escolhida). Os endpoints podem cair no MEIO de um
+        /// candidate coalescido — por isso o casamento usa proximidade
+        /// perpendicular ao midpoint, não igualdade de endpoints.
+        /// Retorna <c>null</c> se a linha picada não é paralela a nada
+        /// compatível dentro da janela de distância do tipo de tubo.
+        /// </summary>
+        public BifilarCenterline? DetectForAnchor(
+            ImportInstance importInstance,
+            string targetLayer,
+            XYZ anchorStart,
+            XYZ anchorEnd)
+        {
+            _candidates.Clear();
+            _symbolPoints.Clear();
+            _curveSamplings.Clear();
+            _symbolGrid.Clear();
+
+            Options opts = new()
+            {
+                ComputeReferences = false,
+                IncludeNonVisibleObjects = true,
+                DetailLevel = ViewDetailLevel.Fine,
+            };
+
+            GeometryElement? geomElem = importInstance.get_Geometry(opts);
+            if (geomElem == null) return null;
+
+            WalkGeometry(geomElem, targetLayer);
+            CoalesceCollinearCandidates();
+            RejectCandidatesCrossingCurves();
+
+            _candidates.Sort((a, b) => b.LengthMm.CompareTo(a.LengthMm));
+            if (_candidates.Count > _params.MaxCandidateSegments)
+                _candidates.RemoveRange(_params.MaxCandidateSegments, _candidates.Count - _params.MaxCandidateSegments);
+
+            for (int i = 0; i < _candidates.Count; i++)
+                _candidates[i].Index = i;
+
+            ClusterEndpoints();
+            BuildSymbolGrid();
+
+            int anchorIdx = FindCandidateForAnchor(anchorStart, anchorEnd);
+            if (anchorIdx < 0) return null;
+
+            Candidate a = _candidates[anchorIdx];
+            List<PairCandidate> pairs = new();
+            for (int j = 0; j < _candidates.Count; j++)
+            {
+                if (j == anchorIdx) continue;
+                Candidate b = _candidates[j];
+                if (AngleDiffDeg(a.AngleDeg, b.AngleDeg) > _params.AngleToleranceDeg)
+                    continue;
+                PairCandidate? pair = ComputePair(a, b);
+                if (pair != null) pairs.Add(pair);
+            }
+
+            if (pairs.Count == 0) return null;
+
+            // Mesma ordem de preferência do batch: distância igual a nominal
+            // primeiro, depois cluster compartilhado, depois maior overlap.
+            pairs.Sort((p, q) =>
+            {
+                double pScore = DiameterMatchScoreMm(p.EdgeDistanceMm);
+                double qScore = DiameterMatchScoreMm(q.EdgeDistanceMm);
+                int matchCmp = pScore.CompareTo(qScore);
+                if (matchCmp != 0) return matchCmp;
+
+                int sameCmp = (q.SameCluster ? 1 : 0) - (p.SameCluster ? 1 : 0);
+                if (sameCmp != 0) return sameCmp;
+
+                return q.OverlapMm.CompareTo(p.OverlapMm);
+            });
+
+            PairCandidate best = pairs[0];
+            return new BifilarCenterline(best.Start, best.End, best.EdgeDistanceMm);
+        }
+
+        // Procura o candidate que MELHOR REPRESENTA a linha picada. Não usa
+        // igualdade de endpoints porque o coalesce pode ter unido a linha
+        // picada com fragmentos colineares vizinhos. Critério: angulação
+        // parecida + midpoint do anchor cai dentro do segmento candidate
+        // (t ∈ [-0.05, 1.05]) + distância perpendicular muito pequena.
+        private int FindCandidateForAnchor(XYZ anchorStart, XYZ anchorEnd)
+        {
+            if (_candidates.Count == 0) return -1;
+
+            double dx = anchorEnd.X - anchorStart.X;
+            double dy = anchorEnd.Y - anchorStart.Y;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-12) return -1;
+
+            double? anchorAngle = AngleDeg(anchorStart, anchorEnd);
+            if (anchorAngle == null) return -1;
+
+            XYZ midpoint = new(
+                (anchorStart.X + anchorEnd.X) / 2.0,
+                (anchorStart.Y + anchorEnd.Y) / 2.0,
+                (anchorStart.Z + anchorEnd.Z) / 2.0);
+
+            double angleTol = Math.Max(_params.AngleToleranceDeg, 2.0);
+            double perpTolMm = Math.Max(_params.ClusterSnapMm, 25.0);
+
+            int bestIdx = -1;
+            double bestPerpMm = double.MaxValue;
+            for (int i = 0; i < _candidates.Count; i++)
+            {
+                Candidate c = _candidates[i];
+                if (AngleDiffDeg(c.AngleDeg, anchorAngle.Value) > angleTol)
+                    continue;
+
+                (double dMm, double t) = PointToSegmentDistanceAndT(midpoint, c.P0, c.P1);
+                if (t < -0.05 || t > 1.05) continue;
+                if (dMm > perpTolMm) continue;
+                if (dMm < bestPerpMm)
+                {
+                    bestPerpMm = dMm;
+                    bestIdx = i;
+                }
+            }
+            return bestIdx;
+        }
+
         // -------------------------------------------------------------
         // Coleta de geometria
         // -------------------------------------------------------------

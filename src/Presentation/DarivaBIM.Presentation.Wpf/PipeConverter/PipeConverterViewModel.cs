@@ -175,6 +175,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeConverter
                 {
                     OnPropertyChanged(nameof(IsUnifilar));
                     OnPropertyChanged(nameof(IsBifilar));
+                    OnPropertyChanged(nameof(ToggleButtonText));
                 }
             }
         }
@@ -348,9 +349,12 @@ namespace DarivaBIM.Presentation.Wpf.PipeConverter
             set => SetField(ref _statusMessage, value);
         }
 
-        public string ToggleButtonText => IsActive
-            ? "Encerrar seleção de linhas"
-            : "Selecionar linhas → marcadores";
+        public string ToggleButtonText => (IsActive, Mode) switch
+        {
+            (true, _) => "Encerrar seleção de linhas",
+            (false, PipeCadMappingMode.Bifilar) => "Selecionar parede → marcador",
+            _ => "Selecionar linhas → marcadores",
+        };
 
         private void RefreshDiameters()
         {

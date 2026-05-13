@@ -15,6 +15,7 @@ namespace DarivaBIM.Plugin.Ui
         private readonly PipeConverterDataLoadExternalEvent _dataLoadEvent = new();
         private readonly CadLinkPickExternalEvent _cadLinkPickEvent = new();
         private readonly MarkerLinePickExternalEvent _linePickEvent = new();
+        private readonly BifilarMarkerLinePickExternalEvent _bifilarLinePickEvent = new();
         private readonly MarkerBatchExternalEvent _batchEvent = new();
         private readonly MarkerConversionExternalEvent _convertEvent = new();
         private readonly MarkerCountRefreshExternalEvent _countRefreshEvent = new();
@@ -90,18 +91,26 @@ namespace DarivaBIM.Plugin.Ui
             _countRefreshEvent.Raise(ViewModel);
         }
 
+        // Encerra qualquer pick em andamento (unifilar ou bifilar). Os dois
+        // events recebem o sinal de "próximo cancel é interno" porque, do
+        // ponto de vista da janela, não sabemos qual loop está ativo a essa
+        // altura — o handler que estiver de fato esperando consome o flag e
+        // o outro permanece sem efeito até o próximo pick dele.
+        private void EndActivePickLoop()
+        {
+            if (!ViewModel.IsActive) return;
+            ViewModel.IsActive = false;
+            _linePickEvent.MarkNextCancelAsInternal();
+            _bifilarLinePickEvent.MarkNextCancelAsInternal();
+            _pickCancellationService.CancelPendingPick();
+        }
+
         private void OnPickCadClicked(object sender, RoutedEventArgs e)
         {
             // Ao iniciar uma nova escolha de CAD, encerra qualquer pick em
             // andamento e zera o estado de "ativa" para não confundir o
             // usuário no próximo Pick do CAD.
-            if (ViewModel.IsActive)
-            {
-                ViewModel.IsActive = false;
-                _linePickEvent.MarkNextCancelAsInternal();
-                _pickCancellationService.CancelPendingPick();
-            }
-
+            EndActivePickLoop();
             _cadLinkPickEvent.Raise(ViewModel);
         }
 
@@ -109,9 +118,7 @@ namespace DarivaBIM.Plugin.Ui
         {
             if (ViewModel.IsActive)
             {
-                ViewModel.IsActive = false;
-                _linePickEvent.MarkNextCancelAsInternal();
-                _pickCancellationService.CancelPendingPick();
+                EndActivePickLoop();
                 return;
             }
 
@@ -122,20 +129,23 @@ namespace DarivaBIM.Plugin.Ui
             }
 
             ViewModel.IsActive = true;
-            ViewModel.StatusMessage = $"Clique em uma linha do layer '{ViewModel.SelectedLayer}' para criar marcadores.";
-            _linePickEvent.Raise(ViewModel);
+            if (ViewModel.Mode == PipeCadMappingMode.Bifilar)
+            {
+                ViewModel.StatusMessage = $"Clique em uma das paredes do tubo no layer '{ViewModel.SelectedLayer}'.";
+                _bifilarLinePickEvent.Raise(ViewModel);
+            }
+            else
+            {
+                ViewModel.StatusMessage = $"Clique em uma linha do layer '{ViewModel.SelectedLayer}' para criar marcadores.";
+                _linePickEvent.Raise(ViewModel);
+            }
         }
 
         private void OnBatchClicked(object sender, RoutedEventArgs e)
         {
             // Se um pick estiver em andamento, encerra antes de rodar o batch
             // (não queremos o usuário com duas modalidades concorrentes).
-            if (ViewModel.IsActive)
-            {
-                ViewModel.IsActive = false;
-                _linePickEvent.MarkNextCancelAsInternal();
-                _pickCancellationService.CancelPendingPick();
-            }
+            EndActivePickLoop();
 
             if (!HasMinimumConfiguration())
             {
@@ -155,12 +165,7 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnConvertMarkersClicked(object sender, RoutedEventArgs e)
         {
-            if (ViewModel.IsActive)
-            {
-                ViewModel.IsActive = false;
-                _linePickEvent.MarkNextCancelAsInternal();
-                _pickCancellationService.CancelPendingPick();
-            }
+            EndActivePickLoop();
 
             if (ViewModel.IsBusy)
                 return;
@@ -175,12 +180,7 @@ namespace DarivaBIM.Plugin.Ui
 
             SaveCurrentSettings();
 
-            if (ViewModel.IsActive)
-            {
-                ViewModel.IsActive = false;
-                _linePickEvent.MarkNextCancelAsInternal();
-                _pickCancellationService.CancelPendingPick();
-            }
+            EndActivePickLoop();
         }
 
         private void SaveCurrentSettings()
@@ -211,6 +211,8 @@ namespace DarivaBIM.Plugin.Ui
         // diâmetro, nível, layer, modo) com a ferramenta ATIVA (pick linha-a-
         // linha), cancela o PickObject corrente e reagenda. Sem isso, o ciclo
         // de seleção podia ficar travado depois de uma alteração no WPF.
+        // O dispatch entre unifilar/bifilar é decidido pelo Mode corrente do
+        // ViewModel (mudanças em IsUnifilar/IsBifilar/Mode também caem aqui).
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (!ViewModel.IsActive)
@@ -219,9 +221,18 @@ namespace DarivaBIM.Plugin.Ui
             if (!IsLineLoopParameter(e.PropertyName))
                 return;
 
-            _linePickEvent.MarkNextCancelAsInternal();
-            _pickCancellationService.CancelPendingPick();
-            _linePickEvent.RaiseIfActive(ViewModel);
+            if (ViewModel.Mode == PipeCadMappingMode.Bifilar)
+            {
+                _bifilarLinePickEvent.MarkNextCancelAsInternal();
+                _pickCancellationService.CancelPendingPick();
+                _bifilarLinePickEvent.RaiseIfActive(ViewModel);
+            }
+            else
+            {
+                _linePickEvent.MarkNextCancelAsInternal();
+                _pickCancellationService.CancelPendingPick();
+                _linePickEvent.RaiseIfActive(ViewModel);
+            }
         }
 
         private static bool IsLineLoopParameter(string? propertyName)

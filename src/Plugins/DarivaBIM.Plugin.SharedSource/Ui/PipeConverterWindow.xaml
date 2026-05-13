@@ -547,10 +547,21 @@
                                         Click="OnBatchClicked" />
                             </StackPanel>
 
-                            <!-- Bifilar: apenas detecção automática (primário). -->
+                            <!-- Bifilar: pick parede-a-parede (primário) +
+                                 detecção automática em lote (ghost). O picker
+                                 reusa OnToggleLinePickClicked, que dispatcha
+                                 para o event de bifilar quando vm.Mode=Bifilar.
+                                 ToggleButtonText muda dinamicamente para
+                                 "Selecionar parede → marcador" no Bifilar. -->
                             <StackPanel Visibility="{Binding IsBifilar, Converter={StaticResource BoolToVis}}">
-                                <Button x:Name="BifilarBatchButton"
+                                <Button x:Name="BifilarLinePickButton"
                                         Style="{StaticResource PrimaryButtonStyle}"
+                                        Content="{Binding ToggleButtonText}"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="0,0,0,8"
+                                        Click="OnToggleLinePickClicked" />
+                                <Button x:Name="BifilarBatchButton"
+                                        Style="{StaticResource GhostButtonStyle}"
                                         Content="Detectar tubos bifilar e marcar"
                                         HorizontalAlignment="Stretch"
                                         Click="OnBatchClicked" />
