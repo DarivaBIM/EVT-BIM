@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:common="clr-namespace:DarivaBIM.Presentation.Wpf.Common;assembly=DarivaBIM.Presentation.Wpf"
         Title="PipeCADMapper"
-        Width="440"
-        Height="720"
-        MinWidth="440"
-        MinHeight="720"
+        Width="580"
+        Height="640"
+        MinWidth="560"
+        MinHeight="600"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
         Topmost="True"
@@ -117,44 +117,50 @@
 
                     <Border Style="{StaticResource CardBorderStyle}" Margin="0,10,0,0">
                         <StackPanel>
-                            <!-- Estado vazio: sem CAD selecionado. -->
-                            <StackPanel Visibility="{Binding HasCadLink, Converter={StaticResource InverseBoolToVis}}">
-                                <TextBlock Style="{StaticResource HelperTextStyle}"
-                                           Text="Nenhum vínculo CAD selecionado."
-                                           Margin="0,0,0,12" />
-                                <Button x:Name="PickCadButton"
-                                        Style="{StaticResource PrimaryButtonStyle}"
-                                        Content="Selecionar vínculo CAD"
-                                        HorizontalAlignment="Stretch"
-                                        Click="OnPickCadClicked" />
-                            </StackPanel>
+                            <!-- Estado vazio: só o botão. O label da própria
+                                 ação ("Selecionar vínculo CAD") já comunica a
+                                 falta — não precisa de helper text acima. -->
+                            <Button x:Name="PickCadButton"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Content="Selecionar vínculo CAD"
+                                    HorizontalAlignment="Stretch"
+                                    Click="OnPickCadClicked"
+                                    Visibility="{Binding HasCadLink, Converter={StaticResource InverseBoolToVis}}" />
 
-                            <!-- Estado com CAD selecionado: nome + contagem + secundário. -->
-                            <StackPanel Visibility="{Binding HasCadLink, Converter={StaticResource BoolToVis}}">
-                                <TextBlock x:Name="CadLinkLabel"
-                                           Text="{Binding SelectedCadLinkName, FallbackValue='(nenhum vínculo selecionado)', TargetNullValue='(nenhum vínculo selecionado)'}"
-                                           FontFamily="{StaticResource DisplayFont}"
-                                           FontSize="13.5"
-                                           FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextBrush}"
-                                           TextWrapping="Wrap"
-                                           Margin="0,0,0,4" />
-
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                    <TextBlock Style="{StaticResource HelperTextStyle}"
-                                               VerticalAlignment="Center"
-                                               Text="{Binding ElementName=LayerComboBox, Path=Items.Count, Mode=OneWay, FallbackValue=0}" />
-                                    <TextBlock Style="{StaticResource HelperTextStyle}"
-                                               VerticalAlignment="Center"
-                                               Text=" layer(s) detectada(s)" />
+                            <!-- Estado com CAD selecionado: nome (grow) + botão
+                                 trocar (auto) em uma única linha; contador de
+                                 layers logo abaixo do nome, sem ocupar uma
+                                 linha vertical inteira. -->
+                            <Grid Visibility="{Binding HasCadLink, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="CadLinkLabel"
+                                               Text="{Binding SelectedCadLinkName, FallbackValue='(nenhum vínculo selecionado)', TargetNullValue='(nenhum vínculo selecionado)'}"
+                                               FontFamily="{StaticResource DisplayFont}"
+                                               FontSize="13.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextBrush}"
+                                               TextWrapping="Wrap" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Style="{StaticResource HelperTextStyle}"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding ElementName=LayerComboBox, Path=Items.Count, Mode=OneWay, FallbackValue=0}" />
+                                        <TextBlock Style="{StaticResource HelperTextStyle}"
+                                                   VerticalAlignment="Center"
+                                                   Text=" layer(s) detectada(s)" />
+                                    </StackPanel>
                                 </StackPanel>
-
-                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                        Content="Selecionar outro vínculo CAD"
-                                        HorizontalAlignment="Left"
+                                <Button Grid.Column="1"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Content="Trocar"
+                                        VerticalAlignment="Center"
+                                        Margin="12,0,0,0"
                                         Padding="14,0"
                                         Click="OnPickCadClicked" />
-                            </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -211,17 +217,7 @@
 
                     <Border Style="{StaticResource CardBorderStyle}" Margin="0,10,0,0">
                         <StackPanel>
-                            <!-- Layer de referência -->
-                            <TextBlock Style="{StaticResource FieldLabelStyle}"
-                                       Text="Layer de referência" />
-                            <ComboBox x:Name="LayerComboBox"
-                                      Style="{StaticResource ComboBoxStyle}"
-                                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
-                                      ItemsSource="{Binding CadLayers}"
-                                      SelectedItem="{Binding SelectedLayer}"
-                                      Margin="0,0,0,14" />
-
-                            <!-- Modo de representação (segmented control) -->
+                            <!-- Modo de representação (full width, segmented control) -->
                             <TextBlock Style="{StaticResource FieldLabelStyle}"
                                        Text="Modo de representação" />
                             <ListBox Style="{StaticResource SegmentedControlStyle}"
@@ -240,68 +236,129 @@
                                              IsSelected="{Binding IsBifilar, Mode=TwoWay}" />
                             </ListBox>
 
-                            <!-- Sistema -->
-                            <TextBlock Style="{StaticResource FieldLabelStyle}"
-                                       Text="Sistema" />
-                            <ComboBox x:Name="SystemComboBox"
-                                      Style="{StaticResource ComboBoxStyle}"
-                                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
-                                      ItemsSource="{Binding Systems}"
-                                      SelectedItem="{Binding SelectedSystem}"
-                                      DisplayMemberPath="Name"
-                                      Margin="0,0,0,14" />
+                            <!--
+                                Pares de campos lado a lado (50/50 com 12px de
+                                gap entre as colunas) para enxugar altura. As
+                                3 linhas pareadas seguem a mesma estrutura:
+                                Grid 2 colunas, cada coluna com label + input.
+                            -->
 
-                            <!-- Tipo de tubo -->
-                            <TextBlock Style="{StaticResource FieldLabelStyle}"
-                                       Text="Tipo de tubo" />
-                            <ComboBox x:Name="PipeTypeComboBox"
-                                      Style="{StaticResource ComboBoxStyle}"
-                                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
-                                      ItemsSource="{Binding PipeTypes}"
-                                      SelectedItem="{Binding SelectedPipeType}"
-                                      DisplayMemberPath="Name"
-                                      Margin="0,0,0,14" />
+                            <!-- Linha 1: Layer de referência | Sistema -->
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource FieldLabelStyle}"
+                                               Text="Layer de referência" />
+                                    <ComboBox x:Name="LayerComboBox"
+                                              Style="{StaticResource ComboBoxStyle}"
+                                              ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
+                                              ItemsSource="{Binding CadLayers}"
+                                              SelectedItem="{Binding SelectedLayer}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabelStyle}"
+                                               Text="Sistema" />
+                                    <ComboBox x:Name="SystemComboBox"
+                                              Style="{StaticResource ComboBoxStyle}"
+                                              ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
+                                              ItemsSource="{Binding Systems}"
+                                              SelectedItem="{Binding SelectedSystem}"
+                                              DisplayMemberPath="Name" />
+                                </StackPanel>
+                            </Grid>
 
                             <!--
-                                Diâmetro: visível apenas em Unifilar. Em Bifilar
-                                a distância entre as paredes do CAD define o
-                                diâmetro automaticamente (snappa para a lista
-                                do tipo), então o input perde propósito.
+                                Linha 2: Tipo de tubo | Diâmetro.
+                                Diâmetro só faz sentido em Unifilar — em Bifilar
+                                ele é derivado das paredes do CAD. Solução: a
+                                coluna direita troca de conteúdo via duas
+                                StackPanels com Visibility (Tipo ocupa as duas
+                                colunas no Bifilar via ColumnSpan). Para evitar
+                                duplicar o ComboBox de Tipo, escolhi manter o
+                                Tipo na primeira coluna em ambos os modos e
+                                ESCONDER a coluna do Diâmetro no Bifilar
+                                (Visibility=Collapsed na StackPanel direita).
+                                O espaço fica vazio ali, mas é um caso raro de
+                                troca e o resultado lê mais limpo do que dois
+                                layouts paralelos.
                             -->
-                            <StackPanel Visibility="{Binding IsUnifilar, Converter={StaticResource BoolToVis}}">
-                                <Grid Margin="0,0,0,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               Style="{StaticResource FieldLabelStyle}"
-                                               Margin="0"
-                                               Text="Diâmetro" />
-                                    <TextBlock Grid.Column="1"
-                                               Style="{StaticResource HelperTextStyle}"
-                                               VerticalAlignment="Center"
-                                               Text="mm" />
-                                </Grid>
-                                <ComboBox x:Name="DiameterComboBox"
-                                          Style="{StaticResource ComboBoxStyle}"
-                                          ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
-                                          ItemsSource="{Binding Diameters}"
-                                          SelectedItem="{Binding SelectedDiameterMm}"
-                                          Margin="0,0,0,14" />
-                            </StackPanel>
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource FieldLabelStyle}"
+                                               Text="Tipo de tubo" />
+                                    <ComboBox x:Name="PipeTypeComboBox"
+                                              Style="{StaticResource ComboBoxStyle}"
+                                              ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
+                                              ItemsSource="{Binding PipeTypes}"
+                                              SelectedItem="{Binding SelectedPipeType}"
+                                              DisplayMemberPath="Name" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2"
+                                            Visibility="{Binding IsUnifilar, Converter={StaticResource BoolToVis}}">
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Style="{StaticResource FieldLabelStyle}"
+                                                   Margin="0"
+                                                   Text="Diâmetro" />
+                                        <TextBlock Grid.Column="1"
+                                                   Style="{StaticResource HelperTextStyle}"
+                                                   VerticalAlignment="Center"
+                                                   Text="mm" />
+                                    </Grid>
+                                    <ComboBox x:Name="DiameterComboBox"
+                                              Style="{StaticResource ComboBoxStyle}"
+                                              ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
+                                              ItemsSource="{Binding Diameters}"
+                                              SelectedItem="{Binding SelectedDiameterMm}" />
+                                </StackPanel>
+                            </Grid>
 
-                            <!-- Nível de referência -->
-                            <TextBlock Style="{StaticResource FieldLabelStyle}"
-                                       Text="Nível de referência" />
-                            <ComboBox x:Name="LevelComboBox"
-                                      Style="{StaticResource ComboBoxStyle}"
-                                      ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
-                                      ItemsSource="{Binding Levels}"
-                                      SelectedItem="{Binding SelectedLevel}"
-                                      IsEnabled="{Binding IsLevelInputEnabled}"
-                                      DisplayMemberPath="Name"
-                                      Margin="0,0,0,10" />
+                            <!-- Linha 3: Nível de referência | Cota em relação ao nível -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource FieldLabelStyle}"
+                                               Text="Nível de referência" />
+                                    <ComboBox x:Name="LevelComboBox"
+                                              Style="{StaticResource ComboBoxStyle}"
+                                              ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
+                                              ItemsSource="{Binding Levels}"
+                                              SelectedItem="{Binding SelectedLevel}"
+                                              IsEnabled="{Binding IsLevelInputEnabled}"
+                                              DisplayMemberPath="Name" />
+                                </StackPanel>
+                                <!--
+                                    Cota em relação ao nível — offset manual. NÃO
+                                    desabilita quando UseCadElevation está marcado:
+                                    o offset é somado sobre o nível derivado do CAD
+                                    e segue editável em ambos os modos.
+                                -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabelStyle}"
+                                               Text="Cota em relação ao nível" />
+                                    <TextBox x:Name="OffsetTextBox"
+                                             Style="{StaticResource TextBoxStyle}"
+                                             Tag="mm"
+                                             Text="{Binding OffsetMm, StringFormat={}{0:0.##}}" />
+                                </StackPanel>
+                            </Grid>
 
                             <!-- Card cinza com checkbox de nível do CAD -->
                             <Border Style="{StaticResource SubtleCardBorderStyle}" Margin="0,0,0,14">
@@ -310,20 +367,6 @@
                                           IsChecked="{Binding UseCadElevation}"
                                           ToolTip="Quando marcado, o nível de referência é fixado no nível associado ao vínculo CAD selecionado." />
                             </Border>
-
-                            <!--
-                                Cota em relação ao nível — offset manual. NÃO
-                                desabilita quando UseCadElevation está marcado:
-                                o offset é somado sobre o nível derivado do CAD
-                                e segue editável em ambos os modos.
-                            -->
-                            <TextBlock Style="{StaticResource FieldLabelStyle}"
-                                       Text="Cota em relação ao nível" />
-                            <TextBox x:Name="OffsetTextBox"
-                                     Style="{StaticResource TextBoxStyle}"
-                                     Tag="mm"
-                                     Text="{Binding OffsetMm, StringFormat={}{0:0.##}}"
-                                     Margin="0,0,0,14" />
 
                             <!--
                                 Tolerância — slider visível APENAS no modo
