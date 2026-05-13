@@ -143,8 +143,11 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 IReadOnlyList<double> availableDiameters =
                     vm.SelectedPipeType?.AvailableDiametersMm ?? Array.Empty<double>();
 
-                BifilarDetectionParameters parameters = BifilarDetectionParameters.FromTolerance(
-                    vm.TolerancePercent, availableDiameters);
+                // Picker usa parâmetros independentes do slider — bem mais
+                // permissivos que o batch (overlap mínimo, ângulo, símbolos).
+                // O ÚNICO filtro estrito mantido é ±2mm de algum nominal,
+                // que mora dentro do detector e vale para qualquer caminho.
+                BifilarDetectionParameters parameters = BifilarDetectionParameters.ForPicker(availableDiameters);
 
                 BifilarCenterlineDetector detector = new(doc, parameters);
                 BifilarCenterline? centerline = detector.DetectForAnchor(

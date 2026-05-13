@@ -135,6 +135,71 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             };
         }
 
+        /// <summary>
+        /// Parâmetros para o picker bifilar (parede-a-parede). Bem mais
+        /// permissivo que <see cref="FromTolerance"/>: o usuário JÁ tomou a
+        /// decisão de que aquela linha é parede de tubo, então não faz sentido
+        /// rejeitar por overlap curto, ângulo levemente fora, ou símbolos
+        /// cruzando o eixo. O ÚNICO filtro estrito que sobra é o de distância
+        /// entre paredes ±2mm de algum nominal (aplicado no detector via
+        /// <c>IsEdgeNearAnyNominal</c>) — esse é universal.
+        ///
+        /// O picker existe para "limpar" o que escapou do batch; com regras
+        /// idênticas ao batch, ele ofereceria zero valor adicional.
+        /// </summary>
+        public static BifilarDetectionParameters ForPicker(IReadOnlyList<double> availableDiametersMm)
+        {
+            double minDiamMm = 10.0;
+            double maxDiamMm = 200.0;
+            if (availableDiametersMm.Count > 0)
+            {
+                minDiamMm = double.MaxValue;
+                maxDiamMm = 0.0;
+                foreach (double d in availableDiametersMm)
+                {
+                    if (d < minDiamMm) minDiamMm = d;
+                    if (d > maxDiamMm) maxDiamMm = d;
+                }
+            }
+
+            // Sanity belt — mesma forma do FromTolerance. O filtro fino de
+            // ±2mm em IsEdgeNearAnyNominal faz o trabalho real de validação.
+            double minEdgeMm = Math.Max(2.0, minDiamMm - 5.0);
+            double maxEdgeMm = maxDiamMm + 5.0;
+
+            return new BifilarDetectionParameters
+            {
+                // Linhas curtas viram candidates — o batch as ignora pra não
+                // virar ruído mas no pick a anchor pode ser uma delas.
+                MinCandidateLengthMm = 5.0,
+
+                MinEdgeDistanceMm = minEdgeMm,
+                MaxEdgeDistanceMm = maxEdgeMm,
+
+                // Aceita paredes desenhadas levemente fora de paralelismo perfeito.
+                AngleToleranceDeg = 15.0,
+
+                // Overlap mínimo bem baixo: pares com pouquíssima coincidência
+                // longitudinal voltam a ser elegíveis.
+                MinOverlapMm = 5.0,
+
+                ClusterSnapMm = 25.0,
+
+                // Filtro de símbolos praticamente desligado: o usuário decide.
+                SymbolBufferMm = 5.0,
+                MaxHardSymbolsInside = 10000,
+                MaxTotalSymbolsInside = 10000,
+
+                EndpointIgnoreMm = 25.0,
+
+                MaxCandidateSegments = 10000,
+                MaxValidPairsStored = 30000,
+                SegmentGridCellMm = 400.0,
+                LockEdgeAfterPair = false,
+                AvailableDiametersMm = availableDiametersMm,
+            };
+        }
+
         private static double Lerp(double t, double strict, double loose)
         {
             return strict + (loose - strict) * t;
