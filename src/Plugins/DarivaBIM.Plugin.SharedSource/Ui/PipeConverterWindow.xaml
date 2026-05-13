@@ -482,6 +482,61 @@
                                     </TextBlock>
                                 </UniformGrid>
                             </StackPanel>
+
+                            <!--
+                                Restrição de bend angles na geração dos
+                                marcadores. "Permitir qualquer ângulo" =
+                                comportamento neutro (geometria do CAD
+                                preservada). Quando desmarcado, os 4
+                                checkboxes específicos ficam ativos e o
+                                detector snappa cada bend ao ângulo
+                                permitido mais próximo dentro de ±15°.
+                                Bends < 15° viram retas (segmentos
+                                colineares fundidos), exceto quando "qualquer
+                                ângulo" estiver marcado. Vale para unifilar
+                                e bifilar (batch + picker).
+                            -->
+                            <TextBlock Style="{StaticResource FieldLabelStyle}"
+                                       Margin="0,16,0,6"
+                                       Text="Ângulos permitidos nas curvas" />
+
+                            <CheckBox Style="{StaticResource CheckBoxStyle}"
+                                      Content="Permitir qualquer ângulo"
+                                      IsChecked="{Binding AllowAnyBendAngle}"
+                                      Margin="0,0,0,8"
+                                      ToolTip="Quando marcado, os marcadores seguem exatamente os ângulos do CAD. Quando desmarcado, o código força cada bend para o ângulo permitido mais próximo (dentro de ±15°)." />
+
+                            <!--
+                                Os 4 checkboxes específicos. Opacity reduzida
+                                e IsEnabled=False quando "qualquer ângulo"
+                                está marcado, comunicando visualmente que não
+                                têm efeito nesse modo.
+                            -->
+                            <UniformGrid Rows="1" Columns="4"
+                                         IsEnabled="{Binding AreSpecificBendAnglesEnabled}">
+                                <UniformGrid.Style>
+                                    <Style TargetType="UniformGrid">
+                                        <Setter Property="Opacity" Value="1.0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AllowAnyBendAngle}" Value="True">
+                                                <Setter Property="Opacity" Value="0.45" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </UniformGrid.Style>
+                                <CheckBox Style="{StaticResource CheckBoxStyle}"
+                                          Content="22.5°"
+                                          IsChecked="{Binding AllowBend22_5}" />
+                                <CheckBox Style="{StaticResource CheckBoxStyle}"
+                                          Content="45°"
+                                          IsChecked="{Binding AllowBend45}" />
+                                <CheckBox Style="{StaticResource CheckBoxStyle}"
+                                          Content="60°"
+                                          IsChecked="{Binding AllowBend60}" />
+                                <CheckBox Style="{StaticResource CheckBoxStyle}"
+                                          Content="90°"
+                                          IsChecked="{Binding AllowBend90}" />
+                            </UniformGrid>
                         </StackPanel>
                     </Border>
                 </StackPanel>

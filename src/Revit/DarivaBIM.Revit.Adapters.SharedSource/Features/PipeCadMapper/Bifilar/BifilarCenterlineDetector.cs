@@ -987,12 +987,29 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             List<BifilarCenterline> result = new();
             if (midpoints.Count < 2) return result;
 
-            double tolFt = _doc.Application.ShortCurveTolerance;
-            for (int i = 0; i < midpoints.Count - 1; i++)
+            // Aplica restrição de bend angles ANTES de fechar segmentos.
+            // Quando AllowAnyBendAngle=true ou a lista está vazia, o snapper
+            // devolve uma cópia idêntica (no-op). Quando ativo, bends são
+            // forçados ao nominal mais próximo dentro de ±15°, e bends
+            // |b|<15° viram retas (segmentos colineares fundidos).
+            //
+            // O snapper opera só nos vértices (geometria); o diâmetro de
+            // cada segmento resultante é estimado pela MÉDIA dos diâmetros
+            // brutos dos vértices originais cujos midpoints lhe deram
+            // origem — como o ±2mm-de-nominal já passou, a variação é
+            // pequena e o snapper na criação do marker arruma o final.
+            List<XYZ> snappedMidpoints = Geometry.BendAngleSnapper.SnapPolylineBends(
+                midpoints, _params.AllowedBendAnglesDeg, _params.AllowAnyBendAngle);
+
+            double avgDiameterAll = 0;
+            for (int i = 0; i < diametersMm.Count; i++) avgDiameterAll += diametersMm[i];
+            avgDiameterAll /= diametersMm.Count;
+
+            double tolFt = Markers.PipeMarkerCreator.EffectiveMinPipeLengthFt(_doc);
+            for (int i = 0; i < snappedMidpoints.Count - 1; i++)
             {
-                if (midpoints[i].DistanceTo(midpoints[i + 1]) < tolFt) continue;
-                double avgDiameter = (diametersMm[i] + diametersMm[i + 1]) / 2.0;
-                result.Add(new BifilarCenterline(midpoints[i], midpoints[i + 1], avgDiameter));
+                if (snappedMidpoints[i].DistanceTo(snappedMidpoints[i + 1]) < tolFt) continue;
+                result.Add(new BifilarCenterline(snappedMidpoints[i], snappedMidpoints[i + 1], avgDiameterAll));
             }
             return result;
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
@@ -7,6 +8,7 @@ using DarivaBIM.Presentation.Wpf.PipeConverter;
 using DarivaBIM.Revit.Adapters.Common.Cad;
 using DarivaBIM.Revit.Adapters.Common.Filters;
 using DarivaBIM.Revit.Adapters.Common.Transactions.FailurePreprocessors;
+using DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Geometry;
 using DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers;
 using DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Unifilar;
 
@@ -114,7 +116,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                     return;
                 }
 
-                if (batch.Segments.Count == 0)
+                if (batch.Polylines.Count == 0)
                 {
                     vm.StatusMessage = "Geometria não suportada (apenas linhas e polylines retas viram marcadores).";
                     return;
@@ -123,6 +125,25 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 if (!PipeMarkerConfigFactory.TryCreate(vm, out PipeMarkerConfig? config, out string? configError))
                 {
                     vm.StatusMessage = configError!;
+                    return;
+                }
+
+                // Snap por polyline antes de gerar segmentos do marker.
+                IReadOnlyList<double> allowedBendAngles = vm.AllowedBendAnglesDeg;
+                bool allowAnyBend = vm.AllowAnyBendAngle;
+
+                List<(XYZ, XYZ)> snappedSegments = new();
+                foreach (UnifilarPolyline polyline in batch.Polylines)
+                {
+                    List<XYZ> snapped = BendAngleSnapper.SnapPolylineBends(
+                        polyline.Vertices, allowedBendAngles, allowAnyBend);
+                    for (int i = 0; i < snapped.Count - 1; i++)
+                        snappedSegments.Add((snapped[i], snapped[i + 1]));
+                }
+
+                if (snappedSegments.Count == 0)
+                {
+                    vm.StatusMessage = "Geometria não suportada (apenas linhas e polylines retas viram marcadores).";
                     return;
                 }
 
@@ -138,7 +159,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                     tx.Start();
 
                     PipeMarkerBatch result = PipeMarkerCreator.CreateFromSegments(
-                        doc, activeView, batch.Segments, config!);
+                        doc, activeView, snappedSegments, config!);
 
                     if (result.Created == 0)
                     {

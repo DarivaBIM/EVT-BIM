@@ -14,6 +14,16 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
     /// </summary>
     public static class PipeMarkerCreator
     {
+        // Comprimento mínimo de uma MEPCurve no Revit é 1/10 polegada
+        // (≈2.54mm). É MAIOR que Application.ShortCurveTolerance (~0.79mm),
+        // que é o mínimo de Curve genérica. Usar só ShortCurveTolerance
+        // deixava passar segmentos entre 0.79mm e 2.54mm que depois
+        // quebravam com "minimum length is 1/10 inch" no Pipe.CreatePlaceholder.
+        public const double MepCurveMinLengthFt = 0.1 / 12.0;
+
+        public static double EffectiveMinPipeLengthFt(Document doc) =>
+            Math.Max(doc.Application.ShortCurveTolerance, MepCurveMinLengthFt);
+
         /// <summary>
         /// Cria marcadores em modo unifilar: cada segmento vira um marcador
         /// com o diâmetro default da config.
@@ -26,7 +36,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
         {
             int created = 0;
             int skippedShort = 0;
-            double tol = doc.Application.ShortCurveTolerance;
+            double tol = EffectiveMinPipeLengthFt(doc);
             double defaultDiameterFt = UnitUtils.ConvertToInternalUnits(config.DefaultDiameterMm, UnitTypeId.Millimeters);
             double levelOffsetFt = UnitUtils.ConvertToInternalUnits(config.OffsetMm, UnitTypeId.Millimeters);
             double targetZWhenLevel = config.LevelElevationFeet + levelOffsetFt;
@@ -75,7 +85,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
         {
             int created = 0;
             int skippedShort = 0;
-            double tol = doc.Application.ShortCurveTolerance;
+            double tol = EffectiveMinPipeLengthFt(doc);
             double levelOffsetFt = UnitUtils.ConvertToInternalUnits(config.OffsetMm, UnitTypeId.Millimeters);
             double targetZWhenLevel = config.LevelElevationFeet + levelOffsetFt;
 

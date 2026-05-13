@@ -142,6 +142,14 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             vm.OffsetMm = settings.OffsetMm;
             vm.UseCadElevation = settings.UseCadElevation;
 
+            // Restrição de bend angles. Settings antigos (sem os campos)
+            // caem em "permitir qualquer ângulo" — comportamento neutro.
+            vm.AllowAnyBendAngle = settings.AllowAnyBendAngle ?? true;
+            vm.AllowBend22_5 = settings.AllowBendAngle22_5 ?? true;
+            vm.AllowBend45 = settings.AllowBendAngle45 ?? true;
+            vm.AllowBend60 = settings.AllowBendAngle60 ?? true;
+            vm.AllowBend90 = settings.AllowBendAngle90 ?? true;
+
             BifilarToleranceLevel toleranceLevel = BifilarToleranceLevel.Medium;
             if (!string.IsNullOrEmpty(settings.ToleranceLevel) &&
                 Enum.TryParse<BifilarToleranceLevel>(settings.ToleranceLevel, ignoreCase: true, out BifilarToleranceLevel parsed))

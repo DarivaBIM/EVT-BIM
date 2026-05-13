@@ -198,6 +198,11 @@ namespace DarivaBIM.Plugin.Ui
                     Mode = ViewModel.Mode.ToString(),
                     UseCadElevation = ViewModel.UseCadElevation,
                     ToleranceLevel = ViewModel.ToleranceLevel.ToString(),
+                    AllowAnyBendAngle = ViewModel.AllowAnyBendAngle,
+                    AllowBendAngle22_5 = ViewModel.AllowBend22_5,
+                    AllowBendAngle45 = ViewModel.AllowBend45,
+                    AllowBendAngle60 = ViewModel.AllowBend60,
+                    AllowBendAngle90 = ViewModel.AllowBend90,
                 };
                 settings.Save();
             }

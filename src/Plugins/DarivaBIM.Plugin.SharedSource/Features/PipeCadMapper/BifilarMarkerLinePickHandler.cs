@@ -145,7 +145,10 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 // permissivos que o batch (overlap mínimo, ângulo, símbolos).
                 // O ÚNICO filtro estrito mantido é ±2mm de algum nominal,
                 // que mora dentro do detector e vale para qualquer caminho.
-                BifilarDetectionParameters parameters = BifilarDetectionParameters.ForPicker(availableDiameters);
+                // O snap de bend-angles vem do mesmo VM e se aplica também
+                // ao midline produzido aqui.
+                BifilarDetectionParameters parameters = BifilarDetectionParameters.ForPicker(
+                    availableDiameters, vm.AllowedBendAnglesDeg, vm.AllowAnyBendAngle);
 
                 BifilarCenterlineDetector detector = new(doc, parameters);
                 IReadOnlyList<BifilarCenterline> centerlines = detector.DetectForAnchor(
