@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using DarivaBIM.Application.Common;
 using DarivaBIM.Application.DTOs.Family;
@@ -29,12 +28,15 @@ namespace DarivaBIM.Infrastructure.Api.Clients
         /// Always call this BEFORE raising the Revit ExternalEvent — the
         /// ExternalEvent runs on Revit's UI thread and any I/O there freezes
         /// the entire Revit window until completion (see ADR-0015 follow-up).
+        ///
+        /// This method also touches disk synchronously (Directory.CreateDirectory,
+        /// File.Exists, etc.) before the first await. Callers on a UI thread
+        /// must wrap the call in Task.Run to avoid blocking the dispatcher
+        /// when antivirus or a slow disk delays those checks.
         /// </summary>
         public async Task<string> DownloadToCacheAsync(
             ImportFamilyRequest request,
-            FamilyCacheService cacheService,
-            IProgress<DownloadProgress>? progress = null,
-            CancellationToken cancellationToken = default)
+            FamilyCacheService cacheService)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -56,7 +58,6 @@ namespace DarivaBIM.Infrastructure.Api.Clients
 
                 if (fileInfo.Length > 0)
                 {
-                    progress?.Report(new DownloadProgress(fileInfo.Length, fileInfo.Length));
                     return cachedFilePath;
                 }
             }
@@ -71,21 +72,11 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                 }
 
                 using (HttpResponseMessage response = await HttpClient
-                           .GetAsync(
-                               request.DownloadUrl,
-                               HttpCompletionOption.ResponseHeadersRead,
-                               cancellationToken)
+                           .GetAsync(request.DownloadUrl, HttpCompletionOption.ResponseHeadersRead)
                            .ConfigureAwait(false))
                 {
                     response.EnsureSuccessStatusCode();
 
-                    long? totalBytes = response.Content.Headers.ContentLength;
-                    progress?.Report(new DownloadProgress(0, totalBytes));
-
-                    // Manual read loop instead of CopyToAsync so we can emit
-                    // progress notifications. Buffer size matches what the
-                    // previous CopyToAsync used so behavior is unchanged for
-                    // the no-progress case.
                     using (Stream inputStream = await response.Content
                                .ReadAsStreamAsync()
                                .ConfigureAwait(false))
@@ -97,29 +88,17 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                                bufferSize: 81920,
                                useAsync: true))
                     {
-                        byte[] buffer = new byte[81920];
-                        long totalRead = 0;
-                        int read;
-
-                        while ((read = await inputStream
-                                   .ReadAsync(buffer, 0, buffer.Length, cancellationToken)
-                                   .ConfigureAwait(false)) > 0)
-                        {
-                            await outputStream
-                                .WriteAsync(buffer, 0, read, cancellationToken)
-                                .ConfigureAwait(false);
-
-                            totalRead += read;
-                            progress?.Report(new DownloadProgress(totalRead, totalBytes));
-                        }
+                        await inputStream
+                            .CopyToAsync(outputStream, 81920)
+                            .ConfigureAwait(false);
 
                         await outputStream
-                            .FlushAsync(cancellationToken)
+                            .FlushAsync()
                             .ConfigureAwait(false);
                     }
                 }
 
-                return await ReplaceCachedFileAsync(tempFilePath, cachedFilePath, cancellationToken)
+                return await ReplaceCachedFileAsync(tempFilePath, cachedFilePath)
                     .ConfigureAwait(false);
             }
             catch
@@ -148,8 +127,7 @@ namespace DarivaBIM.Infrastructure.Api.Clients
         // and try again.
         private static async Task<string> ReplaceCachedFileAsync(
             string tempFilePath,
-            string cachedFilePath,
-            CancellationToken cancellationToken)
+            string cachedFilePath)
         {
             const int maxAttempts = 5;
 
@@ -170,7 +148,7 @@ namespace DarivaBIM.Infrastructure.Api.Clients
                     && attempt < maxAttempts - 1)
                 {
                     int delayMs = 120 * (attempt + 1);
-                    await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(delayMs).ConfigureAwait(false);
                 }
             }
 

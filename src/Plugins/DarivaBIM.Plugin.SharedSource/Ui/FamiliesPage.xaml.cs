@@ -11,7 +11,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -57,10 +56,13 @@ namespace DarivaBIM.Plugin.Ui
 
         private List<FamilyItem> _filteredFamilies = new();
         private CancellationTokenSource? _searchCancellationTokenSource;
-        private CancellationTokenSource? _currentDownloadCts;
         private bool _hasLoaded;
         private bool _lastLoadFailed;
-        private bool _suppressDownloadProgress;
+        // Reentrance guard pro card-click: a galeria pode receber outro clique
+        // antes da Task de download anterior terminar (especialmente se a
+        // rede tá lenta). Sem isso, dois downloads concorrentes brigariam
+        // pelo mesmo arquivo de cache e o ExternalEvent dispararia duas vezes.
+        private bool _isDownloading;
         private int _itemsPerRow = 1;
 
         // Estado da navegação por aba (rail). "all" sempre tem dados; as
@@ -389,6 +391,14 @@ namespace DarivaBIM.Plugin.Ui
             // pra viewport durante o download).
             e.Handled = true;
 
+            // Guard contra reentrada: se um download anterior ainda está
+            // em voo, ignora o segundo clique em silêncio (o usuário não
+            // tem mais overlay pra sinalizar busy).
+            if (_isDownloading)
+            {
+                return;
+            }
+
             FamilyItem family = cardVm.Family;
 
             if (family.DownloadLinks == null || family.DownloadLinks.Count == 0)
@@ -400,12 +410,7 @@ namespace DarivaBIM.Plugin.Ui
                 return;
             }
 
-            // Download runs on the WPF thread pool BEFORE the ExternalEvent
-            // fires, so the .rfa is already cached locally when the Revit-side
-            // handler executes. This keeps Revit responsive during slow
-            // network conditions.
             ImportFamilyRequest request;
-            string localFilePath;
 
             try
             {
@@ -419,38 +424,25 @@ namespace DarivaBIM.Plugin.Ui
                 return;
             }
 
-            CancellationTokenSource cts = new CancellationTokenSource();
-            _currentDownloadCts = cts;
-
-            ShowDownloadOverlay(family.Name);
-
-            Progress<DownloadProgress> progress = new Progress<DownloadProgress>(OnDownloadProgress);
+            // Download runs entirely off the WPF dispatcher — Task.Run garante
+            // que toda a I/O síncrona inicial (Directory.CreateDirectory,
+            // File.Exists, FileInfo, File.Delete do .download anterior) cai
+            // no thread pool. Sem isso, antivírus ou disco lento conseguem
+            // congelar o painel por centenas de ms antes mesmo do primeiro
+            // await na HTTP request.
+            _isDownloading = true;
+            string localFilePath;
 
             try
             {
-                SetBusyState(true);
-                localFilePath = await _familyDownloadService.DownloadToCacheAsync(
-                    request,
-                    _familyCacheService,
-                    progress,
-                    cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                SetBusyState(false);
-                HideDownloadOverlay();
-                ReleaseDownloadCts(cts);
-                return;
+                localFilePath = await Task.Run(() =>
+                    _familyDownloadService.DownloadToCacheAsync(
+                        request,
+                        _familyCacheService));
             }
             catch (Exception ex)
             {
-                // Hide the overlay BEFORE surfacing the error dialog —
-                // otherwise the dialog stacks on top of a "stuck" progress
-                // bar and the panel looks frozen until the user dismisses
-                // it. Also release busy state so the search box re-enables.
-                SetBusyState(false);
-                HideDownloadOverlay();
-                ReleaseDownloadCts(cts);
+                _isDownloading = false;
 
                 TaskDialog.Show(
                     FeatureNames.FamiliesImporter,
@@ -461,30 +453,19 @@ namespace DarivaBIM.Plugin.Ui
                 return;
             }
 
-            // Snap the bar to 100% and show a brief "concluído" state so the
-            // user sees a clean completion before the overlay closes. Without
-            // this, the bar can stop a hair short of the end (last chunk
-            // smaller than buffer, or the last Progress<T> report still in
-            // flight on the dispatcher queue) and the overlay vanishes
-            // mid-frame, which reads as "it froze and crashed".
-            ShowDownloadComplete();
-            // 80ms só pra o usuário ver a barra "concluída" antes do overlay
-            // sumir — antes era 220ms, percebido como atraso.
-            await Task.Delay(80);
-
-            SetBusyState(false);
-            HideDownloadOverlay();
-            ReleaseDownloadCts(cts);
+            _isDownloading = false;
 
             try
             {
                 _importFamilyExternalEvent.Raise(request, localFilePath);
 
                 // Histórico de Recentes: persistir só após Raise() bem-sucedido.
-                // Se o ExternalEvent.Raise falhar (return Result.Failed do Revit),
-                // gravar o "uso" produziria entrada no histórico de uma família
-                // que o usuário não chegou a inserir no projeto — ruído.
-                _preferences.RegisterRecentImport(family.Id);
+                // Se o ExternalEvent.Raise falhar, gravar o "uso" produziria
+                // entrada no histórico de uma família que o usuário não chegou
+                // a inserir no projeto — ruído. Roda fire-and-forget no thread
+                // pool porque envolve File.WriteAllText do JSON de prefs.
+                int familyId = family.Id;
+                _ = Task.Run(() => _preferences.RegisterRecentImport(familyId));
             }
             catch (Exception ex)
             {
@@ -492,16 +473,6 @@ namespace DarivaBIM.Plugin.Ui
                     FeatureNames.FamiliesImporter,
                     $"Não foi possível agendar a importação da família.\n\n{ex.Message}");
             }
-        }
-
-        private void ReleaseDownloadCts(CancellationTokenSource cts)
-        {
-            if (ReferenceEquals(_currentDownloadCts, cts))
-            {
-                _currentDownloadCts = null;
-            }
-
-            cts.Dispose();
         }
 
         private void OnGallerySizeChanged(object sender, SizeChangedEventArgs e)
@@ -607,78 +578,6 @@ namespace DarivaBIM.Plugin.Ui
         {
             SkeletonHost.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
             GalleryList.Visibility = isLoading ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        private void ShowDownloadOverlay(string familyName)
-        {
-            _suppressDownloadProgress = false;
-            DownloadingFamilyName.Text = familyName ?? string.Empty;
-            DownloadProgressBar.IsIndeterminate = true;
-            DownloadProgressBar.Value = 0d;
-            DownloadProgressLabel.Text = "Conectando...";
-            CancelDownloadButton.IsEnabled = true;
-            DownloadOverlay.Visibility = Visibility.Visible;
-        }
-
-        private void HideDownloadOverlay()
-        {
-            DownloadOverlay.Visibility = Visibility.Collapsed;
-        }
-
-        private void ShowDownloadComplete()
-        {
-            // Latch out late Progress<T> reports — Progress<T> dispatches via
-            // SyncContext.Post, so the last few byte-count updates may still
-            // be queued behind us when the download finishes. Without this
-            // flag they would race in and overwrite the "Concluído!" text.
-            _suppressDownloadProgress = true;
-            DownloadProgressBar.IsIndeterminate = false;
-            DownloadProgressBar.Value = DownloadProgressBar.Maximum;
-            DownloadProgressLabel.Text = "Concluído!";
-            CancelDownloadButton.IsEnabled = false;
-        }
-
-        private void OnDownloadProgress(DownloadProgress progress)
-        {
-            if (_suppressDownloadProgress)
-            {
-                return;
-            }
-
-            if (progress.Fraction is double fraction)
-            {
-                DownloadProgressBar.IsIndeterminate = false;
-                DownloadProgressBar.Value = fraction;
-                DownloadProgressLabel.Text =
-                    $"{(int)(fraction * 100)}% • {FormatBytes(progress.BytesDownloaded)} / {FormatBytes(progress.TotalBytes!.Value)}";
-            }
-            else
-            {
-                DownloadProgressBar.IsIndeterminate = true;
-                DownloadProgressLabel.Text = FormatBytes(progress.BytesDownloaded);
-            }
-        }
-
-        private void OnCancelDownloadClicked(object sender, RoutedEventArgs e)
-        {
-            CancelDownloadButton.IsEnabled = false;
-            DownloadProgressLabel.Text = "Cancelando...";
-            _currentDownloadCts?.Cancel();
-        }
-
-        private static string FormatBytes(long bytes)
-        {
-            if (bytes < 1024L)
-            {
-                return $"{bytes} B";
-            }
-
-            if (bytes < 1024L * 1024L)
-            {
-                return $"{bytes / 1024d:F0} KB";
-            }
-
-            return $"{bytes / 1024d / 1024d:F1} MB";
         }
 
         private async Task ApplySearchAsync(string? rawSearch, bool scrollToTop)
