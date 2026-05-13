@@ -247,20 +247,6 @@
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="OverlayButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="32" />
-            <Setter Property="MinWidth" Value="120" />
-            <Setter Property="Padding" Value="18,0" />
-            <Setter Property="Background" Value="{StaticResource Surface}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="{StaticResource Ink}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-        </Style>
-
         <!--
             Skeleton card. Espelha as proporções do FamilyCardStyle para que
             o load não dê "salto" visual quando o ListBox real toma o lugar
@@ -1434,56 +1420,6 @@
                                Margin="0,4,0,0" />
                 </StackPanel>
 
-                <!--
-                    Download overlay: covers the gallery while a family is being
-                    fetched. Semi-translucent so the cards behind hint at the
-                    interaction context. Cancellation propagates a CTS into
-                    FamilyDownloadService, which honors it on every chunk read.
-                -->
-                <Border x:Name="DownloadOverlay"
-                        Visibility="Collapsed"
-                        Background="{DynamicResource OverlayBackground}"
-                        CornerRadius="10">
-                    <StackPanel VerticalAlignment="Center"
-                                HorizontalAlignment="Center"
-                                Margin="24">
-                        <TextBlock Text="Baixando família"
-                                   HorizontalAlignment="Center"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Ink}" />
-
-                        <TextBlock x:Name="DownloadingFamilyName"
-                                   HorizontalAlignment="Center"
-                                   TextAlignment="Center"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource InkSoft}"
-                                   TextTrimming="CharacterEllipsis"
-                                   TextWrapping="Wrap"
-                                   MaxWidth="240"
-                                   Margin="0,4,0,14" />
-
-                        <ProgressBar x:Name="DownloadProgressBar"
-                                     Height="6"
-                                     Width="240"
-                                     Minimum="0"
-                                     Maximum="1"
-                                     Value="0"
-                                     IsIndeterminate="True" />
-
-                        <TextBlock x:Name="DownloadProgressLabel"
-                                   HorizontalAlignment="Center"
-                                   FontSize="10"
-                                   Foreground="{DynamicResource InkSoft}"
-                                   Margin="0,8,0,16"
-                                   Text="Conectando..." />
-
-                        <Button x:Name="CancelDownloadButton"
-                                Content="Cancelar"
-                                Click="OnCancelDownloadClicked"
-                                Style="{StaticResource OverlayButtonStyle}" />
-                    </StackPanel>
-                </Border>
             </Grid>
 
             <!-- FOOTER: status à esquerda + versão à direita.

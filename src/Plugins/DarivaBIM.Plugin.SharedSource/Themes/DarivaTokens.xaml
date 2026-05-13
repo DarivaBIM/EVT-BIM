@@ -65,10 +65,8 @@
          consumidora não precise usar literais hex com canal alfa inline,
          que ficam invisíveis na revisão e fogem do tema. -->
     <Color x:Key="HeartChipBackgroundColor">#B3FFFFFF</Color>   <!-- chip do coração sobre o thumb -->
-    <Color x:Key="OverlayBackgroundColor">#F2FBFAF7</Color>     <!-- overlay translúcido da galeria -->
 
     <SolidColorBrush x:Key="HeartChipBackground" Color="{StaticResource HeartChipBackgroundColor}" />
-    <SolidColorBrush x:Key="OverlayBackground" Color="{StaticResource OverlayBackgroundColor}" />
 
     <!-- 2.3 Tipografia (Inter/Inter Tight não vieram no handoff; cai em
          Segoe UI que é o sans-serif moderno do Windows e tem proporções
