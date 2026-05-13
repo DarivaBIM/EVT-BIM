@@ -4,7 +4,7 @@
         Title="Parâmetros em Lote"
         Width="400"
         SizeToContent="Height"
-        ResizeMode="CanMinimize"
+        ResizeMode="NoResize"
         ShowInTaskbar="False"
         Topmost="True"
         WindowStartupLocation="Manual"

@@ -94,32 +94,6 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             OnPropertyChanged(nameof(MissingTypesLabel));
             OnPropertyChanged(nameof(HasMissingTypes));
             OnPropertyChanged(nameof(ValidRulesCount));
-            RecalculateRuleOverlaps();
-        }
-
-        // Marca cada regra com HasOverlap=true se houver QUALQUER outra regra
-        // do grupo cuja faixa de altura intersecta a dela (ignora regras com
-        // faixa inválida, que já têm o próprio status). Complexidade O(n²),
-        // ok para o número típico de regras (< 20).
-        private void RecalculateRuleOverlaps()
-        {
-            int n = Rules.Count;
-            for (int i = 0; i < n; i++) Rules[i].HasOverlap = false;
-            for (int i = 0; i < n; i++)
-            {
-                UtilizationPointRuleViewModel a = Rules[i];
-                if (a.IsRangeInvalid) continue;
-                for (int j = i + 1; j < n; j++)
-                {
-                    UtilizationPointRuleViewModel b = Rules[j];
-                    if (b.IsRangeInvalid) continue;
-                    if (a.MinMeters <= b.MaxMeters && b.MinMeters <= a.MaxMeters)
-                    {
-                        a.HasOverlap = true;
-                        b.HasOverlap = true;
-                    }
-                }
-            }
         }
 
         public UtilizationPointGroupDto ToDto()

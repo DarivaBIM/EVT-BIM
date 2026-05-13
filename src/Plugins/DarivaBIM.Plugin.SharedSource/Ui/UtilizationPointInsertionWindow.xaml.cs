@@ -170,17 +170,22 @@ namespace DarivaBIM.Plugin.Ui
         // Botões da title bar custom. WindowStyle="None" + WindowChrome no
         // XAML retiram o chrome padrão do OS, então precisamos comandar o
         // ciclo de janela manualmente. Nenhuma regra de negócio aqui — só
-        // espelham o que o chrome nativo faria.
-        private void OnTitleBarMinimizeClicked(object sender, RoutedEventArgs e)
-        {
-            WindowState = WindowState.Minimized;
-        }
-
+        // espelham o que o chrome nativo faria. Minimizar foi removido
+        // porque a janela é flutuante (Topmost + ShowInTaskbar=False) e
+        // minimizar virava um stub interno do Revit sem como restaurar.
         private void OnTitleBarMaximizeClicked(object sender, RoutedEventArgs e)
         {
             WindowState = WindowState == WindowState.Maximized
                 ? WindowState.Normal
                 : WindowState.Maximized;
+        }
+
+        // Bloqueia qualquer caminho que minimize a janela (Win+Down, ALT+Space → Minimize,
+        // etc.) — coerente com a remoção do botão na title bar.
+        private void OnWindowStateChanged(object sender, EventArgs e)
+        {
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
         }
 
         private void OnTitleBarCloseClicked(object sender, RoutedEventArgs e)
@@ -647,15 +652,6 @@ namespace DarivaBIM.Plugin.Ui
         {
             if (_suppressActiveGroupChange) return;
             if (sender is not UtilizationPointRuleViewModel rule) return;
-
-            // HasOverlap é escrito pelo próprio RecalculateRuleOverlaps (chamado
-            // por RefreshSummaries). Disparar RefreshSummaries daqui criaria
-            // recursão infinita. O DataTrigger no XAML liga direto à propriedade
-            // do rule, então o visual já atualiza sem refresh do grupo.
-            if (e.PropertyName == nameof(UtilizationPointRuleViewModel.HasOverlap))
-            {
-                return;
-            }
 
             // Propriedades derivadas (Status, StatusLabel, IsOk, IsWarning,
             // IsRangeInvalid) não refletem mudanças no DTO — só atualizam os

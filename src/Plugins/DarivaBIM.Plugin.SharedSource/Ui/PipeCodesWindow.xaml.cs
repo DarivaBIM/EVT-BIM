@@ -38,7 +38,17 @@ namespace DarivaBIM.Plugin.Ui
             _clearEvent = new PipeCodesClearExternalEvent();
             _ensureEvent = new PipeCodesEnsureParameterExternalEvent();
 
+            SourceInitialized += (_, _) => WindowChromeHelper.DisableMinimize(this);
+            StateChanged += OnWindowStateChanged;
             Loaded += (_, _) => RaiseScan("Lendo tubos do projeto…");
+        }
+
+        // Backstop pra ALT+Space → Minimize e Win+Down: o P/Invoke já cobre o
+        // botão do chrome, mas atalhos de teclado ainda passam.
+        private void OnWindowStateChanged(object? sender, EventArgs e)
+        {
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
         }
 
         public static PipeCodesWindow ShowSingleton()

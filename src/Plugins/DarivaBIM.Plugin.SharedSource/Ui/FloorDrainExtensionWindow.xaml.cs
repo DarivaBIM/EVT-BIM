@@ -26,6 +26,17 @@ namespace DarivaBIM.Plugin.Ui
             InitializeComponent();
             ViewModel = new FloorDrainExtensionViewModel();
             DataContext = ViewModel;
+
+            SourceInitialized += (_, _) => WindowChromeHelper.DisableMinimize(this);
+            StateChanged += OnWindowStateChanged;
+        }
+
+        // Backstop pra ALT+Space → Minimize e Win+Down: o P/Invoke já cobre o
+        // botão do chrome, mas atalhos de teclado ainda passam.
+        private void OnWindowStateChanged(object? sender, EventArgs e)
+        {
+            if (WindowState == WindowState.Minimized)
+                WindowState = WindowState.Normal;
         }
 
         public static FloorDrainExtensionWindow ShowSingleton()
