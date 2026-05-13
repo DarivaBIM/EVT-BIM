@@ -35,54 +35,88 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
 
         private static List<FamilyInstance> CollectByCategories(Document doc, View? view)
         {
-            BuiltInCategory[] cats =
-            {
-                BuiltInCategory.OST_PlumbingFixtures,
-                BuiltInCategory.OST_PipeAccessory,
-                BuiltInCategory.OST_GenericModel,
-                BuiltInCategory.OST_MechanicalEquipment,
-            };
+            // Só Peças Hidrossanitárias (OST_PlumbingFixtures). Antes a coleta
+            // varria também PipeAccessory/GenericModel/MechanicalEquipment para
+            // compatibilizar com o filtro de seleção legado, mas isso poluía a
+            // lista com itens que claramente não são caixas. Para ferramentas
+            // de caixa-sifonada/ralo, a categoria correta no Revit é
+            // PlumbingFixtures — quem modelou em outra categoria precisa
+            // corrigir a família.
+            FilteredElementCollector col = view != null
+                ? new FilteredElementCollector(doc, view.Id)
+                : new FilteredElementCollector(doc);
+
+            IEnumerable<FamilyInstance> instances = col
+                .OfCategory(BuiltInCategory.OST_PlumbingFixtures)
+                .WhereElementIsNotElementType()
+                .OfType<FamilyInstance>();
 
             HashSet<long> seen = new();
             List<FamilyInstance> result = new();
 
-            foreach (BuiltInCategory cat in cats)
+            foreach (FamilyInstance fi in instances)
             {
-                FilteredElementCollector col = view != null
-                    ? new FilteredElementCollector(doc, view.Id)
-                    : new FilteredElementCollector(doc);
+                long id = fi.Id.Value;
+                if (!seen.Add(id)) continue;
 
-                IEnumerable<FamilyInstance> instances = col
-                    .OfCategory(cat)
-                    .WhereElementIsNotElementType()
-                    .OfType<FamilyInstance>();
+                // Triagem em 2 etapas: nome da família primeiro (cheap), depois
+                // verifica se há ≥1 conector com normal apontando PRA CIMA
+                // (BasisZ.Z > 0.9). Os dois critérios são exigidos: caixas
+                // sifonadas e ralos têm sempre saída superior por onde sobe o
+                // prolongador.
+                if (!MatchesBoxNamePattern(fi)) continue;
+                if (!HasUpwardConnector(fi)) continue;
 
-                foreach (FamilyInstance fi in instances)
-                {
-                    long id = fi.Id.Value;
-                    if (seen.Add(id) && HasMepConnectors(fi))
-                        result.Add(fi);
-                }
+                result.Add(fi);
             }
 
             return result;
         }
 
-        private static bool HasMepConnectors(FamilyInstance fi)
+        // Família precisa conter "caixa sifonada" OU "ralo" no nome (case
+        // insensitive). "caixa sifonada" intencionalmente mais específico que
+        // "caixa" para não pegar "caixa de gordura", "caixa de inspeção" etc.,
+        // que têm geometria/comportamento diferentes.
+        private static bool MatchesBoxNamePattern(FamilyInstance fi)
+        {
+            string familyName;
+            try { familyName = fi.Symbol?.Family?.Name ?? string.Empty; }
+            catch { familyName = string.Empty; }
+
+            if (string.IsNullOrEmpty(familyName)) return false;
+
+            return familyName.IndexOf("caixa sifonada", StringComparison.OrdinalIgnoreCase) >= 0
+                || familyName.IndexOf("ralo", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // Pelo menos 1 conector com normal apontando para cima (eixo Z+):
+        // BasisZ.Z > 0.9 deixa ~25° de folga em torno do vertical absoluto.
+        // Caixas sifonadas e ralos sempre têm saída superior para onde sobe o
+        // prolongador. Famílias com só conectores horizontais ou apontando
+        // pra baixo não são candidatas.
+        private static bool HasUpwardConnector(FamilyInstance fi)
         {
             try
             {
                 MEPModel? mep = fi.MEPModel;
-                if (mep == null)
-                    return false;
+                if (mep == null) return false;
 
                 ConnectorManager? cm = mep.ConnectorManager;
-                if (cm == null)
-                    return false;
+                if (cm == null) return false;
 
-                foreach (Connector _ in cm.Connectors)
-                    return true;
-
+                foreach (Connector c in cm.Connectors)
+                {
+                    try
+                    {
+                        Transform cs = c.CoordinateSystem;
+                        if (cs == null) continue;
+                        if (cs.BasisZ.Z > 0.9) return true;
+                    }
+                    catch
+                    {
+                        // Ignora conector individual com erro, tenta os demais.
+                    }
+                }
                 return false;
             }
             catch
