@@ -350,7 +350,13 @@
                                     <Border.Effect>
                                         <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.12" Color="#000000" />
                                     </Border.Effect>
-                                    <ScrollViewer Style="{StaticResource SlimScrollViewerStyle}"
+                                    <!-- DynamicResource (não Static) porque
+                                         SlimScrollViewerStyle é declarado
+                                         depois desta Style no mesmo dictionary;
+                                         StaticResource resolve em tempo de
+                                         parse e exige ordem, Dynamic resolve
+                                         na hora do uso. -->
+                                    <ScrollViewer Style="{DynamicResource SlimScrollViewerStyle}"
                                                   VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Disabled"
                                                   Padding="4">
