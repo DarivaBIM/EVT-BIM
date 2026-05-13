@@ -108,36 +108,34 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 }
 
                 Transform transform = CadGeometryExtractor.GetTransformForElement(element);
-                UnifilarSegmentBatch? batch = UnifilarLineCollector.CollectFromReference(
-                    doc, geom, transform, vm.SelectedLayer!);
 
-                if (batch == null)
+                // Extrai a cadeia de vértices da geometria picada. Line → 2
+                // vértices; PolyLine → N vértices. Valida o layer via
+                // UnifilarLineCollector pra reusar a checagem já existente.
+                if (UnifilarLineCollector.CollectFromReference(doc, geom, transform, vm.SelectedLayer!) == null)
                 {
                     vm.StatusMessage = $"A linha clicada não está no layer '{vm.SelectedLayer}'.";
                     return;
                 }
 
-                if (batch.Segments.Count == 0)
+                List<XYZ> anchorVertices = new();
+                switch (geom)
+                {
+                    case Line line:
+                        anchorVertices.Add(transform.OfPoint(line.GetEndPoint(0)));
+                        anchorVertices.Add(transform.OfPoint(line.GetEndPoint(1)));
+                        break;
+                    case PolyLine pl:
+                        IList<XYZ> rawPts = pl.GetCoordinates();
+                        for (int i = 0; i < rawPts.Count; i++)
+                            anchorVertices.Add(transform.OfPoint(rawPts[i]));
+                        break;
+                }
+
+                if (anchorVertices.Count < 2)
                 {
                     vm.StatusMessage = "Geometria não suportada (apenas linhas e polylines retas).";
                     return;
-                }
-
-                // Polilinhas viram vários segmentos: usa o mais longo como
-                // âncora. Geralmente é o que o usuário quis selecionar; o
-                // detector ainda fará coalesce + pareamento por proximidade
-                // ao midpoint, então uma escolha aproximada já casa o
-                // candidate certo.
-                (XYZ anchorStart, XYZ anchorEnd) = batch.Segments[0];
-                double bestLen = anchorStart.DistanceTo(anchorEnd);
-                for (int i = 1; i < batch.Segments.Count; i++)
-                {
-                    double len = batch.Segments[i].Start.DistanceTo(batch.Segments[i].End);
-                    if (len > bestLen)
-                    {
-                        bestLen = len;
-                        (anchorStart, anchorEnd) = batch.Segments[i];
-                    }
                 }
 
                 IReadOnlyList<double> availableDiameters =
@@ -150,10 +148,10 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 BifilarDetectionParameters parameters = BifilarDetectionParameters.ForPicker(availableDiameters);
 
                 BifilarCenterlineDetector detector = new(doc, parameters);
-                BifilarCenterline? centerline = detector.DetectForAnchor(
-                    importInstance, vm.SelectedLayer!, anchorStart, anchorEnd);
+                IReadOnlyList<BifilarCenterline> centerlines = detector.DetectForAnchor(
+                    importInstance, vm.SelectedLayer!, anchorVertices);
 
-                if (centerline == null)
+                if (centerlines.Count == 0)
                 {
                     vm.StatusMessage = "Nenhuma parede paralela compatível encontrada. Ajuste a tolerância ou pegue uma linha mais limpa.";
                     return;
@@ -177,7 +175,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                     tx.Start();
 
                     PipeMarkerBatch result = PipeMarkerCreator.CreateFromCenterlines(
-                        doc, activeView, new[] { centerline }, config!, availableDiameters);
+                        doc, activeView, centerlines, config!, availableDiameters);
 
                     if (result.Created == 0)
                     {
@@ -193,7 +191,17 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
 
                 vm.ActiveViewMarkerCount = PipeMarkerCollector.CountInView(doc, activeView);
                 string skipNote = skipped > 0 ? $" ({skipped} curto(s) ignorado(s))" : string.Empty;
-                vm.StatusMessage = $"Marcador bifilar criado (Ø {centerline.MeasuredDiameterMm:0.#} mm){skipNote}. Total na vista: {vm.ActiveViewMarkerCount}.";
+                if (centerlines.Count == 1)
+                {
+                    double diamMm = centerlines[0].MeasuredDiameterMm;
+                    vm.StatusMessage = $"Marcador bifilar criado (Ø {diamMm:0.#} mm){skipNote}. Total na vista: {vm.ActiveViewMarkerCount}.";
+                }
+                else
+                {
+                    // Polyline pareada: vários marcadores conectados seguindo
+                    // os bends. Mostra a contagem em vez de um único diâmetro.
+                    vm.StatusMessage = $"Traçado bifilar criado: {created} marcador(es){skipNote}. Total na vista: {vm.ActiveViewMarkerCount}.";
+                }
             }
             catch (Exception ex)
             {

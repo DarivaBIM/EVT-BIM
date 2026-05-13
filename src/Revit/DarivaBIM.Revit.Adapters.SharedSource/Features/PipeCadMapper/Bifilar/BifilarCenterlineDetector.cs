@@ -37,6 +37,12 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         private readonly Dictionary<(int, int), List<int>> _symbolGrid = new();
         private double _symbolGridCellFt;
 
+        // PolyLines do CAD com ≥2 segmentos. Populadas no WalkGeometry e
+        // consumidas pelo pareamento polyline-aware antes do pareamento
+        // segmento-a-segmento de fallback.
+        private readonly List<PolylineGroup> _polylines = new();
+        private int _nextPolylineId;
+
         public BifilarCenterlineDetector(Document doc, BifilarDetectionParameters parameters)
         {
             _doc = doc;
@@ -45,10 +51,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
 
         public IReadOnlyList<BifilarCenterline> Detect(ImportInstance importInstance, string targetLayer)
         {
-            _candidates.Clear();
-            _symbolPoints.Clear();
-            _curveSamplings.Clear();
-            _symbolGrid.Clear();
+            ResetState();
 
             Options opts = new()
             {
@@ -88,30 +91,57 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             ClusterEndpoints();
             BuildSymbolGrid();
 
-            return FindCenterlines();
+            // 4. Pareamento polyline-aware (cobre o caso típico: tubos
+            //    desenhados como duas PolyLines paralelas com bends). Cada
+            //    polyline com ≥2 segmentos procura uma parceira; o midline
+            //    é traçado vértice-a-vértice e vira uma cadeia de
+            //    centerlines conectadas, igual ao traçado do unifilar.
+            List<BifilarCenterline> result = new();
+            HashSet<int> consumedPolylineIds = FindPolylinePairCenterlines(result);
+
+            // 5. Pareamento segmento-a-segmento (fallback) para o que sobrou:
+            //    Lines standalone, polylines órfãs (sem parceira) e
+            //    fragmentos que sobraram após a coalescência.
+            result.AddRange(FindCenterlines(consumedPolylineIds));
+
+            return result;
         }
 
-        /// <summary>
-        /// Variante de <see cref="Detect"/> para o picker bifilar: roda o
-        /// mesmo scan + coalesce + reject-curves no layer, mas em vez de
-        /// procurar TODOS os pares, devolve apenas o melhor par que envolve
-        /// a linha que o usuário clicou (definida pelos endpoints da
-        /// geometria escolhida). Os endpoints podem cair no MEIO de um
-        /// candidate coalescido — por isso o casamento usa proximidade
-        /// perpendicular ao midpoint, não igualdade de endpoints.
-        /// Retorna <c>null</c> se a linha picada não é paralela a nada
-        /// compatível dentro da janela de distância do tipo de tubo.
-        /// </summary>
-        public BifilarCenterline? DetectForAnchor(
-            ImportInstance importInstance,
-            string targetLayer,
-            XYZ anchorStart,
-            XYZ anchorEnd)
+        private void ResetState()
         {
             _candidates.Clear();
             _symbolPoints.Clear();
             _curveSamplings.Clear();
             _symbolGrid.Clear();
+            _polylines.Clear();
+            _nextPolylineId = 0;
+        }
+
+        /// <summary>
+        /// Variante de <see cref="Detect"/> para o picker bifilar.
+        /// <para>
+        /// <paramref name="anchorVertices"/> traz a cadeia de vértices da
+        /// geometria que o usuário clicou (2 pontos = Line; 3+ = PolyLine
+        /// multi-segmento). Para PolyLines, o detector procura a PolyLine
+        /// PARALELA do layer e traça o midline completo seguindo todos os
+        /// bends — devolve uma lista de centerlines conectadas. Para Lines,
+        /// cai no caminho clássico de pareamento de UM segmento âncora com
+        /// o melhor segmento parceiro.
+        /// </para>
+        /// <para>
+        /// Lista vazia significa que nenhuma parede paralela compatível foi
+        /// encontrada (sem nominal ±2mm dentro da janela de distância).
+        /// </para>
+        /// </summary>
+        public IReadOnlyList<BifilarCenterline> DetectForAnchor(
+            ImportInstance importInstance,
+            string targetLayer,
+            IReadOnlyList<XYZ> anchorVertices)
+        {
+            if (anchorVertices == null || anchorVertices.Count < 2)
+                return Array.Empty<BifilarCenterline>();
+
+            ResetState();
 
             Options opts = new()
             {
@@ -121,7 +151,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             };
 
             GeometryElement? geomElem = importInstance.get_Geometry(opts);
-            if (geomElem == null) return null;
+            if (geomElem == null) return Array.Empty<BifilarCenterline>();
 
             WalkGeometry(geomElem, targetLayer);
             CoalesceCollinearCandidates();
@@ -137,8 +167,37 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             ClusterEndpoints();
             BuildSymbolGrid();
 
+            // PolyLine âncora (≥3 vértices): procura PolyLine paralela do
+            // layer e traça midline completo. Identifica a própria âncora em
+            // _polylines via casamento dos endpoints (para não auto-parear).
+            if (anchorVertices.Count >= 3)
+            {
+                int anchorPolylineId = FindAnchorPolylineId(anchorVertices);
+                PolylineGroup anchor = new()
+                {
+                    Id = anchorPolylineId, // -1 se a âncora não bate com nenhuma do scan
+                    Vertices = anchorVertices,
+                    TotalLengthMm = PolylineLengthMm(anchorVertices),
+                };
+                HashSet<int> exclude = new();
+                if (anchorPolylineId >= 0) exclude.Add(anchorPolylineId);
+
+                PolylineGroup? partner = FindBestPartnerPolyline(anchor, exclude);
+                if (partner != null)
+                {
+                    List<BifilarCenterline> midline = ComputeMidlineBetween(anchor, partner);
+                    if (midline.Count > 0) return midline;
+                }
+                // Sem parceira polilínea — tenta fallback pegando o segmento
+                // mais longo da âncora como uma Line, que pode parear com
+                // uma Line standalone do layer.
+            }
+
+            // Line âncora (ou polyline sem parceira): pega o segmento âncora
+            // mais longo e procura o melhor parceiro single-segment.
+            (XYZ anchorStart, XYZ anchorEnd) = PickLongestAnchorSegment(anchorVertices);
             int anchorIdx = FindCandidateForAnchor(anchorStart, anchorEnd);
-            if (anchorIdx < 0) return null;
+            if (anchorIdx < 0) return Array.Empty<BifilarCenterline>();
 
             Candidate a = _candidates[anchorIdx];
             List<PairCandidate> pairs = new();
@@ -152,10 +211,8 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 if (pair != null) pairs.Add(pair);
             }
 
-            if (pairs.Count == 0) return null;
+            if (pairs.Count == 0) return Array.Empty<BifilarCenterline>();
 
-            // Mesma ordem de preferência do batch: distância igual a nominal
-            // primeiro, depois cluster compartilhado, depois maior overlap.
             pairs.Sort((p, q) =>
             {
                 double pScore = DiameterMatchScoreMm(p.EdgeDistanceMm);
@@ -170,7 +227,52 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             });
 
             PairCandidate best = pairs[0];
-            return new BifilarCenterline(best.Start, best.End, best.EdgeDistanceMm);
+            return new[] { new BifilarCenterline(best.Start, best.End, best.EdgeDistanceMm) };
+        }
+
+        private int FindAnchorPolylineId(IReadOnlyList<XYZ> anchorVertices)
+        {
+            if (anchorVertices.Count < 2) return -1;
+            double endpointTolFt = 1.0 / MmPerFoot; // 1mm — endpoints virtualmente iguais
+            XYZ a0 = anchorVertices[0];
+            XYZ a1 = anchorVertices[anchorVertices.Count - 1];
+
+            foreach (PolylineGroup p in _polylines)
+            {
+                if (p.Vertices.Count != anchorVertices.Count) continue;
+                XYZ p0 = p.Vertices[0];
+                XYZ p1 = p.Vertices[p.Vertices.Count - 1];
+                bool sameForward = a0.DistanceTo(p0) <= endpointTolFt && a1.DistanceTo(p1) <= endpointTolFt;
+                bool sameReverse = a0.DistanceTo(p1) <= endpointTolFt && a1.DistanceTo(p0) <= endpointTolFt;
+                if (sameForward || sameReverse) return p.Id;
+            }
+            return -1;
+        }
+
+        private static (XYZ start, XYZ end) PickLongestAnchorSegment(IReadOnlyList<XYZ> vertices)
+        {
+            XYZ bestStart = vertices[0];
+            XYZ bestEnd = vertices[1];
+            double bestLen = bestStart.DistanceTo(bestEnd);
+            for (int i = 1; i < vertices.Count - 1; i++)
+            {
+                double len = vertices[i].DistanceTo(vertices[i + 1]);
+                if (len > bestLen)
+                {
+                    bestLen = len;
+                    bestStart = vertices[i];
+                    bestEnd = vertices[i + 1];
+                }
+            }
+            return (bestStart, bestEnd);
+        }
+
+        private double PolylineLengthMm(IReadOnlyList<XYZ> vertices)
+        {
+            double sum = 0;
+            for (int i = 0; i < vertices.Count - 1; i++)
+                sum += vertices[i].DistanceTo(vertices[i + 1]);
+            return sum * MmPerFoot;
         }
 
         // Procura o candidate que MELHOR REPRESENTA a linha picada. Não usa
@@ -247,13 +349,36 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             switch (obj)
             {
                 case Line line:
-                    AddLinearSegment(line.GetEndPoint(0), line.GetEndPoint(1));
+                    AddLinearSegment(line.GetEndPoint(0), line.GetEndPoint(1), polylineId: -1);
                     break;
 
                 case PolyLine pl:
                     IList<XYZ> pts = pl.GetCoordinates();
-                    for (int i = 0; i < pts.Count - 1; i++)
-                        AddLinearSegment(pts[i], pts[i + 1]);
+                    if (pts.Count >= 3)
+                    {
+                        // PolyLine multi-segmento: registra como grupo para
+                        // pareamento polyline-aware. Mantém os vértices brutos
+                        // (sem coalescência) porque o pareamento walks vértices.
+                        int plId = _nextPolylineId++;
+                        double totalLenFt = 0;
+                        for (int i = 0; i < pts.Count - 1; i++)
+                        {
+                            totalLenFt += pts[i].DistanceTo(pts[i + 1]);
+                            AddLinearSegment(pts[i], pts[i + 1], polylineId: plId);
+                        }
+                        _polylines.Add(new PolylineGroup
+                        {
+                            Id = plId,
+                            Vertices = new List<XYZ>(pts),
+                            TotalLengthMm = totalLenFt * MmPerFoot,
+                        });
+                    }
+                    else if (pts.Count == 2)
+                    {
+                        // PolyLine de 2 vértices = uma reta, sem bend: cai no
+                        // pareamento segment-a-segment.
+                        AddLinearSegment(pts[0], pts[1], polylineId: -1);
+                    }
                     break;
 
                 case Arc arc:
@@ -274,7 +399,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             }
         }
 
-        private void AddLinearSegment(XYZ p0, XYZ p1)
+        private void AddLinearSegment(XYZ p0, XYZ p1, int polylineId)
         {
             double lengthFt = p0.DistanceTo(p1);
             double lengthMm = lengthFt * MmPerFoot;
@@ -305,6 +430,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 AngleDeg = angle.Value,
                 ClusterId = -1,
                 Index = _candidates.Count,
+                SourcePolylineId = polylineId,
             });
         }
 
@@ -392,6 +518,24 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 double dPerp = first.P0.X * nx + first.P0.Y * ny;
                 double z = first.P0.Z;
 
+                // PolylineId herdado: se todos os fragmentos vêm da mesma
+                // polyline, o merged carrega o ID; senão -1. Não temos como
+                // saber, na fase do merge, qual fração do range cobre qual
+                // polyline original — então uma "mistura" perde o vínculo,
+                // o que é o comportamento correto (não tratar como polyline-
+                // aware no pass 1).
+                int mergedPolylineId = first.SourcePolylineId;
+                bool uniformSource = true;
+                for (int k = 1; k < indices.Count; k++)
+                {
+                    if (_candidates[indices[k]].SourcePolylineId != mergedPolylineId)
+                    {
+                        uniformSource = false;
+                        break;
+                    }
+                }
+                if (!uniformSource) mergedPolylineId = -1;
+
                 // Projeta cada candidato no eixo da reta e ordena por início.
                 List<(double t0, double t1)> ranges = new(indices.Count);
                 foreach (int idx in indices)
@@ -451,6 +595,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                         AngleDeg = angle.Value,
                         ClusterId = -1,
                         Index = -1,
+                        SourcePolylineId = mergedPolylineId,
                     });
                 }
             }
@@ -692,10 +837,168 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
         }
 
         // -------------------------------------------------------------
-        // Pareamento
+        // Pareamento polyline-aware (Pass 1)
         // -------------------------------------------------------------
 
-        private IReadOnlyList<BifilarCenterline> FindCenterlines()
+        // Para cada PolyLine ≥2 segmentos, procura a melhor parceira em
+        // _polylines e emite o midline completo (cadeia de centerlines
+        // conectadas seguindo os bends das duas polylines). Devolve o set
+        // de IDs consumidos para o Pass 2 ignorar os candidates correspondentes.
+        private HashSet<int> FindPolylinePairCenterlines(List<BifilarCenterline> output)
+        {
+            HashSet<int> consumedIds = new();
+            if (_polylines.Count < 2) return consumedIds;
+
+            // Processa polylines maiores primeiro — match mais robusto e
+            // evita que um pareamento parcial em uma polyline pequena
+            // "roube" uma polilínea grande do seu par natural.
+            List<PolylineGroup> sorted = new(_polylines);
+            sorted.Sort((a, b) => b.TotalLengthMm.CompareTo(a.TotalLengthMm));
+
+            foreach (PolylineGroup p in sorted)
+            {
+                if (consumedIds.Contains(p.Id)) continue;
+                if (p.Vertices.Count < 3) continue; // só polilineas multi-segmento
+
+                PolylineGroup? partner = FindBestPartnerPolyline(p, consumedIds);
+                if (partner == null) continue;
+
+                List<BifilarCenterline> midline = ComputeMidlineBetween(p, partner);
+                if (midline.Count == 0) continue;
+
+                output.AddRange(midline);
+                consumedIds.Add(p.Id);
+                consumedIds.Add(partner.Id);
+            }
+
+            return consumedIds;
+        }
+
+        private PolylineGroup? FindBestPartnerPolyline(PolylineGroup p, HashSet<int> excludedIds)
+        {
+            // Score: comprimento total do midline que conseguimos extrair
+            // entre p e o candidate, somando apenas trechos cujos endpoints
+            // estão a ±2mm de algum nominal. Quanto maior, mais cobertura
+            // a parceira oferece — vence a que cobre mais do caminho de p.
+            const double MinMatchedLengthMm = 50.0; // 5cm de midline acumulado
+
+            PolylineGroup? best = null;
+            double bestScore = 0;
+
+            foreach (PolylineGroup q in _polylines)
+            {
+                if (q.Id == p.Id) continue;
+                if (excludedIds.Contains(q.Id)) continue;
+                if (q.Vertices.Count < 2) continue;
+
+                double score = ComputePolylineMatchScoreMm(p, q);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = q;
+                }
+            }
+
+            return bestScore >= MinMatchedLengthMm ? best : null;
+        }
+
+        private double ComputePolylineMatchScoreMm(PolylineGroup p, PolylineGroup q)
+        {
+            // Walks p's vertices, projeta perpendicular em q, soma comprimento
+            // dos segmentos midline cujos endpoints passam no ±2mm-de-nominal.
+            List<XYZ> midpoints = new();
+            for (int i = 0; i < p.Vertices.Count; i++)
+            {
+                XYZ v = p.Vertices[i];
+                XYZ? foot = FindFootOnPolyline(v, q);
+                if (foot == null) continue;
+                double dMm = v.DistanceTo(foot) * MmPerFoot;
+                if (!IsEdgeNearAnyNominal(dMm)) continue;
+                midpoints.Add(new XYZ(
+                    (v.X + foot.X) / 2.0,
+                    (v.Y + foot.Y) / 2.0,
+                    (v.Z + foot.Z) / 2.0));
+            }
+            if (midpoints.Count < 2) return 0;
+
+            double totalFt = 0;
+            for (int i = 0; i < midpoints.Count - 1; i++)
+                totalFt += midpoints[i].DistanceTo(midpoints[i + 1]);
+            return totalFt * MmPerFoot;
+        }
+
+        private List<BifilarCenterline> ComputeMidlineBetween(PolylineGroup p, PolylineGroup q)
+        {
+            List<XYZ> midpoints = new();
+            List<double> diametersMm = new();
+
+            for (int i = 0; i < p.Vertices.Count; i++)
+            {
+                XYZ v = p.Vertices[i];
+                XYZ? foot = FindFootOnPolyline(v, q);
+                if (foot == null) continue;
+                double dMm = v.DistanceTo(foot) * MmPerFoot;
+                if (!IsEdgeNearAnyNominal(dMm)) continue;
+
+                midpoints.Add(new XYZ(
+                    (v.X + foot.X) / 2.0,
+                    (v.Y + foot.Y) / 2.0,
+                    (v.Z + foot.Z) / 2.0));
+                diametersMm.Add(dMm);
+            }
+
+            List<BifilarCenterline> result = new();
+            if (midpoints.Count < 2) return result;
+
+            double tolFt = _doc.Application.ShortCurveTolerance;
+            for (int i = 0; i < midpoints.Count - 1; i++)
+            {
+                if (midpoints[i].DistanceTo(midpoints[i + 1]) < tolFt) continue;
+                double avgDiameter = (diametersMm[i] + diametersMm[i + 1]) / 2.0;
+                result.Add(new BifilarCenterline(midpoints[i], midpoints[i + 1], avgDiameter));
+            }
+            return result;
+        }
+
+        // Projeção perpendicular de p em todos os segmentos de q. Retorna o
+        // pé com menor distância dentre os segmentos onde a projeção cai
+        // dentro do range [0,1] (não na extensão). Null se nenhuma projeção
+        // válida — o vértice de p está "antes ou depois" de q.
+        private static XYZ? FindFootOnPolyline(XYZ p, PolylineGroup q)
+        {
+            XYZ? best = null;
+            double bestDist = double.MaxValue;
+
+            for (int i = 0; i < q.Vertices.Count - 1; i++)
+            {
+                XYZ a = q.Vertices[i];
+                XYZ b = q.Vertices[i + 1];
+                double vx = b.X - a.X;
+                double vy = b.Y - a.Y;
+                double len2 = vx * vx + vy * vy;
+                if (len2 < 1e-18) continue;
+
+                double wx = p.X - a.X;
+                double wy = p.Y - a.Y;
+                double t = (wx * vx + wy * vy) / len2;
+                if (t < 0.0 || t > 1.0) continue;
+
+                XYZ foot = new(a.X + t * vx, a.Y + t * vy, a.Z);
+                double d = foot.DistanceTo(p);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = foot;
+                }
+            }
+            return best;
+        }
+
+        // -------------------------------------------------------------
+        // Pareamento segmento-a-segmento (Pass 2, fallback)
+        // -------------------------------------------------------------
+
+        private IReadOnlyList<BifilarCenterline> FindCenterlines(HashSet<int>? consumedPolylineIds = null)
         {
             int n = _candidates.Count;
             if (n == 0) return Array.Empty<BifilarCenterline>();
@@ -708,9 +1011,16 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             Dictionary<(int, int), List<int>> grid = new();
             double maxEdgeFt = _params.MaxEdgeDistanceMm / MmPerFoot;
 
+            bool ShouldSkipCandidate(Candidate c) =>
+                consumedPolylineIds != null &&
+                c.SourcePolylineId >= 0 &&
+                consumedPolylineIds.Contains(c.SourcePolylineId);
+
             for (int i = 0; i < n; i++)
             {
                 Candidate c = _candidates[i];
+                if (ShouldSkipCandidate(c)) continue;
+
                 double minX = Math.Min(c.P0.X, c.P1.X) - maxEdgeFt;
                 double maxX = Math.Max(c.P0.X, c.P1.X) + maxEdgeFt;
                 double minY = Math.Min(c.P0.Y, c.P1.Y) - maxEdgeFt;
@@ -740,6 +1050,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             for (int i = 0; i < n && pairs.Count < _params.MaxValidPairsStored; i++)
             {
                 Candidate a = _candidates[i];
+                if (ShouldSkipCandidate(a)) continue;
 
                 double minX = Math.Min(a.P0.X, a.P1.X) - maxEdgeFt;
                 double maxX = Math.Max(a.P0.X, a.P1.X) + maxEdgeFt;
@@ -766,6 +1077,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                     if (!tested.Add(key)) continue;
 
                     Candidate b = _candidates[j];
+                    if (ShouldSkipCandidate(b)) continue;
                     if (AngleDiffDeg(a.AngleDeg, b.AngleDeg) > _params.AngleToleranceDeg)
                         continue;
 
@@ -1007,6 +1319,26 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             public double AngleDeg;
             public int ClusterId;
             public int Index;
+            // ID da PolyLine de origem (do CAD). -1 para segmentos vindos de
+            // entidades Line standalone, ou para segments cuja origem se
+            // perdeu na coalescência (fragmentos de polylines diferentes).
+            // Usado pelo pareamento polyline-aware: candidates cujo source já
+            // foi consumido por um par polilínha-polilinha não entram no
+            // pareamento segmento-a-segmento de fallback.
+            public int SourcePolylineId = -1;
+        }
+
+        // Cadeia de vértices original de uma PolyLine multi-segmento do CAD.
+        // O pareamento polyline-aware trabalha sobre esses vértices brutos,
+        // sem depender de como a coalescência rearranjou os candidates: para
+        // cada vértice da polyline A, projeta perpendicular na polyline B e
+        // emite o ponto médio. Cadeia de midpoints vira N centerlines
+        // conectadas, formando o traçado completo do tubo no eixo médio.
+        private sealed class PolylineGroup
+        {
+            public int Id;
+            public IReadOnlyList<XYZ> Vertices = Array.Empty<XYZ>();
+            public double TotalLengthMm;
         }
 
         private sealed class SymbolPoint
