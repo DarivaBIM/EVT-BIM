@@ -28,6 +28,20 @@ namespace DarivaBIM.Plugin.Ui
 
         public PipeConverterWindow()
         {
+            // Revit não cria uma System.Windows.Application própria; sem
+            // isso, pack URIs relativos no XAML (Source="/Themes/..." em
+            // ResourceDictionary.MergedDictionaries) resolvem contra
+            // Assembly.GetEntryAssembly(), que volta null e dispara
+            // XamlParseException ao InitializeComponent. Apontar
+            // ResourceAssembly para o assembly do plugin antes do
+            // InitializeComponent corrige a resolução — typeof
+            // (PipeConverterWindow) discrimina V2025 vs V2026 porque cada
+            // plugin compila sua própria cópia do código compartilhado.
+            if (System.Windows.Application.ResourceAssembly == null)
+            {
+                System.Windows.Application.ResourceAssembly = typeof(PipeConverterWindow).Assembly;
+            }
+
             InitializeComponent();
             ViewModel = new PipeConverterViewModel();
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
