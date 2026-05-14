@@ -191,11 +191,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 int skipped;
                 using (Transaction tx = new(doc, "PipeCADMapper — marcador bifilar (pick)"))
                 {
-                    FailureHandlingOptions failureOptions = tx.GetFailureHandlingOptions();
-                    failureOptions.SetFailuresPreprocessor(new PipeCreationFailurePreprocessor());
-                    failureOptions.SetClearAfterRollback(true);
-                    failureOptions.SetForcedModalHandling(false);
-                    tx.SetFailureHandlingOptions(failureOptions);
+                    PipeCreationFailurePreprocessor.Attach(tx);
                     tx.Start();
 
                     PipeMarkerBatch result = PipeMarkerCreator.CreateFromCenterlines(

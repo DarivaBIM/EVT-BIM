@@ -127,11 +127,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             }
 
             using Transaction tx = new(doc, "PipeCADMapper — marcadores em lote (unifilar)");
-            FailureHandlingOptions failureOptions = tx.GetFailureHandlingOptions();
-            failureOptions.SetFailuresPreprocessor(new PipeCreationFailurePreprocessor());
-            failureOptions.SetClearAfterRollback(true);
-            failureOptions.SetForcedModalHandling(false);
-            tx.SetFailureHandlingOptions(failureOptions);
+            PipeCreationFailurePreprocessor.Attach(tx);
             tx.Start();
 
             // "Marcar todas as linhas do layer" é uma operação de RESET: o
@@ -180,11 +176,7 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             }
 
             using Transaction tx = new(doc, "PipeCADMapper — marcadores em lote (bifilar)");
-            FailureHandlingOptions failureOptions = tx.GetFailureHandlingOptions();
-            failureOptions.SetFailuresPreprocessor(new PipeCreationFailurePreprocessor());
-            failureOptions.SetClearAfterRollback(true);
-            failureOptions.SetForcedModalHandling(false);
-            tx.SetFailureHandlingOptions(failureOptions);
+            PipeCreationFailurePreprocessor.Attach(tx);
             tx.Start();
 
             // Detectar bifilar é uma operação de RESET: o usuário ajusta a
