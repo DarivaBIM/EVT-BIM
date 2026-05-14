@@ -146,43 +146,19 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnImportFamilyCompleted()
         {
-            // Marshal SEMPRE via BeginInvoke com prioridade Render — mesmo
-            // quando o callback já chega no UI thread (caso comum, Revit
-            // dispara o ExternalEvent na sua STA, que coincide com a do
-            // WPF). Dois motivos:
+            // O fix correto pro freeze pós-ESC vive no
+            // ImportFamilyHandler: bracket de PromptForFamilyInstancePlacement
+            // com ComponentDispatcher.PushModal/PopModal. Com o estado modal
+            // do Dispatcher consistente atravessando o nested message pump
+            // do Revit, não há mais frame stale ao retornar — então aqui
+            // basta liberar o guard de re-entrância.
             //
-            // 1) Garante que a fila de mensagens de render seja pumpada
-            //    antes do nosso código rodar. Durante o OpenDocumentFile
-            //    (síncrono, bloqueia o UI thread por segundos), o Revit
-            //    não processa WM_PAINT da DockablePane — quando saímos do
-            //    handler, o DWM ainda mostra o bitmap cacheado antigo
-            //    mesmo com o dispatcher já livre.
-            //
-            // 2) InvalidateVisual + UpdateLayout marca a árvore visual
-            //    como dirty e força um render pass real. Sem essa
-            //    invalidação explícita, a página parece congelada: o
-            //    input continua sendo processado (digitar na busca
-            //    filtra de verdade, scroll registra), mas o frame visível
-            //    é o antigo. O usuário só "descongela" ao maximizar o
-            //    Revit — o que dispara WM_SIZE e força DWM a pedir
-            //    repaint. Replicamos esse efeito aqui programaticamente.
-            Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    _isImporting = false;
-                    try
-                    {
-                        InvalidateVisual();
-                        UpdateLayout();
-                    }
-                    catch
-                    {
-                        // Layout em estado transiente pode rejeitar
-                        // UpdateLayout. InvalidateVisual sozinho já marca
-                        // dirty; o próximo tick de render do WPF cuida.
-                    }
-                }),
-                DispatcherPriority.Render);
+            // O Completed do ExternalEvent é levantado no UI thread do
+            // Revit, que coincide com a Dispatcher do WPF, mas usamos
+            // BeginInvoke como cinto-e-suspensórios pra evitar qualquer
+            // chance de tocar UI fora do Dispatcher caso a infra do Revit
+            // mude no futuro.
+            Dispatcher.BeginInvoke(new Action(() => _isImporting = false));
         }
 
         // Footer mostra a versão da DLL do plugin (V2025 ou V2026), lida
