@@ -130,6 +130,19 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
                 gvm.SelectedPipeType = gvm.PipeTypes[0];
             }
 
+            // Popula instâncias individuais (todas marcadas por padrão). O
+            // usuário pode desmarcar caixas específicas no card expansível
+            // antes de clicar em "Todas do projeto" / "Visíveis na vista".
+            // O modo "Selecionar caixas" (pick interativo) ignora essa lista
+            // — quem manda lá é o que o usuário pega no PickObjects.
+            for (int i = 0; i < g.Instances.Count; i++)
+            {
+                FamilyInstance fi = g.Instances[i];
+                long instanceId = RevitElementIdConversions.ToLong(fi.Id);
+                string label = $"Caixa #{i + 1} · ID {instanceId}";
+                gvm.Instances.Add(new FloorDrainBoxInstanceViewModel(instanceId, label));
+            }
+
             return gvm;
         }
 
