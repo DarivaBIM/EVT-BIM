@@ -13,13 +13,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -148,95 +146,19 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnImportFamilyCompleted()
         {
-            // Sobre o problema que estamos tratando:
+            // O fix correto pro freeze pós-ESC vive no
+            // ImportFamilyHandler: bracket de PromptForFamilyInstancePlacement
+            // com ComponentDispatcher.PushModal/PopModal. Com o estado modal
+            // do Dispatcher consistente atravessando o nested message pump
+            // do Revit, não há mais frame stale ao retornar — então aqui
+            // basta liberar o guard de re-entrância.
             //
-            // Durante o ciclo de import — OpenDocumentFile + LoadFamily +
-            // PromptForFamilyInstancePlacement — o UI thread fica preso no
-            // Revit por vários segundos. WPF dispatcher fica enfileirando
-            // mensagens e o DWM (compositor do Windows) acaba mostrando o
-            // bitmap antigo da pane mesmo quando o usuário já fez ESC e
-            // voltou. Mover o mouse, clicar e digitar na pane ENTRAM
-            // (dispatcher pumpa input), mas nada repinta até alguma coisa
-            // forçar a DWM a pedir frame novo — tipicamente o usuário
-            // maximizar/minimizar o Revit, o que gera WM_SIZE em cascata.
-            //
-            // InvalidateVisual + UpdateLayout (tentativa anterior) atua na
-            // árvore visual do WPF, não na composição do Windows — por isso
-            // não resolvia em todos os casos. RedrawWindow opera no nível
-            // certo: HWND → DWM. Aplicamos no HwndSource da pane (e em seu
-            // parent, que é a HWND da DockablePane do próprio Revit) com
-            // RDW_INVALIDATE | RDW_FRAME | RDW_UPDATENOW | RDW_ALLCHILDREN,
-            // que é exatamente o que o sistema dispara internamente quando
-            // a janela é redimensionada.
-            //
-            // Isso continua sendo workaround, sim. A causa raiz é
-            // arquitetural: PromptForFamilyInstancePlacement é síncrono e
-            // bloqueante no UI thread (decisão de design da API Revit),
-            // então não tem como evitar a janela de "render stale" durante
-            // a placement. O fix "definitivo" exigiria a Autodesk expor a
-            // API como assíncrona — fora do nosso alcance. O que dá pra
-            // fazer é forçar a DWM a recompor o frame assim que voltamos
-            // do handler, no menor delay possível.
-            Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    _isImporting = false;
-                    ForcePaneRepaint();
-                }),
-                DispatcherPriority.Render);
-        }
-
-        // P/Invoke pra forçar repaint da DockablePane do Revit no nível da
-        // composição do Windows (DWM). Acima do dispatcher do WPF, abaixo
-        // do framework — chega direto na fila do WM_PAINT.
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool RedrawWindow(
-            IntPtr hWnd,
-            IntPtr lprcUpdate,
-            IntPtr hrgnUpdate,
-            uint flags);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern IntPtr GetParent(IntPtr hWnd);
-
-        // Mesmos flags que o Windows envia internamente em WM_SIZE/restore
-        // — invalida a área inteira, frame e cliente, e força UpdateNow
-        // (pinta imediatamente em vez de só agendar).
-        private const uint RDW_INVALIDATE = 0x0001;
-        private const uint RDW_UPDATENOW = 0x0100;
-        private const uint RDW_ALLCHILDREN = 0x0080;
-        private const uint RDW_FRAME = 0x0400;
-
-        private void ForcePaneRepaint()
-        {
-            try
-            {
-                if (PresentationSource.FromVisual(this) is not HwndSource source)
-                    return;
-
-                IntPtr hwnd = source.Handle;
-                if (hwnd == IntPtr.Zero)
-                    return;
-
-                const uint flags = RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN | RDW_FRAME;
-
-                // Invalida a HWND do HwndSource do WPF + a HWND pai (que é a
-                // DockablePane do Revit). Ambos os níveis são necessários
-                // porque o repaint da pane envolve quem desenha o frame
-                // (Revit) e quem desenha o conteúdo (nosso WPF).
-                RedrawWindow(hwnd, IntPtr.Zero, IntPtr.Zero, flags);
-
-                IntPtr parent = GetParent(hwnd);
-                if (parent != IntPtr.Zero)
-                    RedrawWindow(parent, IntPtr.Zero, IntPtr.Zero, flags);
-            }
-            catch
-            {
-                // Falha em forçar repaint não é fatal — a UI permanece
-                // funcional mesmo que apareça stale, e o próximo gesto do
-                // usuário (scroll, click) acaba acordando o DWM.
-            }
+            // O Completed do ExternalEvent é levantado no UI thread do
+            // Revit, que coincide com a Dispatcher do WPF, mas usamos
+            // BeginInvoke como cinto-e-suspensórios pra evitar qualquer
+            // chance de tocar UI fora do Dispatcher caso a infra do Revit
+            // mude no futuro.
+            Dispatcher.BeginInvoke(new Action(() => _isImporting = false));
         }
 
         // Footer mostra a versão da DLL do plugin (V2025 ou V2026), lida
