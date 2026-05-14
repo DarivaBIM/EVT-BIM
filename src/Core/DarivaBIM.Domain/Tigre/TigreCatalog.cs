@@ -11,8 +11,6 @@ namespace DarivaBIM.Domain.Tigre
     /// </summary>
     public sealed class TigreCatalog
     {
-        public const double DiameterToleranceMm = 0.5;
-
         public static readonly ISet<string> DefaultIgnoreTokens = new HashSet<string>(StringComparer.Ordinal)
         {
             "tubo", "tubos", "pipe", "pipes", "pvc", "material", "materiais",
@@ -21,6 +19,7 @@ namespace DarivaBIM.Domain.Tigre
         };
 
         private readonly IReadOnlyList<TigreCatalogEntry> _entries;
+        private readonly Dictionary<int, IReadOnlyList<TigreCatalogEntry>> _entriesByDiameter;
         private readonly ISet<string> _ignoreTokens;
 
         public TigreCatalog(IEnumerable<TigreRawCatalogRow> rows, ISet<string>? ignoreTokens = null)
@@ -35,6 +34,13 @@ namespace DarivaBIM.Domain.Tigre
                 .OrderByDescending(e => e.CoreTokens.Count)
                 .ThenByDescending(e => e.Tokens.Count)
                 .ToList();
+
+            // Indexa por diâmetro (int) para eliminar o filtro O(n) por chamada
+            // de FindMatch. Como DiameterMm é int e a tolerância (0.5) só casa
+            // em igualdade exata, o dicionário preserva a semântica do filtro.
+            _entriesByDiameter = _entries
+                .GroupBy(e => e.DiameterMm)
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<TigreCatalogEntry>)g.ToList());
         }
 
         public IReadOnlyList<TigreCatalogEntry> Entries => _entries;
@@ -46,11 +52,7 @@ namespace DarivaBIM.Domain.Tigre
             string combinedText,
             int diameterMmRound)
         {
-            List<TigreCatalogEntry> sameDiameter = _entries
-                .Where(e => Math.Abs(e.DiameterMm - diameterMmRound) <= DiameterToleranceMm)
-                .ToList();
-
-            if (sameDiameter.Count == 0)
+            if (!_entriesByDiameter.TryGetValue(diameterMmRound, out IReadOnlyList<TigreCatalogEntry>? sameDiameter))
                 return null;
 
             return
@@ -64,7 +66,7 @@ namespace DarivaBIM.Domain.Tigre
                 MatchByTokens(combinedText, sameDiameter, core: true);
         }
 
-        private TigreCatalogEntry? MatchByTokens(string text, List<TigreCatalogEntry> candidates, bool core)
+        private TigreCatalogEntry? MatchByTokens(string text, IReadOnlyList<TigreCatalogEntry> candidates, bool core)
         {
             foreach (TigreCatalogEntry entry in candidates)
             {

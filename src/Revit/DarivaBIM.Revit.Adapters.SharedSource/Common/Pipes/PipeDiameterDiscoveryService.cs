@@ -63,15 +63,59 @@ namespace DarivaBIM.Revit.Adapters.Common.Pipes
         /// </summary>
         public static bool SupportsDiameterMm(Document doc, PipeType pipeType, double diameterMm)
         {
+            return SupportsDiameter(diameterMm, GetAvailableDiametersMm(doc, pipeType));
+        }
+
+        internal static bool SupportsDiameter(double diameterMm, IReadOnlyList<double> available)
+        {
             if (diameterMm <= 0)
                 return false;
 
-            foreach (double d in GetAvailableDiametersMm(doc, pipeType))
+            foreach (double d in available)
             {
                 if (Math.Abs(d - diameterMm) < 0.5)
                     return true;
             }
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Cache doc-scoped para <see cref="PipeDiameterDiscoveryService"/>: cada
+    /// <see cref="PipeType"/> é resolvido para sua lista de diâmetros nominais
+    /// uma única vez por instância. Use durante um scan/load onde o mesmo
+    /// PipeType é consultado várias vezes (ex.: FloorDrainExtension faz
+    /// <c>SupportsDiameterMm</c> N vezes e depois <c>GetAvailableDiametersMm</c>
+    /// outra vez para preencher o dropdown). Não é thread-safe — instancie
+    /// dentro do ExternalEvent.Execute e descarte ao final.
+    /// </summary>
+    public sealed class PipeDiameterDiscoveryCache
+    {
+        private readonly Document _doc;
+        private readonly Dictionary<long, IReadOnlyList<double>> _byPipeType = new();
+
+        public PipeDiameterDiscoveryCache(Document doc)
+        {
+            _doc = doc ?? throw new ArgumentNullException(nameof(doc));
+        }
+
+        public IReadOnlyList<double> GetAvailableDiametersMm(PipeType pipeType)
+        {
+            if (pipeType == null) throw new ArgumentNullException(nameof(pipeType));
+
+            long key = pipeType.Id.Value;
+            if (!_byPipeType.TryGetValue(key, out IReadOnlyList<double>? cached))
+            {
+                cached = PipeDiameterDiscoveryService.GetAvailableDiametersMm(_doc, pipeType);
+                _byPipeType[key] = cached;
+            }
+            return cached;
+        }
+
+        public bool SupportsDiameterMm(PipeType pipeType, double diameterMm)
+        {
+            return PipeDiameterDiscoveryService.SupportsDiameter(
+                diameterMm, GetAvailableDiametersMm(pipeType));
         }
     }
 }

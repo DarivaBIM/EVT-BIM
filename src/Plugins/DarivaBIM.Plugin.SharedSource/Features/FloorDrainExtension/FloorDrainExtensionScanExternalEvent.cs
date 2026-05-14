@@ -82,10 +82,11 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
                     return;
                 }
 
+                PipeDiameterDiscoveryCache diameterCache = new(doc);
                 List<FloorDrainBoxGroupViewModel> groupViewModels = new();
                 foreach (FloorDrainExtensionBoxScanner.BoxGroup g in groups)
                 {
-                    FloorDrainBoxGroupViewModel gvm = BuildGroupViewModel(doc, g);
+                    FloorDrainBoxGroupViewModel gvm = BuildGroupViewModel(doc, g, diameterCache);
                     groupViewModels.Add(gvm);
                 }
 
@@ -103,18 +104,18 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
 
         private static FloorDrainBoxGroupViewModel BuildGroupViewModel(
             Document doc,
-            FloorDrainExtensionBoxScanner.BoxGroup g)
+            FloorDrainExtensionBoxScanner.BoxGroup g,
+            PipeDiameterDiscoveryCache diameterCache)
         {
             long symbolIdHint = RevitElementIdConversions.ToLong(g.Symbol.Id);
             FloorDrainBoxGroupViewModel gvm = new(symbolIdHint, g.FamilyName, g.SymbolName, g.DiameterMm);
 
             List<PipeType> compatible = FloorDrainExtensionPipeTypeResolver
-                .FindPipeTypesForDiameter(doc, g.DiameterMm, g.MaterialKind);
+                .FindPipeTypesForDiameter(doc, g.DiameterMm, g.MaterialKind, diameterCache);
 
             foreach (PipeType pt in compatible)
             {
-                IReadOnlyList<double> diameters =
-                    PipeDiameterDiscoveryService.GetAvailableDiametersMm(doc, pt);
+                IReadOnlyList<double> diameters = diameterCache.GetAvailableDiametersMm(pt);
 
                 gvm.PipeTypes.Add(new PipeTypeOptionViewModel(
                     RevitElementIdConversions.ToLong(pt.Id),
