@@ -127,18 +127,25 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
                 FloorDrainExtensionResult result =
                     FloorDrainExtensionCreator.Run(doc, caixas, LengthMeters, PipeTypeBySymbolId);
 
-                string status =
-                    $"{result.Created} prolongador(es) criado(s). " +
-                    $"Sem conector vertical: {result.FailedNoVerticalConnector}, " +
-                    $"sem PipeType: {result.FailedNoPipeType}, " +
-                    $"outros erros: {result.FailedOther}.";
+                // Versão curta no pill (cabe em ~30 chars), versão completa
+                // no TaskDialog quando algo deu errado pra o usuário ver
+                // detalhes sem disputar espaço com o header.
+                int failed = result.FailedNoVerticalConnector + result.FailedNoPipeType + result.FailedOther;
+                string status = failed == 0
+                    ? $"{result.Created} prolongador(es) criado(s)"
+                    : $"{result.Created} criado(s) · {failed} falha(s)";
 
                 win.SetStatus(status);
 
                 if (result.Created == 0)
                 {
+                    string detail =
+                        $"Sem conector vertical: {result.FailedNoVerticalConnector}, " +
+                        $"sem PipeType: {result.FailedNoPipeType}, " +
+                        $"outros erros: {result.FailedOther}.";
                     string preview = string.Join("\n", result.Logs.Take(40));
-                    TaskDialog.Show("EVT-BIM — Prolongador", status + "\n\nLog:\n" + preview);
+                    TaskDialog.Show("EVT-BIM — Prolongador",
+                        $"{status}\n{detail}\n\nLog:\n{preview}");
                 }
             }
             catch (Exception ex)

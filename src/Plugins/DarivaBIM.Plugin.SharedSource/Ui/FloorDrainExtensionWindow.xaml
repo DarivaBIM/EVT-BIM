@@ -3,260 +3,140 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:common="clr-namespace:DarivaBIM.Presentation.Wpf.Common;assembly=DarivaBIM.Presentation.Wpf"
         Title="Adicionar Prolongadores"
-        Width="560"
-        MinWidth="520"
-        MinHeight="440"
-        MaxHeight="820"
-        SizeToContent="Height"
+        Width="580"
+        MinWidth="480"
+        Height="600"
+        MinHeight="480"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
         Topmost="True"
         WindowStartupLocation="Manual"
-        Background="#EEF1F4"
+        Background="{DynamicResource AppBgBrush}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Ideal"
         TextOptions.TextRenderingMode="ClearType"
-        FontFamily="Segoe UI"
+        FontFamily="{DynamicResource BodyFont}"
         Loaded="OnWindowLoaded"
         Closing="OnWindowClosing">
 
     <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
-        <common:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Themes/Tokens.xaml" />
+                <ResourceDictionary Source="/Themes/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <!-- Paleta espelhada do UtilizationPointInsertionWindow para
-             unificar a linguagem visual entre as duas ferramentas. -->
-        <SolidColorBrush x:Key="AppBgBrush" Color="#EEF1F4" />
-        <SolidColorBrush x:Key="WindowBgBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="SubtleBgBrush" Color="#F6F8FA" />
-        <SolidColorBrush x:Key="FooterBgBrush" Color="#F4F6F8" />
+            <common:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
-        <SolidColorBrush x:Key="BorderBrush" Color="#E4E7EB" />
-        <SolidColorBrush x:Key="BorderStrongBrush" Color="#D4D7DC" />
+            <!-- Paleta amber pro pill de estado "ocupado". Tokens.xaml não
+                 traz amber (PipeCadMapper não usa) — defino só aqui. -->
+            <SolidColorBrush x:Key="AmberBgBrush"     Color="#FFF8E1" />
+            <SolidColorBrush x:Key="AmberBorderBrush" Color="#F7D588" />
+            <SolidColorBrush x:Key="AmberDeepBrush"   Color="#6A4A05" />
+            <SolidColorBrush x:Key="AmberBrush"       Color="#C77A06" />
 
-        <SolidColorBrush x:Key="TextBrush" Color="#1A2433" />
-        <SolidColorBrush x:Key="TextMutedBrush" Color="#5B6573" />
-        <SolidColorBrush x:Key="TextSoftBrush" Color="#8A94A2" />
+            <!-- ===== Tipografia ===== -->
+            <Style x:Key="HeaderTitleStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            </Style>
 
-        <SolidColorBrush x:Key="AccentBrush" Color="#2A6FDB" />
-        <SolidColorBrush x:Key="AccentHoverBrush" Color="#2461C2" />
-        <SolidColorBrush x:Key="AccentSoftBrush" Color="#EAF1FC" />
-        <SolidColorBrush x:Key="AccentDeepBrush" Color="#1E4A91" />
+            <Style x:Key="SubtitleStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
 
-        <SolidColorBrush x:Key="GreenBrush" Color="#15A34A" />
+            <Style x:Key="EyebrowStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            </Style>
 
-        <SolidColorBrush x:Key="AmberBrush" Color="#C77A06" />
-        <SolidColorBrush x:Key="AmberBgBrush" Color="#FFF8E1" />
-        <SolidColorBrush x:Key="AmberBorderBrush" Color="#F7D588" />
-        <SolidColorBrush x:Key="AmberDeepBrush" Color="#6A4A05" />
+            <Style x:Key="GroupTitleStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
 
-        <!-- ===== Tipografia ===== -->
-        <Style x:Key="HeaderTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="19" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-        </Style>
+            <Style x:Key="GroupMetaStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            </Style>
 
-        <Style x:Key="SubtitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
+            <Style x:Key="EmptyDropdownStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11.5" />
+                <Setter Property="FontStyle" Value="Italic" />
+                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
 
-        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextSoftBrush}" />
-            <Setter Property="Margin" Value="0,0,0,6" />
-        </Style>
+            <!-- Badge de diâmetro: pill compacto com AccentSoftBrush. -->
+            <Style x:Key="DiameterBadgeStyle" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                <Setter Property="CornerRadius" Value="11" />
+                <Setter Property="Padding" Value="10,3" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="MinWidth" Value="74" />
+            </Style>
 
-        <Style x:Key="GroupTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-
-        <Style x:Key="GroupMetaStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{StaticResource TextSoftBrush}" />
-        </Style>
-
-        <Style x:Key="DiameterBadgeStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="8,2" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
-        <Style x:Key="DiameterBadgeTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource AccentDeepBrush}" />
-        </Style>
-
-        <Style x:Key="EmptyDropdownStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="FontStyle" Value="Italic" />
-            <Setter Property="Foreground" Value="{StaticResource TextSoftBrush}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-
-        <Style x:Key="InstanceRowTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
-        <!-- ===== Controles ===== -->
-        <Style TargetType="TextBox">
-            <Setter Property="Height" Value="32" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="Padding" Value="10,6" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Background" Value="{StaticResource WindowBgBrush}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6">
-                            <ScrollViewer x:Name="PART_ContentHost"
-                                          Margin="{TemplateBinding Padding}"
-                                          VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="ComboBox">
-            <Setter Property="Height" Value="30" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
-
-        <!-- Action buttons: primário (azul cheio) e secundário (outline). -->
-        <Style x:Key="ActionButtonBaseStyle" TargetType="Button">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Padding" Value="14,0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="7">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              Margin="{TemplateBinding Padding}" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.5" />
-                    <Setter Property="Cursor" Value="Arrow" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="PrimaryActionButtonStyle"
-               TargetType="Button"
-               BasedOn="{StaticResource ActionButtonBaseStyle}">
-            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-            <Setter Property="Foreground" Value="White" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
-                    <Setter Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="SecondaryActionButtonStyle"
-               TargetType="Button"
-               BasedOn="{StaticResource ActionButtonBaseStyle}">
-            <Setter Property="Background" Value="{StaticResource WindowBgBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="{StaticResource AccentDeepBrush}" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <Style x:Key="DiameterBadgeTextStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11.5" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+            </Style>
+        </ResourceDictionary>
     </Window.Resources>
 
-    <!-- Outer chrome: borda fina + cantos retos. Mantém o native title bar
-         (sem WindowChrome custom) — manter a barra padrão simplifica drag/
-         maximize/close e evita os edge cases de redimensionamento que o
-         UtilizationPointInsertionWindow precisou resolver. -->
-    <Border Background="{StaticResource WindowBgBrush}"
+    <Border Background="{StaticResource CardBgBrush}"
             BorderBrush="{StaticResource BorderStrongBrush}"
-            BorderThickness="1"
-            Margin="0">
+            BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />   <!-- Header -->
                 <RowDefinition Height="Auto" />   <!-- Comprimento -->
-                <RowDefinition Height="*" />      <!-- Lista de tipos -->
+                <RowDefinition Height="*" />      <!-- Lista -->
                 <RowDefinition Height="Auto" />   <!-- Footer -->
             </Grid.RowDefinitions>
 
-            <!-- =====================================================
-                 Header: título + subtítulo + pill de estado
-            ===================================================== -->
+            <!-- ===== Header ===== -->
             <Border Grid.Row="0"
-                    Background="{StaticResource WindowBgBrush}"
+                    Background="{StaticResource CardBgBrush}"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="22,18,22,16">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" MinWidth="200" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
+
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
                         <TextBlock Style="{StaticResource HeaderTitleStyle}"
                                    Text="Adicionar Prolongadores" />
                         <TextBlock Style="{StaticResource SubtitleStyle}"
                                    Margin="0,6,0,0"
-                                   MaxWidth="440"
-                                   HorizontalAlignment="Left"
                                    Text="Cria tubos verticais acima de caixas sifonadas, caixas secas e ralos, herdando o diâmetro do conector superior." />
                     </StackPanel>
 
-                    <!-- Pill de status: muda pra amber quando IsBusy=true.
-                         Mantém o mesmo padrão visual do UtilizationPoints. -->
+                    <!-- Status pill: verde quando idle, amber quando IsBusy=true.
+                         MaxWidth elástico até 300 + ellipsis pra não quebrar
+                         o header quando a mensagem é longa. -->
                     <Border Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Margin="14,2,0,0"
+                            VerticalAlignment="Top"
+                            Margin="0,2,0,0"
                             Height="30"
                             Padding="12,0,14,0"
                             CornerRadius="15"
-                            MaxWidth="220">
+                            MaxWidth="300">
                         <Border.Style>
                             <Style TargetType="Border">
-                                <Setter Property="Background" Value="{StaticResource SubtleBgBrush}" />
+                                <Setter Property="Background" Value="{StaticResource CardBgSubtleBrush}" />
                                 <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
                                 <Setter Property="BorderThickness" Value="1" />
                                 <Style.Triggers>
@@ -271,7 +151,7 @@
                             <Ellipse Width="8" Height="8" VerticalAlignment="Center">
                                 <Ellipse.Style>
                                     <Style TargetType="Ellipse">
-                                        <Setter Property="Fill" Value="{StaticResource GreenBrush}" />
+                                        <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsBusy}" Value="True">
                                                 <Setter Property="Fill" Value="{StaticResource AmberBrush}" />
@@ -284,7 +164,8 @@
                                        FontSize="12"
                                        VerticalAlignment="Center"
                                        Text="{Binding StatusMessage}"
-                                       TextTrimming="CharacterEllipsis">
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding StatusMessage}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
@@ -301,23 +182,23 @@
                 </Grid>
             </Border>
 
-            <!-- =====================================================
-                 Comprimento
-            ===================================================== -->
+            <!-- ===== Comprimento ===== -->
             <Border Grid.Row="1"
-                    Background="{StaticResource WindowBgBrush}"
-                    Padding="22,16,22,8">
+                    Background="{StaticResource CardBgBrush}"
+                    Padding="22,16,22,12">
                 <StackPanel>
-                    <TextBlock Text="COMPRIMENTO (M)" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="LengthTextBox" Width="140" HorizontalAlignment="Left" />
+                    <TextBlock Text="COMPRIMENTO" Style="{StaticResource EyebrowStyle}" Margin="0,0,0,6" />
+                    <TextBox x:Name="LengthTextBox"
+                             Style="{StaticResource TextBoxStyle}"
+                             Tag="m"
+                             Width="160"
+                             HorizontalAlignment="Left" />
                 </StackPanel>
             </Border>
 
-            <!-- =====================================================
-                 Lista de tipos de caixa (cards expansíveis)
-            ===================================================== -->
+            <!-- ===== Lista de tipos ===== -->
             <Border Grid.Row="2"
-                    Background="{StaticResource SubtleBgBrush}"
+                    Background="{StaticResource AppBgBrush}"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="0,1,0,1"
                     Padding="22,14,22,14">
@@ -327,107 +208,80 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0" Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="TIPOS DE CAIXA NO PROJETO"
-                                   Style="{StaticResource FieldLabelStyle}"
-                                   Margin="0" />
-                        <TextBlock Grid.Column="1"
-                                   Text="Expanda um card para marcar caixas individuais"
-                                   FontSize="11"
-                                   Foreground="{StaticResource TextSoftBrush}" />
-                    </Grid>
+                    <TextBlock Grid.Row="0"
+                               Text="TIPOS DE CAIXA NO PROJETO"
+                               Style="{StaticResource EyebrowStyle}"
+                               Margin="0,0,0,10" />
 
                     <ScrollViewer Grid.Row="1"
                                   VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled"
-                                  MinHeight="160"
-                                  MaxHeight="380"
                                   Visibility="{Binding HasGroups, Converter={StaticResource BoolToVisibility}}">
                         <ItemsControl ItemsSource="{Binding BoxGroups}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{StaticResource WindowBgBrush}"
+                                    <Border Background="{StaticResource CardBgBrush}"
                                             BorderBrush="{StaticResource BorderBrush}"
                                             BorderThickness="1"
                                             CornerRadius="9"
-                                            Padding="0"
+                                            Padding="14,12,14,12"
                                             Margin="0,0,0,10">
-                                        <Expander IsExpanded="False" Background="Transparent" BorderThickness="0">
-                                            <Expander.Header>
-                                                <Grid Width="460" Margin="2,4,2,4">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" MinWidth="100" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
 
-                                                    <!-- Master checkbox 3-state. Marcado = todas instâncias
-                                                         marcadas; nulo = parcial. -->
-                                                    <CheckBox Grid.Column="0"
-                                                              VerticalAlignment="Center"
-                                                              IsThreeState="True"
-                                                              IsChecked="{Binding IsAllSelected, Mode=TwoWay}"
-                                                              ToolTip="Marcar/desmarcar todas as caixas deste tipo" />
+                                            <!-- Checkbox de inclusão do tipo -->
+                                            <CheckBox Grid.Row="0" Grid.Column="0"
+                                                      Style="{StaticResource CheckBoxStyle}"
+                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,12,0"
+                                                      ToolTip="Quando desmarcado, este tipo é ignorado na inserção." />
 
-                                                    <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                                        <TextBlock Style="{StaticResource GroupTitleStyle}"
-                                                                   Text="{Binding DisplayName}" />
-                                                        <TextBlock Style="{StaticResource GroupMetaStyle}"
-                                                                   Margin="0,2,0,0"
-                                                                   Text="{Binding InstanceCountLabel}" />
-                                                    </StackPanel>
+                                            <!-- Título + contagem -->
+                                            <StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Style="{StaticResource GroupTitleStyle}"
+                                                           Text="{Binding DisplayName}"
+                                                           ToolTip="{Binding DisplayName}" />
+                                                <TextBlock Style="{StaticResource GroupMetaStyle}"
+                                                           Margin="0,3,0,0"
+                                                           Text="{Binding InstanceCountLabel}" />
+                                            </StackPanel>
 
-                                                    <Border Grid.Column="2"
-                                                            Style="{StaticResource DiameterBadgeStyle}">
-                                                        <TextBlock Style="{StaticResource DiameterBadgeTextStyle}"
-                                                                   Text="{Binding DiameterLabel}" />
-                                                    </Border>
-                                                </Grid>
-                                            </Expander.Header>
+                                            <!-- Badge de diâmetro: MinWidth garante que não some
+                                                 quando o título é longo; coluna Auto impede que
+                                                 o badge fique espremido. -->
+                                            <Border Grid.Row="0" Grid.Column="2"
+                                                    Style="{StaticResource DiameterBadgeStyle}"
+                                                    Margin="10,0,0,0">
+                                                <TextBlock Style="{StaticResource DiameterBadgeTextStyle}"
+                                                           Text="{Binding DiameterLabel}" />
+                                            </Border>
 
-                                            <StackPanel Margin="14,4,14,12">
-                                                <!-- Dropdown de PipeType -->
-                                                <TextBlock Text="TIPO DE TUBO"
-                                                           Style="{StaticResource FieldLabelStyle}" />
-                                                <ComboBox ItemsSource="{Binding PipeTypes}"
+                                            <!-- Dropdown do PipeType ocupa as 3 colunas
+                                                 abaixo. Sem expander — escolha sempre visível. -->
+                                            <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                                                  Margin="0,12,0,0">
+                                                <ComboBox Style="{StaticResource ComboBoxStyle}"
+                                                          ItemContainerStyle="{StaticResource ComboBoxItemStyle}"
+                                                          ItemsSource="{Binding PipeTypes}"
                                                           SelectedItem="{Binding SelectedPipeType, Mode=TwoWay}"
                                                           DisplayMemberPath="Name"
+                                                          IsEnabled="{Binding IsSelected}"
                                                           Visibility="{Binding HasPipeTypes, Converter={StaticResource BoolToVisibility}}" />
 
                                                 <TextBlock Style="{StaticResource EmptyDropdownStyle}"
                                                            Text="{Binding EmptyMessage}"
                                                            Visibility="{Binding HasPipeTypes, Converter={StaticResource InverseBoolToVisibility}}" />
-
-                                                <!-- Lista de instâncias com checkbox individual -->
-                                                <TextBlock Text="CAIXAS DESSE TIPO"
-                                                           Style="{StaticResource FieldLabelStyle}"
-                                                           Margin="0,12,0,4" />
-                                                <ItemsControl ItemsSource="{Binding Instances}">
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <Grid Margin="0,2,0,2">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="Auto" />
-                                                                    <ColumnDefinition Width="*" />
-                                                                </Grid.ColumnDefinitions>
-                                                                <CheckBox Grid.Column="0"
-                                                                          VerticalAlignment="Center"
-                                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}" />
-                                                                <TextBlock Grid.Column="1"
-                                                                           Margin="8,0,0,0"
-                                                                           Style="{StaticResource InstanceRowTextStyle}"
-                                                                           Text="{Binding DisplayLabel}" />
-                                                            </Grid>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                            </StackPanel>
-                                        </Expander>
+                                            </Grid>
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -443,14 +297,14 @@
                 </Grid>
             </Border>
 
-            <!-- =====================================================
-                 Footer: 3 modos de execução
-            ===================================================== -->
+            <!-- ===== Footer ===== -->
             <Border Grid.Row="3"
-                    Background="{StaticResource FooterBgBrush}"
+                    Background="{StaticResource CardBgBrush}"
                     Padding="22,14,22,16">
                 <StackPanel>
-                    <TextBlock Text="ONDE INSERIR OS PROLONGADORES" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Text="ONDE INSERIR OS PROLONGADORES"
+                               Style="{StaticResource EyebrowStyle}"
+                               Margin="0,0,0,8" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -462,7 +316,7 @@
 
                         <Button x:Name="PickButton"
                                 Grid.Column="0"
-                                Style="{StaticResource SecondaryActionButtonStyle}"
+                                Style="{StaticResource GhostButtonStyle}"
                                 Content="Selecionar caixas"
                                 ToolTip="Permite selecionar caixas no Revit (ignora os checkboxes acima)."
                                 IsEnabled="{Binding IsIdle}"
@@ -470,7 +324,7 @@
 
                         <Button x:Name="VisibleInViewButton"
                                 Grid.Column="2"
-                                Style="{StaticResource SecondaryActionButtonStyle}"
+                                Style="{StaticResource GhostButtonStyle}"
                                 Content="Visíveis na vista"
                                 ToolTip="Insere nas caixas marcadas que estão visíveis na vista ativa."
                                 IsEnabled="{Binding IsIdle}"
@@ -478,7 +332,7 @@
 
                         <Button x:Name="AllInProjectButton"
                                 Grid.Column="4"
-                                Style="{StaticResource PrimaryActionButtonStyle}"
+                                Style="{StaticResource PrimaryButtonStyle}"
                                 Content="Todas marcadas"
                                 ToolTip="Insere nas caixas marcadas em todo o projeto."
                                 IsEnabled="{Binding IsIdle}"

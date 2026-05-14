@@ -35,7 +35,7 @@ namespace DarivaBIM.Presentation.Wpf.FloorDrainExtension
 
         public bool IsIdle => !IsBusy;
 
-        private string _statusMessage = "Carregando tipos de caixas do projeto…";
+        private string _statusMessage = "Carregando tipos…";
         public string StatusMessage
         {
             get => _statusMessage;
