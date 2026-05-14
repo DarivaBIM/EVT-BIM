@@ -73,10 +73,11 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
             return result;
         }
 
-        // Família precisa conter "caixa sifonada" OU "ralo" no nome (case
-        // insensitive). "caixa sifonada" intencionalmente mais específico que
-        // "caixa" para não pegar "caixa de gordura", "caixa de inspeção" etc.,
-        // que têm geometria/comportamento diferentes.
+        // Família precisa conter "caixa sifonada", "caixa seca" OU "ralo" no
+        // nome (case insensitive). "caixa sifonada"/"caixa seca"
+        // intencionalmente mais específicos que "caixa" para não pegar "caixa
+        // de gordura", "caixa de inspeção" etc., que têm geometria/comportamento
+        // diferentes.
         private static bool MatchesBoxNamePattern(FamilyInstance fi)
         {
             string familyName;
@@ -86,6 +87,7 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
             if (string.IsNullOrEmpty(familyName)) return false;
 
             return familyName.IndexOf("caixa sifonada", StringComparison.OrdinalIgnoreCase) >= 0
+                || familyName.IndexOf("caixa seca", StringComparison.OrdinalIgnoreCase) >= 0
                 || familyName.IndexOf("ralo", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 

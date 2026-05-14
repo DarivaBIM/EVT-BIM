@@ -147,9 +147,25 @@ namespace DarivaBIM.Plugin.Ui
                     pipeTypeBySymbolId[symbolId] = g.SelectedPipeType.Id;
             }
 
+            // Set de IDs marcados (acumulado de todos os grupos). Aplica só
+            // nos modos não-pick — o modo "Selecionar caixas" usa o que o
+            // usuário pegar diretamente no Revit. null pula o filtro.
+            IReadOnlyCollection<long>? selectedInstanceIds = null;
+            if (mode != FloorDrainExtensionRunMode.PickInProject)
+            {
+                List<long> ids = new();
+                for (int i = 0; i < ViewModel.BoxGroups.Count; i++)
+                {
+                    IReadOnlyList<long> picked = ViewModel.BoxGroups[i].GetSelectedInstanceIds();
+                    for (int j = 0; j < picked.Count; j++)
+                        ids.Add(picked[j]);
+                }
+                selectedInstanceIds = ids;
+            }
+
             ViewModel.IsBusy = true;
             ViewModel.StatusMessage = busyMessage;
-            _runEvent.Raise(this, meters, mode, pipeTypeBySymbolId);
+            _runEvent.Raise(this, meters, mode, pipeTypeBySymbolId, selectedInstanceIds);
         }
 
         private void SaveCurrentSettings()

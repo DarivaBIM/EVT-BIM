@@ -44,12 +44,18 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
             FloorDrainExtensionWindow window,
             double lengthMeters,
             FloorDrainExtensionRunMode mode,
-            IReadOnlyDictionary<long, long> pipeTypeBySymbolId)
+            IReadOnlyDictionary<long, long> pipeTypeBySymbolId,
+            IReadOnlyCollection<long>? selectedInstanceIds)
         {
             _handler.Window = window;
             _handler.LengthMeters = lengthMeters;
             _handler.Mode = mode;
             _handler.PipeTypeBySymbolId = pipeTypeBySymbolId;
+            // null sinaliza "sem filtro de seleção" (modo pick); HashSet vazio
+            // sinaliza "todas desmarcadas" e o Execute aborta com mensagem.
+            _handler.SelectedInstanceIds = selectedInstanceIds == null
+                ? null
+                : new HashSet<long>(selectedInstanceIds);
             _externalEvent.Raise();
         }
     }
@@ -61,6 +67,9 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
         public FloorDrainExtensionRunMode Mode { get; set; }
         public IReadOnlyDictionary<long, long> PipeTypeBySymbolId { get; set; } =
             new Dictionary<long, long>();
+        // null = sem filtro (modo pick). Set vazio ou populado = filtra a
+        // coleta da varredura mantendo apenas IDs presentes aqui.
+        public HashSet<long>? SelectedInstanceIds { get; set; }
 
         public string GetName() => "EvtBim.FloorDrainExtensionHandler";
 
@@ -89,6 +98,30 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
                 {
                     win.SetStatus(BuildEmptyMessage(Mode));
                     return;
+                }
+
+                // SelectedInstanceIds aplica só nos modos não-pick. No pick,
+                // a seleção é o que o usuário marcou no Revit, ignoramos os
+                // checkboxes da janela.
+                if (Mode != FloorDrainExtensionRunMode.PickInProject &&
+                    SelectedInstanceIds != null)
+                {
+                    HashSet<long> allow = SelectedInstanceIds;
+                    if (allow.Count == 0)
+                    {
+                        win.SetStatus("Nenhuma caixa marcada. Marque pelo menos uma caixa no card antes de inserir.");
+                        return;
+                    }
+
+                    caixas = caixas
+                        .Where(fi => allow.Contains(fi.Id.Value))
+                        .ToList();
+
+                    if (caixas.Count == 0)
+                    {
+                        win.SetStatus("Nenhuma das caixas marcadas foi encontrada no escopo selecionado (vista/projeto).");
+                        return;
+                    }
                 }
 
                 FloorDrainExtensionResult result =
