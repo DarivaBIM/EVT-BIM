@@ -58,11 +58,18 @@ namespace DarivaBIM.Plugin.Ui
         private CancellationTokenSource? _searchCancellationTokenSource;
         private bool _hasLoaded;
         private bool _lastLoadFailed;
-        // Reentrance guard pro card-click: a galeria pode receber outro clique
-        // antes da Task de download anterior terminar (especialmente se a
-        // rede tá lenta). Sem isso, dois downloads concorrentes brigariam
-        // pelo mesmo arquivo de cache e o ExternalEvent dispararia duas vezes.
+        // Reentrance guard pro card-click — dividido em duas fases. Sem
+        // os dois flags, dois downloads concorrentes brigariam pelo mesmo
+        // arquivo de cache, ou dois ExternalEvents poderiam ser enfileirados
+        // enquanto o Revit ainda processa o anterior (o handler é pesado:
+        // OpenDocumentFile + LoadFamily + Activate + Prompt).
+        //
+        //   _isDownloading: setado durante o Task.Run do download HTTP/cache.
+        //   _isImporting:   setado entre Raise() e o callback Completed
+        //                   do handler — cobre a janela em que o Revit
+        //                   ainda está com o UI thread preso carregando.
         private bool _isDownloading;
+        private bool _isImporting;
         private int _itemsPerRow = 1;
 
         // Estado da navegação por aba (rail). "all" sempre tem dados; as
@@ -130,6 +137,27 @@ namespace DarivaBIM.Plugin.Ui
             };
 
             _resizeDebounceTimer.Tick += OnResizeDebounceTimerTick;
+
+            // Quando o handler do Revit termina (sucesso ou falha), limpa
+            // _isImporting pra liberar o próximo clique. Sem essa pinga,
+            // o flag ficaria true pra sempre e a galeria viraria read-only.
+            _importFamilyExternalEvent.Completed += OnImportFamilyCompleted;
+        }
+
+        private void OnImportFamilyCompleted()
+        {
+            // Revit roda ExternalEvent.Execute na sua UI thread, que é a
+            // mesma STA da Dispatcher do WPF na DockablePane. CheckAccess
+            // confirma isso e evita o overhead de marshal quando já
+            // estamos na thread certa.
+            if (Dispatcher.CheckAccess())
+            {
+                _isImporting = false;
+            }
+            else
+            {
+                Dispatcher.BeginInvoke(new Action(() => _isImporting = false));
+            }
         }
 
         // Footer mostra a versão da DLL do plugin (V2025 ou V2026), lida
@@ -391,10 +419,13 @@ namespace DarivaBIM.Plugin.Ui
             // pra viewport durante o download).
             e.Handled = true;
 
-            // Guard contra reentrada: se um download anterior ainda está
-            // em voo, ignora o segundo clique em silêncio (o usuário não
-            // tem mais overlay pra sinalizar busy).
-            if (_isDownloading)
+            // Guard contra reentrada cobrindo as duas fases: enquanto
+            // estiver baixando o .rfa OU enquanto o handler do Revit
+            // ainda estiver processando o anterior, o segundo clique é
+            // ignorado em silêncio. Sem o segundo flag, o usuário podia
+            // disparar imports concorrentes empilhando ExternalEvents
+            // enquanto o Revit segura o UI thread no OpenDocumentFile.
+            if (_isDownloading || _isImporting)
             {
                 return;
             }
@@ -455,6 +486,13 @@ namespace DarivaBIM.Plugin.Ui
 
             _isDownloading = false;
 
+            // Sinaliza re-entrância pra próxima fase ANTES de Raise: o
+            // handler pode demorar (OpenDocumentFile bloqueia o UI thread)
+            // e o usuário não pode disparar um segundo import enquanto o
+            // primeiro ainda estiver em curso. _isImporting é zerado pelo
+            // callback Completed do ExternalEvent.
+            _isImporting = true;
+
             try
             {
                 _importFamilyExternalEvent.Raise(request, localFilePath);
@@ -469,6 +507,11 @@ namespace DarivaBIM.Plugin.Ui
             }
             catch (Exception ex)
             {
+                // Raise falhou: o handler não vai rodar e não vai disparar
+                // Completed. Limpa o flag manualmente aqui pra não travar
+                // a galeria.
+                _isImporting = false;
+
                 TaskDialog.Show(
                     FeatureNames.FamiliesImporter,
                     $"Não foi possível agendar a importação da família.\n\n{ex.Message}");
