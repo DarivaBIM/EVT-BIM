@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.Common;
@@ -176,11 +178,17 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
         // em vez de abrir o .rfa como Document e chamar
         // <c>familyDoc.LoadFamily(projectDoc, ...)</c>. A versão antiga
         // disparava 3+ first-chance NullReferenceExceptions internas da
-        // RevitAPI durante o <c>OpenDocumentFile</c> (provavelmente resolução
-        // de path/versão internamente), o que travava o desenvolvedor com
-        // "break on NRE" ligado e não tinha como suprimir do nosso lado.
-        // O overload por path é mais direto: Revit gerencia a transação
-        // internamente e a leitura sai sem ruído de exceções.
+        // RevitAPI durante o <c>OpenDocumentFile</c>, o que travava o
+        // desenvolvedor com "break on NRE" ligado.
+        //
+        // O out Family do overload por path nem sempre vem populado (Revit
+        // retorna null quando a família já está no projeto na mesma versão),
+        // então tiramos snapshot dos Family.Id antes do load e diferenciamos
+        // depois pra localizar a família carregada/já-existente. Fallback
+        // final: matching tolerante de nome (normalizado, sem prefixos como
+        // "CX_" nem sufixos como " - Tigre", sem separadores) — a meta é
+        // que o usuário sempre saia com a família no cursor, mesmo nos
+        // casos em que o load é um no-op por "já existe".
         private static Family? LoadFamilyFromFile(
             Document projectDoc,
             string cachedFilePath,
@@ -189,46 +197,147 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
         {
             actualFamilyName = Path.GetFileNameWithoutExtension(cachedFilePath);
 
-            Family? family;
+            HashSet<long> existingIds = SnapshotFamilyIds(projectDoc);
+
+            Family? family = null;
             try
             {
                 projectDoc.LoadFamily(cachedFilePath, new RevitFamilyLoadOptions(), out family);
             }
             catch
             {
-                // Path inválido / .rfa corrompido / versão incompatível:
-                // tenta achar uma versão já existente no projeto como
-                // fallback antes de desistir.
-                return FindExistingFamily(projectDoc, request, actualFamilyName);
+                // Path inválido / .rfa corrompido / versão incompatível —
+                // cai pros fallbacks abaixo (família já no projeto, etc.).
             }
 
+            // Caminho feliz: Revit devolveu o Family carregado.
             if (family != null)
             {
-                // Family.Name é o nome interno autoritativo (o que aparece no
-                // browser do Revit). Substitui o filename como diagnóstico.
                 actualFamilyName = family.Name;
                 return family;
             }
 
-            return FindExistingFamily(projectDoc, request, actualFamilyName);
+            // Caminho 2: out Family veio null mas o load adicionou famílias
+            // novas (Revit bug com out param). Diff acha a recém-carregada.
+            family = FindNewlyLoadedFamily(projectDoc, existingIds);
+            if (family != null)
+            {
+                actualFamilyName = family.Name;
+                return family;
+            }
+
+            // Caminho 3: load foi no-op porque a família já estava no
+            // projeto na mesma versão. Busca por nome — primeiro exato,
+            // depois normalizado. Devolve a família existente pra
+            // continuar o fluxo de posicionamento.
+            family = FindExistingFamily(projectDoc, request, actualFamilyName);
+            if (family != null)
+            {
+                actualFamilyName = family.Name;
+                return family;
+            }
+
+            return null;
         }
 
+        private static HashSet<long> SnapshotFamilyIds(Document doc)
+        {
+            HashSet<long> ids = new();
+            foreach (Element e in new FilteredElementCollector(doc).OfClass(typeof(Family)))
+                ids.Add(e.Id.Value);
+            return ids;
+        }
+
+        private static Family? FindNewlyLoadedFamily(Document doc, HashSet<long> existingIds)
+        {
+            return new FilteredElementCollector(doc)
+                .OfClass(typeof(Family))
+                .Cast<Family>()
+                .FirstOrDefault(f => !existingIds.Contains(f.Id.Value));
+        }
+
+        // Busca uma família já presente no projeto que case com o que o
+        // usuário pediu. Estratégia em camadas, da mais restritiva para a
+        // mais tolerante:
+        //   1) Match exato (case-insensitive) com algum dos candidatos
+        //      (request.FamilyName, basename do .rfa, nome calculado do
+        //      arquivo em cache).
+        //   2) Match em forma normalizada — só letras+dígitos, lowercase.
+        //      Cobre divergências de "/" vs "-", "DN" vs sem prefix,
+        //      "CX_" no nome de arquivo vs ausente no nome de domínio,
+        //      sufixos como " - Tigre", etc.
+        //   3) Substring normalizada — última cartada para evitar mostrar
+        //      ao usuário o erro "não foi localizada no projeto" quando a
+        //      família claramente existe.
         private static Family? FindExistingFamily(
             Document doc,
             ImportFamilyRequest request,
             string actualFamilyName)
         {
-            string requestedName = request.FamilyName?.Trim() ?? string.Empty;
-            string fileBaseName = Path.GetFileNameWithoutExtension(request.ResolvedFileName)?.Trim() ?? string.Empty;
-            string internalName = actualFamilyName?.Trim() ?? string.Empty;
+            string[] candidates = new[]
+                {
+                    request.FamilyName?.Trim(),
+                    Path.GetFileNameWithoutExtension(request.ResolvedFileName)?.Trim(),
+                    actualFamilyName?.Trim(),
+                }
+                .Where(s => !string.IsNullOrEmpty(s))
+                .Cast<string>()
+                .ToArray();
 
-            return new FilteredElementCollector(doc)
+            if (candidates.Length == 0)
+                return null;
+
+            List<Family> all = new FilteredElementCollector(doc)
                 .OfClass(typeof(Family))
                 .Cast<Family>()
-                .FirstOrDefault(f =>
-                    f.Name.Equals(requestedName, StringComparison.OrdinalIgnoreCase) ||
-                    f.Name.Equals(fileBaseName, StringComparison.OrdinalIgnoreCase) ||
-                    f.Name.Equals(internalName, StringComparison.OrdinalIgnoreCase));
+                .ToList();
+
+            // 1) Exato (case-insensitive).
+            foreach (string c in candidates)
+            {
+                Family? hit = all.FirstOrDefault(f =>
+                    f.Name.Equals(c, StringComparison.OrdinalIgnoreCase));
+                if (hit != null) return hit;
+            }
+
+            // 2) Normalizado (alfanumérico, lower).
+            string[] normalizedCandidates = candidates
+                .Select(NormalizeForMatch)
+                .Where(s => s.Length > 0)
+                .ToArray();
+
+            foreach (string nc in normalizedCandidates)
+            {
+                Family? hit = all.FirstOrDefault(f =>
+                    NormalizeForMatch(f.Name) == nc);
+                if (hit != null) return hit;
+            }
+
+            // 3) Substring normalizada (ambas direções).
+            foreach (string nc in normalizedCandidates)
+            {
+                Family? hit = all.FirstOrDefault(f =>
+                {
+                    string nf = NormalizeForMatch(f.Name);
+                    return nf.Length > 0 &&
+                           (nf.Contains(nc) || (nc.Length > nf.Length && nc.Contains(nf)));
+                });
+                if (hit != null) return hit;
+            }
+
+            return null;
+        }
+
+        private static string NormalizeForMatch(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return string.Empty;
+            StringBuilder sb = new(s.Length);
+            foreach (char ch in s)
+            {
+                if (char.IsLetterOrDigit(ch))
+                    sb.Append(char.ToLowerInvariant(ch));
+            }
+            return sb.ToString();
         }
 
         private static FamilySymbol? GetFirstFamilySymbol(Document doc, Family family)
