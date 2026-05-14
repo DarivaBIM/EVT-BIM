@@ -91,29 +91,11 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
             // Limpa para que reloads posteriores não sobrescrevam o estado do usuário.
             PendingSettings = null;
 
-            if (!string.IsNullOrEmpty(settings.SystemName))
-            {
-                foreach (PipingSystemOptionViewModel option in vm.Systems)
-                {
-                    if (string.Equals(option.Name, settings.SystemName, StringComparison.Ordinal))
-                    {
-                        vm.SelectedSystem = option;
-                        break;
-                    }
-                }
-            }
+            if (FindByName(vm.Systems, settings.SystemName, s => s.Name) is { } system)
+                vm.SelectedSystem = system;
 
-            if (!string.IsNullOrEmpty(settings.PipeTypeName))
-            {
-                foreach (PipeTypeOptionViewModel option in vm.PipeTypes)
-                {
-                    if (string.Equals(option.Name, settings.PipeTypeName, StringComparison.Ordinal))
-                    {
-                        vm.SelectedPipeType = option;
-                        break;
-                    }
-                }
-            }
+            if (FindByName(vm.PipeTypes, settings.PipeTypeName, t => t.Name) is { } pipeType)
+                vm.SelectedPipeType = pipeType;
 
             if (settings.DiameterMm.HasValue)
             {
@@ -127,17 +109,8 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 }
             }
 
-            if (!string.IsNullOrEmpty(settings.LevelName))
-            {
-                foreach (LevelOptionViewModel option in vm.Levels)
-                {
-                    if (string.Equals(option.Name, settings.LevelName, StringComparison.Ordinal))
-                    {
-                        vm.SelectedLevel = option;
-                        break;
-                    }
-                }
-            }
+            if (FindByName(vm.Levels, settings.LevelName, l => l.Name) is { } level)
+                vm.SelectedLevel = level;
 
             vm.OffsetMm = settings.OffsetMm;
             vm.UseCadElevation = settings.UseCadElevation;
@@ -163,6 +136,23 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 vm.Mode = PipeCadMappingMode.Bifilar;
             else
                 vm.Mode = PipeCadMappingMode.Unifilar;
+        }
+
+        // Helper compartilhado entre o restore de System/PipeType/Level: cada
+        // settings persistido guarda o NOME da opção (não o id), porque ids do
+        // Revit mudam entre sessões. Comparação Ordinal é deliberada — nomes
+        // de tipos do Revit são case-sensitive na API.
+        private static T? FindByName<T>(IEnumerable<T> options, string? name, Func<T, string> nameSelector)
+            where T : class
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            foreach (T option in options)
+            {
+                if (string.Equals(nameSelector(option), name, StringComparison.Ordinal))
+                    return option;
+            }
+            return null;
         }
 
         private static void PopulateViewModel(
