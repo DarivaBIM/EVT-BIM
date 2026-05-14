@@ -20,7 +20,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             NoMatchSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.NoMatch,
                 "Sem correspondência",
-                "Tubos sem item equivalente no catálogo Tigre. Use esta lista para revisar ou apagar códigos legados.");
+                "Tubos sem item equivalente no catálogo Tigre. Útil para revisar legados.");
 
             DivergentSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Divergent,
@@ -35,7 +35,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             OkSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Ok,
                 "Códigos corretos",
-                "Tubos já com o código correto. Mantenha selecionados apenas se quiser regravar ou apagar.");
+                "Tubos já com o código correto. Marque só para regravar ou apagar.");
 
             NoMatchSection.PropertyChanged += OnSectionPropertyChanged;
             DivergentSection.PropertyChanged += OnSectionPropertyChanged;

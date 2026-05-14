@@ -92,7 +92,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                 }
 
                 string actualFamilyName;
-                Family? family = OpenAndLoadFamilyFromFile(app, projectDoc, cachedFilePath, request, out actualFamilyName);
+                Family? family = LoadFamilyFromFile(projectDoc, cachedFilePath, request, out actualFamilyName);
 
                 if (family == null)
                 {
@@ -171,61 +171,46 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
             };
         }
 
-        private static Family? OpenAndLoadFamilyFromFile(
-            UIApplication app,
+        // Carrega a família diretamente do .rfa em cache. Usa o overload
+        // <c>Document.LoadFamily(string, IFamilyLoadOptions, out Family)</c>
+        // em vez de abrir o .rfa como Document e chamar
+        // <c>familyDoc.LoadFamily(projectDoc, ...)</c>. A versão antiga
+        // disparava 3+ first-chance NullReferenceExceptions internas da
+        // RevitAPI durante o <c>OpenDocumentFile</c> (provavelmente resolução
+        // de path/versão internamente), o que travava o desenvolvedor com
+        // "break on NRE" ligado e não tinha como suprimir do nosso lado.
+        // O overload por path é mais direto: Revit gerencia a transação
+        // internamente e a leitura sai sem ruído de exceções.
+        private static Family? LoadFamilyFromFile(
             Document projectDoc,
             string cachedFilePath,
             ImportFamilyRequest request,
             out string actualFamilyName)
         {
             actualFamilyName = Path.GetFileNameWithoutExtension(cachedFilePath);
-            Document? familyDoc = null;
 
+            Family? family;
             try
             {
-                familyDoc = app.Application.OpenDocumentFile(cachedFilePath);
-
-                if (familyDoc == null)
-                {
-                    return FindExistingFamily(projectDoc, request, actualFamilyName);
-                }
-
-                if (!familyDoc.IsFamilyDocument)
-                {
-                    throw new InvalidOperationException(
-                        "O arquivo baixado foi aberto, mas não foi reconhecido como documento de família do Revit.");
-                }
-
-                if (familyDoc.OwnerFamily != null &&
-                    !string.IsNullOrWhiteSpace(familyDoc.OwnerFamily.Name))
-                {
-                    actualFamilyName = familyDoc.OwnerFamily.Name;
-                }
-
-                Family? loadedFamily = familyDoc.LoadFamily(
-                    projectDoc,
-                    new RevitFamilyLoadOptions());
-
-                if (loadedFamily != null)
-                {
-                    return loadedFamily;
-                }
-
+                projectDoc.LoadFamily(cachedFilePath, new RevitFamilyLoadOptions(), out family);
+            }
+            catch
+            {
+                // Path inválido / .rfa corrompido / versão incompatível:
+                // tenta achar uma versão já existente no projeto como
+                // fallback antes de desistir.
                 return FindExistingFamily(projectDoc, request, actualFamilyName);
             }
-            finally
+
+            if (family != null)
             {
-                if (familyDoc != null)
-                {
-                    try
-                    {
-                        familyDoc.Close(false);
-                    }
-                    catch
-                    {
-                    }
-                }
+                // Family.Name é o nome interno autoritativo (o que aparece no
+                // browser do Revit). Substitui o filename como diagnóstico.
+                actualFamilyName = family.Name;
+                return family;
             }
+
+            return FindExistingFamily(projectDoc, request, actualFamilyName);
         }
 
         private static Family? FindExistingFamily(
