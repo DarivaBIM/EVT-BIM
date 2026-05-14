@@ -146,18 +146,43 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnImportFamilyCompleted()
         {
-            // Revit roda ExternalEvent.Execute na sua UI thread, que é a
-            // mesma STA da Dispatcher do WPF na DockablePane. CheckAccess
-            // confirma isso e evita o overhead de marshal quando já
-            // estamos na thread certa.
-            if (Dispatcher.CheckAccess())
-            {
-                _isImporting = false;
-            }
-            else
-            {
-                Dispatcher.BeginInvoke(new Action(() => _isImporting = false));
-            }
+            // Marshal SEMPRE via BeginInvoke com prioridade Render — mesmo
+            // quando o callback já chega no UI thread (caso comum, Revit
+            // dispara o ExternalEvent na sua STA, que coincide com a do
+            // WPF). Dois motivos:
+            //
+            // 1) Garante que a fila de mensagens de render seja pumpada
+            //    antes do nosso código rodar. Durante o OpenDocumentFile
+            //    (síncrono, bloqueia o UI thread por segundos), o Revit
+            //    não processa WM_PAINT da DockablePane — quando saímos do
+            //    handler, o DWM ainda mostra o bitmap cacheado antigo
+            //    mesmo com o dispatcher já livre.
+            //
+            // 2) InvalidateVisual + UpdateLayout marca a árvore visual
+            //    como dirty e força um render pass real. Sem essa
+            //    invalidação explícita, a página parece congelada: o
+            //    input continua sendo processado (digitar na busca
+            //    filtra de verdade, scroll registra), mas o frame visível
+            //    é o antigo. O usuário só "descongela" ao maximizar o
+            //    Revit — o que dispara WM_SIZE e força DWM a pedir
+            //    repaint. Replicamos esse efeito aqui programaticamente.
+            Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    _isImporting = false;
+                    try
+                    {
+                        InvalidateVisual();
+                        UpdateLayout();
+                    }
+                    catch
+                    {
+                        // Layout em estado transiente pode rejeitar
+                        // UpdateLayout. InvalidateVisual sozinho já marca
+                        // dirty; o próximo tick de render do WPF cuida.
+                    }
+                }),
+                DispatcherPriority.Render);
         }
 
         // Footer mostra a versão da DLL do plugin (V2025 ou V2026), lida
