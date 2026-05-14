@@ -1,7 +1,5 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
 using DarivaBIM.Presentation.Wpf.Common;
 using DarivaBIM.Presentation.Wpf.Models;
 
@@ -11,10 +9,11 @@ namespace DarivaBIM.Presentation.Wpf.FloorDrainExtension
     /// Grupo de caixas sifonadas/secas de um mesmo tipo (Família + Symbol)
     /// detectadas no projeto ativo, com a lista de tipos de tubo compatíveis
     /// que o usuário pode escolher como prolongador para esse tipo de caixa.
-    /// Também mantém a lista de instâncias individuais (cada uma com seu
-    /// checkbox), permitindo desmarcar caixas específicas sem precisar
-    /// excluir o tipo inteiro. IDs são neutros (long) — a conversão para
-    /// ElementId ocorre na camada de adapters do Revit.
+    /// O controle de inclusão é por TIPO, não por instância — quando o usuário
+    /// desmarca o grupo, nenhuma instância dele recebe prolongador. Os IDs
+    /// individuais ficam guardados para reuso pelo filtro no momento da execução.
+    /// IDs são neutros (long) — a conversão para ElementId ocorre na camada
+    /// de adapters do Revit.
     /// </summary>
     public class FloorDrainBoxGroupViewModel : ObservableObject
     {
@@ -22,14 +21,14 @@ namespace DarivaBIM.Presentation.Wpf.FloorDrainExtension
             long symbolIdHint,
             string familyName,
             string symbolName,
-            double diameterMm)
+            double diameterMm,
+            IReadOnlyList<long> instanceIds)
         {
             SymbolIdHint = symbolIdHint;
             FamilyName = familyName;
             SymbolName = symbolName;
             DiameterMm = diameterMm;
-
-            Instances.CollectionChanged += OnInstancesCollectionChanged;
+            InstanceIds = instanceIds;
         }
 
         /// <summary>
@@ -44,6 +43,14 @@ namespace DarivaBIM.Presentation.Wpf.FloorDrainExtension
         public string SymbolName { get; }
         public double DiameterMm { get; }
 
+        /// <summary>
+        /// IDs (neutros) das caixas do projeto que pertencem a este tipo.
+        /// Não vai pra UI — é só o data carregado do scan pra alimentar o
+        /// filtro do run event quando o usuário clica em "Todas marcadas"
+        /// ou "Visíveis na vista".
+        /// </summary>
+        public IReadOnlyList<long> InstanceIds { get; }
+
         public string DisplayName => string.IsNullOrEmpty(FamilyName)
             ? SymbolName
             : $"{FamilyName} : {SymbolName}";
@@ -51,6 +58,10 @@ namespace DarivaBIM.Presentation.Wpf.FloorDrainExtension
         public string DiameterLabel => DiameterMm > 0
             ? $"Ø {DiameterMm:0.#} mm"
             : "Ø —";
+
+        public string InstanceCountLabel => InstanceIds.Count == 1
+            ? "1 caixa"
+            : $"{InstanceIds.Count} caixas";
 
         public ObservableCollection<PipeTypeOptionViewModel> PipeTypes { get; } = new();
 
@@ -70,110 +81,15 @@ namespace DarivaBIM.Presentation.Wpf.FloorDrainExtension
         public string EmptyMessage =>
             "Nenhum tipo de tubo com este diâmetro está disponível neste projeto.";
 
-        /// <summary>Caixas individuais agrupadas neste tipo.</summary>
-        public ObservableCollection<FloorDrainBoxInstanceViewModel> Instances { get; } = new();
-
-        /// <summary>Quantidade total de caixas no grupo.</summary>
-        public int InstanceCount => Instances.Count;
-
-        /// <summary>Quantas instâncias estão marcadas para receber prolongador.</summary>
-        public int SelectedInstanceCount
-        {
-            get
-            {
-                int n = 0;
-                for (int i = 0; i < Instances.Count; i++)
-                    if (Instances[i].IsSelected) n++;
-                return n;
-            }
-        }
-
+        private bool _isSelected = true;
         /// <summary>
-        /// Rótulo do contador exibido na linha do grupo (ex.: "3 de 5 caixas").
+        /// Quando <c>false</c>, o grupo é ignorado na execução — nenhuma
+        /// caixa dele recebe prolongador. Bindável ao checkbox no card.
         /// </summary>
-        public string InstanceCountLabel =>
-            $"{SelectedInstanceCount} de {InstanceCount} caixa(s)";
-
-        // 3-state: true = todas marcadas, false = nenhuma, null = parcial.
-        // Bindável a um CheckBox com IsThreeState=True para o usuário marcar/
-        // desmarcar o grupo inteiro de uma vez.
-        public bool? IsAllSelected
+        public bool IsSelected
         {
-            get
-            {
-                int total = Instances.Count;
-                if (total == 0) return false;
-
-                int selected = SelectedInstanceCount;
-                if (selected == 0) return false;
-                if (selected == total) return true;
-                return null;
-            }
-            set
-            {
-                if (!value.HasValue) return; // estado misto vem só na leitura
-                bool target = value.Value;
-                _suppressInstanceNotify = true;
-                try
-                {
-                    for (int i = 0; i < Instances.Count; i++)
-                        Instances[i].IsSelected = target;
-                }
-                finally
-                {
-                    _suppressInstanceNotify = false;
-                }
-                NotifySelectionCountersChanged();
-            }
-        }
-
-        public IReadOnlyList<long> GetSelectedInstanceIds()
-        {
-            List<long> ids = new(Instances.Count);
-            for (int i = 0; i < Instances.Count; i++)
-            {
-                if (Instances[i].IsSelected)
-                    ids.Add(Instances[i].ElementId);
-            }
-            return ids;
-        }
-
-        private bool _suppressInstanceNotify;
-
-        private void OnInstancesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            if (e.OldItems != null)
-            {
-                foreach (object item in e.OldItems)
-                {
-                    if (item is FloorDrainBoxInstanceViewModel vm)
-                        vm.PropertyChanged -= OnInstancePropertyChanged;
-                }
-            }
-            if (e.NewItems != null)
-            {
-                foreach (object item in e.NewItems)
-                {
-                    if (item is FloorDrainBoxInstanceViewModel vm)
-                        vm.PropertyChanged += OnInstancePropertyChanged;
-                }
-            }
-            NotifySelectionCountersChanged();
-        }
-
-        private void OnInstancePropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (_suppressInstanceNotify) return;
-            if (e.PropertyName == nameof(FloorDrainBoxInstanceViewModel.IsSelected))
-                NotifySelectionCountersChanged();
-        }
-
-        private void NotifySelectionCountersChanged()
-        {
-            OnPropertyChanged(nameof(InstanceCount));
-            OnPropertyChanged(nameof(SelectedInstanceCount));
-            OnPropertyChanged(nameof(InstanceCountLabel));
-            OnPropertyChanged(nameof(IsAllSelected));
+            get => _isSelected;
+            set => SetField(ref _isSelected, value);
         }
     }
 }

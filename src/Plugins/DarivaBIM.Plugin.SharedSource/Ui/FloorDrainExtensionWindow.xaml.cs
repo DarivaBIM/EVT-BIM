@@ -93,7 +93,7 @@ namespace DarivaBIM.Plugin.Ui
             _initialLoadDone = true;
 
             ViewModel.IsBusy = true;
-            ViewModel.StatusMessage = "Lendo tipos de caixas do projeto…";
+            ViewModel.StatusMessage = "Lendo tipos…";
             _scanEvent.Raise(this, ViewModel, _settings);
         }
 
@@ -106,19 +106,19 @@ namespace DarivaBIM.Plugin.Ui
         private void OnPickClicked(object sender, RoutedEventArgs e)
         {
             RunCreation(FloorDrainExtensionRunMode.PickInProject,
-                "Selecione as caixas no Revit. Pressione ESC para finalizar.");
+                "Selecione as caixas no Revit…");
         }
 
         private void OnAllInProjectClicked(object sender, RoutedEventArgs e)
         {
             RunCreation(FloorDrainExtensionRunMode.AllInProject,
-                "Inserindo prolongadores em todas as caixas do projeto…");
+                "Inserindo nas caixas marcadas…");
         }
 
         private void OnVisibleInViewClicked(object sender, RoutedEventArgs e)
         {
             RunCreation(FloorDrainExtensionRunMode.VisibleInActiveView,
-                "Inserindo prolongadores nas caixas visíveis na vista ativa…");
+                "Inserindo nas caixas visíveis…");
         }
 
         private void RunCreation(FloorDrainExtensionRunMode mode, string busyMessage)
@@ -147,7 +147,7 @@ namespace DarivaBIM.Plugin.Ui
                     pipeTypeBySymbolId[symbolId] = g.SelectedPipeType.Id;
             }
 
-            // Set de IDs marcados (acumulado de todos os grupos). Aplica só
+            // Set de IDs marcados (acumulado dos grupos marcados). Aplica só
             // nos modos não-pick — o modo "Selecionar caixas" usa o que o
             // usuário pegar diretamente no Revit. null pula o filtro.
             IReadOnlyCollection<long>? selectedInstanceIds = null;
@@ -156,9 +156,10 @@ namespace DarivaBIM.Plugin.Ui
                 List<long> ids = new();
                 for (int i = 0; i < ViewModel.BoxGroups.Count; i++)
                 {
-                    IReadOnlyList<long> picked = ViewModel.BoxGroups[i].GetSelectedInstanceIds();
-                    for (int j = 0; j < picked.Count; j++)
-                        ids.Add(picked[j]);
+                    FloorDrainBoxGroupViewModel g = ViewModel.BoxGroups[i];
+                    if (!g.IsSelected) continue;
+                    for (int j = 0; j < g.InstanceIds.Count; j++)
+                        ids.Add(g.InstanceIds[j]);
                 }
                 selectedInstanceIds = ids;
             }

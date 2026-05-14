@@ -108,7 +108,18 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
             PipeDiameterDiscoveryCache diameterCache)
         {
             long symbolIdHint = RevitElementIdConversions.ToLong(g.Symbol.Id);
-            FloorDrainBoxGroupViewModel gvm = new(symbolIdHint, g.FamilyName, g.SymbolName, g.DiameterMm);
+
+            // Snapshot dos IDs das caixas do tipo — alimenta o filtro do
+            // run event quando o grupo está marcado. O controle no card
+            // é por tipo (1 checkbox por grupo), mas os IDs individuais
+            // são o que entra na intersection com a coleta de
+            // "Todas marcadas" / "Visíveis na vista".
+            List<long> instanceIds = new(g.Instances.Count);
+            for (int i = 0; i < g.Instances.Count; i++)
+                instanceIds.Add(RevitElementIdConversions.ToLong(g.Instances[i].Id));
+
+            FloorDrainBoxGroupViewModel gvm = new(
+                symbolIdHint, g.FamilyName, g.SymbolName, g.DiameterMm, instanceIds);
 
             List<PipeType> compatible = FloorDrainExtensionPipeTypeResolver
                 .FindPipeTypesForDiameter(doc, g.DiameterMm, g.MaterialKind, diameterCache);
@@ -128,19 +139,6 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
                 // O FindPipeTypesForDiameter já devolve o preferido em
                 // primeira posição quando disponível.
                 gvm.SelectedPipeType = gvm.PipeTypes[0];
-            }
-
-            // Popula instâncias individuais (todas marcadas por padrão). O
-            // usuário pode desmarcar caixas específicas no card expansível
-            // antes de clicar em "Todas do projeto" / "Visíveis na vista".
-            // O modo "Selecionar caixas" (pick interativo) ignora essa lista
-            // — quem manda lá é o que o usuário pega no PickObjects.
-            for (int i = 0; i < g.Instances.Count; i++)
-            {
-                FamilyInstance fi = g.Instances[i];
-                long instanceId = RevitElementIdConversions.ToLong(fi.Id);
-                string label = $"Caixa #{i + 1} · ID {instanceId}";
-                gvm.Instances.Add(new FloorDrainBoxInstanceViewModel(instanceId, label));
             }
 
             return gvm;
@@ -173,14 +171,14 @@ namespace DarivaBIM.Plugin.Features.FloorDrainExtension
             int withoutTubes = groups.Count - withTubes;
 
             if (groups.Count == 0)
-                return "Nenhuma caixa sifonada/seca encontrada.";
+                return "Nenhuma caixa encontrada";
+
+            string typeLabel = groups.Count == 1 ? "tipo" : "tipos";
 
             if (withoutTubes == 0)
-                return $"{groups.Count} tipo(s) de caixa carregado(s). Defina os tubos e escolha onde inserir.";
+                return $"{groups.Count} {typeLabel} pronto(s) para inserir";
 
-            return
-                $"{groups.Count} tipo(s) de caixa, {withoutTubes} sem tubo compatível no projeto " +
-                $"(verifique RoutingPreferenceManager).";
+            return $"{groups.Count} {typeLabel} · {withoutTubes} sem tubo compatível";
         }
     }
 }
