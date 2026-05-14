@@ -117,26 +117,28 @@
         <Setter Property="CornerRadius" Value="10" />
     </Style>
 
-    <!-- 8.2 Family card — sombra hover + outline coral. -->
+    <!-- 8.2 Family card — outline coral no hover, sem sombra.
+         Antes esse hover aplicava DropShadowEffect (BlurRadius=16) +
+         BorderThickness 0.5→1. Dois custos perceptíveis:
+           · DropShadowEffect blur 16 é shader emulado em software no
+             WPF e renderiza num bitmap intermediário por frame — caro
+             em GPU quando vários cards estão visíveis na galeria
+             virtualizada, e some/aparece a cada movimentação do mouse.
+           · A mudança de BorderThickness mexia no layout do card, o
+             que empurrava 1px todos os irmãos a cada hover (efeito
+             "cards se movimentando" reportado por usuários).
+         Mantemos só a troca de BorderBrush como affordance — custo
+         trivial, sem relayout, sem GPU. -->
     <Style x:Key="FamilyCardStyle" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Surface}" />
         <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-        <Setter Property="BorderThickness" Value="0.5" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="10" />
         <Setter Property="ClipToBounds" Value="True" />
         <Setter Property="Cursor" Value="Hand" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Effect">
-                    <Setter.Value>
-                        <DropShadowEffect ShadowDepth="2"
-                                          BlurRadius="16"
-                                          Opacity="0.10"
-                                          Color="{StaticResource InkColor}" />
-                    </Setter.Value>
-                </Setter>
             </Trigger>
         </Style.Triggers>
     </Style>

@@ -257,7 +257,7 @@
             <Border Width="168"
                     Background="{DynamicResource Surface}"
                     BorderBrush="{DynamicResource Line}"
-                    BorderThickness="0.5"
+                    BorderThickness="1"
                     CornerRadius="10"
                     Margin="5"
                     ClipToBounds="True">

@@ -194,21 +194,28 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
         }
 
         // Carrega a família a partir do .rfa em cache. Estratégia em
-        // camadas, da mais rápida pra mais robusta:
+        // camadas, da mais barata pra mais cara:
         //
         // 1) <c>projectDoc.LoadFamily(path, options, out family)</c> — o
         //    overload "direto" do Revit. Quando funciona é instantâneo:
         //    sem abrir o .rfa como Document, sem ciclo open/close, sem as
         //    NREs first-chance internas que o OpenDocumentFile dispara no
-        //    debugger. Esse é o caminho feliz pra famílias compatíveis com
-        //    a versão do projeto.
+        //    debugger.
         //
         // 2) Snapshot dos Family.Id antes do load + diff depois — cobre o
         //    bug clássico do overload acima retornar sem exceção mas com
         //    <c>family == null</c> mesmo tendo carregado de fato (visto
         //    em Revit 2025 com .rfa de versões anteriores).
         //
-        // 3) <c>Application.OpenDocumentFile + familyDoc.LoadFamily</c> —
+        // 3) Matching tolerante de nome — DEPOIS do typed overload mas
+        //    ANTES do OpenDocumentFile. Quando o usuário re-clica numa
+        //    família que já está no projeto (caso comum: inserir várias
+        //    instâncias do mesmo tipo), esta camada acha a família
+        //    existente e PULA inteiramente o caminho pesado. Sem isso,
+        //    todo re-clique pagava o custo de OpenDocumentFile só pra
+        //    descobrir no fim que a família já existia.
+        //
+        // 4) <c>Application.OpenDocumentFile + familyDoc.LoadFamily</c> —
         //    caminho pesado mas confiável pra .rfa que precisam upgrade
         //    silencioso de versão. Síncrono no UI thread, dispara as 3+
         //    NREs first-chance no debugger (capturadas dentro do Revit).
@@ -216,13 +223,8 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
         //    "System.NullReferenceException" em
         //    Debug → Windows → Exception Settings.
         //
-        // 4) Matching tolerante de nome — última cartada quando o load
-        //    foi no-op por "já está no projeto na mesma versão".
-        //
-        // A inversão (overload direto antes do OpenDocumentFile) garante
-        // que no caminho rápido o Revit não fica preso por segundos no UI
-        // thread. Famílias antigas continuam funcionando porque caem na
-        // camada 3 quando a 1+2 não derem conta.
+        // 5) Snapshot diff pós-OpenDocumentFile — último socorro caso o
+        //    overload do familyDoc também devolva null.
         private static Family? LoadFamilyFromFile(
             UIApplication app,
             Document projectDoc,
@@ -242,7 +244,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
             }
             catch
             {
-                // Erro real (path inválido, .rfa corrompido) — cai pra camada 3.
+                // Erro real (path inválido, .rfa corrompido) — cai pros fallbacks.
             }
 
             if (family != null)
@@ -259,11 +261,25 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                 return family;
             }
 
-            // Camada 3: caminho pesado via OpenDocumentFile. Só roda se as
-            // camadas 1+2 não conseguiram carregar a família — em famílias
-            // novas e compatíveis, esse bloco é pulado e o usuário não
-            // paga o custo do open/close cycle nem vê as NREs no debugger.
-            existingIds = SnapshotFamilyIds(projectDoc);
+            // Camada 3: família já no projeto. ESSE atalho economiza o
+            // OpenDocumentFile inteiro quando o usuário re-clica numa
+            // família já carregada — caso comum quando ele quer inserir
+            // várias instâncias do mesmo tipo em sequência. Antes, esse
+            // caminho só era atingido depois do open/close cycle, o que
+            // significava 3 NREs no debugger + segundos de UI travada
+            // por clique repetido. Agora, basta haver uma família com
+            // nome compatível pra que pulemos direto pra ela.
+            family = FindExistingFamily(projectDoc, request, actualFamilyName);
+            if (family != null)
+            {
+                actualFamilyName = family.Name;
+                return family;
+            }
+
+            // Camada 4: caminho pesado via OpenDocumentFile. Só roda em
+            // fresh load real, quando nenhuma família compatível existe
+            // ainda no projeto. existingIds segue válido (nada mudou
+            // desde a camada 1) — sem segundo snapshot.
             Document? familyDoc = null;
             try
             {
@@ -287,7 +303,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
             }
             catch
             {
-                // Fluxo cai pros fallbacks de busca abaixo.
+                // Fluxo cai pro último snapshot diff abaixo.
             }
             finally
             {
@@ -298,15 +314,12 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                 }
             }
 
+            // Camada 5: snapshot diff pós-OpenDocumentFile pra cobrir o
+            // caso de familyDoc.LoadFamily ter devolvido null mesmo tendo
+            // carregado. Usa o MESMO existingIds da camada 2 — só agora
+            // a comparação inclui qualquer família que o OpenDocumentFile
+            // tenha adicionado.
             family = FindNewlyLoadedFamily(projectDoc, existingIds);
-            if (family != null)
-            {
-                actualFamilyName = family.Name;
-                return family;
-            }
-
-            // Camada 4: load foi no-op porque a família já existe no projeto.
-            family = FindExistingFamily(projectDoc, request, actualFamilyName);
             if (family != null)
             {
                 actualFamilyName = family.Name;
