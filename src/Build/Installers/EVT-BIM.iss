@@ -14,7 +14,7 @@
 ; ============================================================================
 
 #define AppName        "EVT-BIM"
-#define AppVersion     "0.2.1"
+#define AppVersion     "0.3.0"
 #define AppPublisher   "Engenharia de Valor Tigre"
 #define AppURL         "https://github.com/darivabim/evt-bim"
 ; AppId fixo: garante que reinstalacoes futuras desinstalem a versao anterior.
