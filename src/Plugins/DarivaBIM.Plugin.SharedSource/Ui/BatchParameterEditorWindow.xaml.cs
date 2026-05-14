@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Windows;
-using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Plugin.Features.BatchParameterEditor;
 using DarivaBIM.Presentation.Wpf.BatchParameterEditor;
@@ -18,10 +17,11 @@ namespace DarivaBIM.Plugin.Ui
         private readonly BatchParameterEditorSelectionExternalEvent _selectionEvent = new();
         private readonly BatchParameterEditorApplyExternalEvent _applyEvent = new();
 
-        // Mantemos os ElementIds em memória; a janela usa-os apenas como
-        // referência. O Document e os Elements são revalidados a cada execução
-        // do external event para evitar referências obsoletas.
-        private readonly List<ElementId> _selectedIds = new();
+        // Mantemos os IDs (como `long` neutro) em memória; a janela usa-os
+        // apenas como referência. O Document e os Elements são revalidados a
+        // cada execução do external event para evitar referências obsoletas
+        // e para manter o code-behind livre de Autodesk.Revit.DB (ADR-0010).
+        private readonly List<long> _selectedIds = new();
 
         // O ViewModel só conhece tipos neutros (Presentation.Wpf), então
         // guardamos por aqui o CommonParameterOption original de cada opção
@@ -53,10 +53,10 @@ namespace DarivaBIM.Plugin.Ui
             return _instance;
         }
 
-        public IReadOnlyList<ElementId> SelectedIds => _selectedIds;
+        public IReadOnlyList<long> SelectedIds => _selectedIds;
 
         public void SetSelection(
-            IReadOnlyList<ElementId> ids,
+            IReadOnlyList<long> ids,
             IReadOnlyList<CommonParameterOption> commonParams,
             string categoriesSummary)
         {
@@ -206,7 +206,7 @@ namespace DarivaBIM.Plugin.Ui
             IReadOnlyList<Discipline> disciplines = ViewModel.SelectedDisciplines
                 .Select(BatchParameterEditorTypeMapping.ToAdapter)
                 .ToList();
-            List<ElementId> previous = _selectedIds.ToList();
+            List<long> previous = _selectedIds.ToList();
             _selectionEvent.Raise(this, disciplines, previous, mode);
         }
 
@@ -228,7 +228,7 @@ namespace DarivaBIM.Plugin.Ui
             // thread de UI. Isso garante que cada clique aplica nos elementos
             // que estavam selecionados naquele instante, mesmo que a janela
             // permaneça aberta entre múltiplas seleções.
-            List<ElementId> snapshot = _selectedIds.ToList();
+            List<long> snapshot = _selectedIds.ToList();
 
             if (snapshot.Count == 0)
             {

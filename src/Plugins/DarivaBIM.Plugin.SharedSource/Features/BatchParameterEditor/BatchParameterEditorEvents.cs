@@ -43,7 +43,7 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
         public void Raise(
             BatchParameterEditorWindow window,
             IReadOnlyList<Discipline> disciplines,
-            IReadOnlyList<ElementId> previousSelection,
+            IReadOnlyList<long> previousSelection,
             BatchSelectionMode mode)
         {
             _handler.Window = window;
@@ -58,7 +58,7 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
     {
         public BatchParameterEditorWindow? Window { get; set; }
         public List<Discipline> Disciplines { get; set; } = new();
-        public List<ElementId> PreviousSelection { get; set; } = new();
+        public List<long> PreviousSelection { get; set; } = new();
         public BatchSelectionMode SelectionMode { get; set; } = BatchSelectionMode.Add;
 
         public string GetName() => "EvtBim.BatchParameterEditorSelectionHandler";
@@ -153,7 +153,9 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                     return;
                 }
 
-                // Calcula o lote final a partir do modo. Comparamos por
+                // Calcula o lote final a partir do modo. PreviousSelection
+                // vem como long (neutro vindo do code-behind WPF); pickedIds
+                // como ElementId (saiu do PickObjects). Comparamos por
                 // ElementId.Value (long) para evitar dependência do == do
                 // ElementId em diferentes versões da API do Revit.
                 List<ElementId> ids;
@@ -161,14 +163,15 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                 {
                     HashSet<long> removeSet = pickedIds.Select(id => id.Value).ToHashSet();
                     ids = PreviousSelection
-                        .Where(id => !removeSet.Contains(id.Value))
+                        .Where(id => !removeSet.Contains(id))
+                        .Select(id => new ElementId(id))
                         .ToList();
                 }
                 else
                 {
                     Dictionary<long, ElementId> merged = new();
-                    foreach (ElementId id in PreviousSelection)
-                        merged[id.Value] = id;
+                    foreach (long id in PreviousSelection)
+                        merged[id] = new ElementId(id);
                     foreach (ElementId id in pickedIds)
                         merged[id.Value] = id;
                     ids = merged.Values.ToList();
@@ -206,7 +209,7 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                     // Falha ao alterar a seleção do Revit não é fatal.
                 }
 
-                win.SetSelection(ids, common, categoriesSummary);
+                win.SetSelection(ids.Select(id => id.Value).ToList(), common, categoriesSummary);
             }
             catch (Exception ex)
             {
@@ -338,7 +341,7 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
 
         public void Raise(
             BatchParameterEditorWindow window,
-            IReadOnlyList<ElementId> ids,
+            IReadOnlyList<long> ids,
             CommonParameterOption parameter,
             string value)
         {
@@ -354,7 +357,7 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
     internal class BatchParameterEditorApplyHandler : IExternalEventHandler
     {
         public BatchParameterEditorWindow? Window { get; set; }
-        public List<ElementId> Ids { get; set; } = new();
+        public List<long> Ids { get; set; } = new();
         public CommonParameterOption? Parameter { get; set; }
         public string Value { get; set; } = string.Empty;
 
@@ -393,9 +396,9 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                 // comportamento do script Dynamo original.
                 List<Element> roots = new();
                 HashSet<long> rootIds = new();
-                foreach (ElementId id in Ids)
+                foreach (long id in Ids)
                 {
-                    Element? el = doc.GetElement(id);
+                    Element? el = doc.GetElement(new ElementId(id));
                     if (el == null)
                         continue;
 
