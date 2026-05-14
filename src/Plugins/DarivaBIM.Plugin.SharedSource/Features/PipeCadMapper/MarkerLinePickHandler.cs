@@ -95,12 +95,15 @@ namespace DarivaBIM.Plugin.Features.PipeCadMapper
                 }
 
                 GeometryObject? geom;
+                string? geomError = null;
                 try { geom = element.GetGeometryObjectFromReference(reference); }
-                catch { geom = null; }
+                catch (Exception ex) { geom = null; geomError = ex.Message; }
 
                 if (geom == null)
                 {
-                    vm.StatusMessage = "Geometria não disponível na referência selecionada.";
+                    vm.StatusMessage = geomError == null
+                        ? "Geometria não disponível na referência selecionada."
+                        : $"Geometria não disponível: {geomError}";
                     return;
                 }
 
