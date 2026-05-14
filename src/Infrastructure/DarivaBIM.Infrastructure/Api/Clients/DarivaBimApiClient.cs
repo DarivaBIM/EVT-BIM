@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using DarivaBIM.Application.Common;
 using DarivaBIM.Application.DTOs.Family;
 
 namespace DarivaBIM.Infrastructure.Api.Clients
@@ -11,20 +10,13 @@ namespace DarivaBIM.Infrastructure.Api.Clients
     public class ApiClient
     {
         private const string BaseUrl = "https://darivabim.link/api/";
-        private static readonly HttpClient HttpClient = CreateHttpClient();
+        private static readonly HttpClient HttpClient = DarivaBimHttpClientFactory.Create(
+            TimeSpan.FromSeconds(10), new Uri(BaseUrl));
 
-        private static HttpClient CreateHttpClient()
+        private static readonly JsonSerializerOptions JsonOptions = new()
         {
-            var client = new HttpClient
-            {
-                BaseAddress = new Uri(BaseUrl),
-                Timeout = TimeSpan.FromSeconds(10)
-            };
-
-            client.DefaultRequestHeaders.Add("User-Agent", FeatureNames.FamiliesImporter);
-
-            return client;
-        }
+            PropertyNameCaseInsensitive = true,
+        };
 
         public async Task<List<FamilyItem>> GetFamiliesAsync()
         {
@@ -33,12 +25,7 @@ namespace DarivaBIM.Infrastructure.Api.Clients
 
             string json = await response.Content.ReadAsStringAsync();
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
-            return JsonSerializer.Deserialize<List<FamilyItem>>(json, options) ?? new List<FamilyItem>();
+            return JsonSerializer.Deserialize<List<FamilyItem>>(json, JsonOptions) ?? new List<FamilyItem>();
         }
     }
 }

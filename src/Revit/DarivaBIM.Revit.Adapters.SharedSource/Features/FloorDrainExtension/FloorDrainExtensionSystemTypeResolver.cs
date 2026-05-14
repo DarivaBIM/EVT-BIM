@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -36,19 +35,12 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
                 foreach (PipingSystemType t in types)
                 {
                     string n = t.Name ?? string.Empty;
-                    if (Contains(n, pref))
+                    if (TigreTextUtils.ContainsNormalized(n, pref))
                         return (t, $"PipingSystemType escolhido: '{n}' (match: {pref})");
                 }
             }
 
             return (types[0], $"PipingSystemType fallback: '{types[0].Name}'");
-        }
-
-        private static bool Contains(string text, string needle)
-        {
-            string a = TigreTextUtils.Normalize(text);
-            string b = TigreTextUtils.Normalize(needle);
-            return !string.IsNullOrEmpty(b) && a.IndexOf(b, StringComparison.Ordinal) >= 0;
         }
     }
 }

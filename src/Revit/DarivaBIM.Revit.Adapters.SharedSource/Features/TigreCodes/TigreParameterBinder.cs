@@ -4,6 +4,7 @@ using Autodesk.Revit.DB;
 using DarivaBIM.Application.Contracts;
 using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Revit.Adapters.Common.SharedParameters;
+using DarivaBIM.Revit.Adapters.Common.Transactions;
 
 namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
 {
@@ -26,7 +27,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
         {
             try
             {
-                SharedParameterEnsureResult ensure = ExecuteInWriteTransaction(
+                SharedParameterEnsureResult ensure = RevitTransactionRunner.Run(
                     _doc,
                     "Tigre — Criar parâmetro 'Tigre: Código' nos tubos",
                     () => SharedParameterService.Ensure(_doc, TigreCodesSharedParameters.Code));
@@ -45,22 +46,6 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                     ErrorMessage = ex.Message,
                 };
             }
-        }
-
-        private static T ExecuteInWriteTransaction<T>(Document doc, string transactionName, Func<T> action)
-        {
-            if (doc.IsModifiable)
-                return action();
-
-            using Transaction tx = new(doc, transactionName);
-            TransactionStatus status = tx.Start();
-            if (status != TransactionStatus.Started)
-                throw new InvalidOperationException(
-                    $"Não foi possível abrir transação '{transactionName}'.");
-
-            T result = action();
-            tx.Commit();
-            return result;
         }
     }
 }

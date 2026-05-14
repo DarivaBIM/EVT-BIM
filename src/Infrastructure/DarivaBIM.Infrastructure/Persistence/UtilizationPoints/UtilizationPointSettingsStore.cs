@@ -15,6 +15,11 @@ namespace DarivaBIM.Infrastructure.Persistence.UtilizationPoints
     /// </summary>
     public sealed class UtilizationPointSettingsStore : IUtilizationPointSettingsStore
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            WriteIndented = true,
+        };
+
         private static string ProfilesPath
         {
             get
@@ -56,10 +61,7 @@ namespace DarivaBIM.Infrastructure.Persistence.UtilizationPoints
                     Directory.CreateDirectory(dir);
                 }
 
-                string json = JsonSerializer.Serialize(profiles, new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                });
+                string json = JsonSerializer.Serialize(profiles, JsonOptions);
 
                 File.WriteAllText(path, json);
             }

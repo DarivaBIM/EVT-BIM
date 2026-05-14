@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
-using DarivaBIM.Application.Common;
 using DarivaBIM.Application.DTOs.Family;
 using DarivaBIM.Infrastructure.Persistence.Cache;
 
@@ -10,18 +9,8 @@ namespace DarivaBIM.Infrastructure.Api.Clients
 {
     public class FamilyDownloadService
     {
-        private static readonly HttpClient HttpClient = CreateHttpClient();
-
-        private static HttpClient CreateHttpClient()
-        {
-            var client = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(60)
-            };
-
-            client.DefaultRequestHeaders.Add("User-Agent", FeatureNames.FamiliesImporter);
-            return client;
-        }
+        private static readonly HttpClient HttpClient =
+            DarivaBimHttpClientFactory.Create(TimeSpan.FromSeconds(60));
 
         /// <summary>
         /// Downloads the family file to the local cache and returns the cache path.

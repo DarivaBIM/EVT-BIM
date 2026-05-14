@@ -114,7 +114,8 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
         public static List<PipeType> FindPipeTypesForDiameter(
             Document doc,
             double diameterMm,
-            string materialKind)
+            string materialKind,
+            PipeDiameterDiscoveryCache? diameterCache = null)
         {
             if (diameterMm <= 0)
                 return new List<PipeType>();
@@ -124,7 +125,9 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
                 return types;
 
             List<PipeType> compatible = types
-                .Where(t => PipeDiameterDiscoveryService.SupportsDiameterMm(doc, t, diameterMm))
+                .Where(t => diameterCache != null
+                    ? diameterCache.SupportsDiameterMm(t, diameterMm)
+                    : PipeDiameterDiscoveryService.SupportsDiameterMm(doc, t, diameterMm))
                 .ToList();
 
             if (compatible.Count == 0)
@@ -192,10 +195,6 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
         }
 
         private static bool Contains(string text, string needle)
-        {
-            string a = TigreTextUtils.Normalize(text);
-            string b = TigreTextUtils.Normalize(needle);
-            return !string.IsNullOrEmpty(b) && a.IndexOf(b, StringComparison.Ordinal) >= 0;
-        }
+            => TigreTextUtils.ContainsNormalized(text, needle);
     }
 }

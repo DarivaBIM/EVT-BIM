@@ -135,6 +135,7 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             "ao terminar. ESC cancela.";
 
         private InsertionSummaryDto? _lastSummary;
+        private DateTime? _lastSummaryTimestamp;
         public InsertionSummaryDto? LastSummary
         {
             get => _lastSummary;
@@ -142,6 +143,12 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
             {
                 if (SetField(ref _lastSummary, value))
                 {
+                    // Captura o instante no setter — antes o getter de
+                    // LastSummaryHeader chamava DateTime.Now toda vez que o
+                    // binding refazia, e a hora exibida ficava se atualizando
+                    // mesmo sem nova execução.
+                    _lastSummaryTimestamp = value != null ? DateTime.Now : null;
+
                     OnPropertyChanged(nameof(HasLastSummary));
                     OnPropertyChanged(nameof(LastSummaryHeader));
                     OnPropertyChanged(nameof(LastSummaryAnalyzedLabel));
@@ -156,9 +163,9 @@ namespace DarivaBIM.Presentation.Wpf.UtilizationPoints
 
         public bool HasLastSummary => LastSummary != null;
 
-        public string LastSummaryHeader => LastSummary == null
+        public string LastSummaryHeader => _lastSummaryTimestamp == null
             ? "Sem execução nesta sessão."
-            : $"Última execução: {DateTime.Now:HH:mm}";
+            : $"Última execução: {_lastSummaryTimestamp.Value:HH:mm}";
 
         public string LastSummaryAnalyzedLabel => $"{LastSummary?.ElementsAnalyzed ?? 0} analisados";
         public string LastSummaryFreeLabel => $"{LastSummary?.FreeConnectorsFound ?? 0} livres";

@@ -786,7 +786,12 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
             }
 
             List<PairCandidate> pairs = new();
-            HashSet<(int, int)> tested = new();
+            // `neighbors` dedupa j's vindos de múltiplas células dentro do
+            // scan de um único i — como i é o índice do loop externo, o par
+            // (i, j) já é único globalmente sem precisar de um HashSet extra
+            // de pares testados. Reuso o HashSet entre iterações pra evitar
+            // realocá-lo a cada candidato.
+            HashSet<int> neighbors = new();
 
             for (int i = 0; i < n && pairs.Count < _params.MaxValidPairsStored; i++)
             {
@@ -802,7 +807,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
                 int minCy = (int)Math.Floor(minY / cellFt);
                 int maxCy = (int)Math.Floor(maxY / cellFt);
 
-                HashSet<int> neighbors = new();
+                neighbors.Clear();
                 for (int cx = minCx; cx <= maxCx; cx++)
                 for (int cy = minCy; cy <= maxCy; cy++)
                 {
@@ -813,9 +818,6 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Bifilar
 
                 foreach (int j in neighbors)
                 {
-                    var key = (i, j);
-                    if (!tested.Add(key)) continue;
-
                     Candidate b = _candidates[j];
                     if (AngleDiffDeg(a.AngleDeg, b.AngleDeg) > _params.AngleToleranceDeg)
                         continue;
