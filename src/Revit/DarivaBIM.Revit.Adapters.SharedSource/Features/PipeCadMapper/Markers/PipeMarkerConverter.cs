@@ -43,11 +43,7 @@ namespace DarivaBIM.Revit.Adapters.Features.PipeCadMapper.Markers
             double tol = doc.Application.ShortCurveTolerance;
 
             using Transaction tx = new(doc, "PipeCADMapper — converter marcadores em tubos");
-            FailureHandlingOptions failureOptions = tx.GetFailureHandlingOptions();
-            failureOptions.SetFailuresPreprocessor(new PipeCreationFailurePreprocessor());
-            failureOptions.SetClearAfterRollback(true);
-            failureOptions.SetForcedModalHandling(false);
-            tx.SetFailureHandlingOptions(failureOptions);
+            PipeCreationFailurePreprocessor.Attach(tx);
             tx.Start();
 
             try

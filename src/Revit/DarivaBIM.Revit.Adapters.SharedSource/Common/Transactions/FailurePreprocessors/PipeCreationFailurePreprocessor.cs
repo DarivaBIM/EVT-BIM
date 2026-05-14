@@ -24,5 +24,17 @@ namespace DarivaBIM.Revit.Adapters.Common.Transactions.FailurePreprocessors
 
             return FailureProcessingResult.Continue;
         }
+
+        // Configuração padrão usada por todos os fluxos do PipeCadMapper que
+        // criam tubos/marcadores: registra o preprocessor, limpa avisos no
+        // rollback e desabilita modais. Chamar antes de <c>tx.Start()</c>.
+        public static void Attach(Transaction tx)
+        {
+            FailureHandlingOptions options = tx.GetFailureHandlingOptions();
+            options.SetFailuresPreprocessor(new PipeCreationFailurePreprocessor());
+            options.SetClearAfterRollback(true);
+            options.SetForcedModalHandling(false);
+            tx.SetFailureHandlingOptions(options);
+        }
     }
 }
