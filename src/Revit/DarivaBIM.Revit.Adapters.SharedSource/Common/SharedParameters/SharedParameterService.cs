@@ -5,8 +5,9 @@ using RevitApp = Autodesk.Revit.ApplicationServices.Application;
 namespace DarivaBIM.Revit.Adapters.Common.SharedParameters
 {
     /// <summary>
-    /// Serviço genérico para garantir/acessar shared parameters.
-    /// <see cref="Ensure"/> reproduz o fluxo do script Dynamo do TigreCodes:
+    /// Serviço genérico para garantir shared parameters via
+    /// <see cref="Ensure"/>, que reproduz o fluxo do script Dynamo do
+    /// TigreCodes:
     ///
     /// 1. Inspeciona o binding existente pelo nome do parâmetro.
     /// 2. Se não existir, cria/abre o arquivo de Shared Parameters, garante
@@ -18,8 +19,8 @@ namespace DarivaBIM.Revit.Adapters.Common.SharedParameters
     /// 5. Avisa o usuário quando o parâmetro existente tinha GUID diferente
     ///    ou não era shared (para o usuário saber que estamos reaproveitando).
     ///
-    /// O <see cref="GetParameter"/> apenas delega para
-    /// <see cref="SharedParameterAccessor"/>.
+    /// Para apenas LER um shared parameter num element, use
+    /// <see cref="SharedParameterAccessor.GetParameter"/>.
     /// </summary>
     public static class SharedParameterService
     {
@@ -115,11 +116,6 @@ namespace DarivaBIM.Revit.Adapters.Common.SharedParameters
             result.Action =
                 $"Parâmetro convertido para {DescribeBindingKind(definition.BindingKind)}.";
             return result;
-        }
-
-        public static Parameter? GetParameter(Element element, SharedParameterDefinition definition)
-        {
-            return SharedParameterAccessor.GetParameter(element, definition);
         }
 
         private static Definition GetOrCreateSharedDefinition(

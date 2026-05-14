@@ -17,6 +17,11 @@ namespace DarivaBIM.Domain.Tigre
     {
         private const string EmbeddedResourceName = "DarivaBIM.Domain.Tigre.tigre_codes.json";
 
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+        };
+
         public static IEnumerable<TigreRawCatalogRow> All()
         {
             Assembly assembly = typeof(TigreFallbackCatalogRows).Assembly;
@@ -30,7 +35,7 @@ namespace DarivaBIM.Domain.Tigre
 
             List<TigreRawCatalogRow>? rows = JsonSerializer.Deserialize<List<TigreRawCatalogRow>>(
                 stream,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                JsonOptions);
 
             return rows ?? new List<TigreRawCatalogRow>();
         }

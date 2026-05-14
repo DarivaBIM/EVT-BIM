@@ -76,6 +76,19 @@ namespace DarivaBIM.Domain.Tigre
             return compact.Trim();
         }
 
+        /// <summary>
+        /// Verifica se <paramref name="text"/> contém <paramref name="needle"/>
+        /// após normalização (lowercase, sem acentos, separadores → espaço).
+        /// Devolve <c>false</c> quando o needle é vazio para evitar matches
+        /// degenerados.
+        /// </summary>
+        public static bool ContainsNormalized(string? text, string? needle)
+        {
+            string a = Normalize(text);
+            string b = Normalize(needle);
+            return !string.IsNullOrEmpty(b) && a.IndexOf(b, StringComparison.Ordinal) >= 0;
+        }
+
         public static IReadOnlyList<string> Tokenize(string? text)
         {
             string norm = Normalize(text);

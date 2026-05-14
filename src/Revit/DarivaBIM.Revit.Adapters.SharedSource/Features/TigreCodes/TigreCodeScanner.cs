@@ -61,7 +61,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                         data.Description, data.Segment, data.TypeName, combined, data.DiameterMm.Value);
                 }
 
-                Parameter? param = SharedParameterService.GetParameter(pipe, TigreCodesSharedParameters.Code);
+                Parameter? param = SharedParameterAccessor.GetParameter(pipe, TigreCodesSharedParameters.Code);
                 if (param != null)
                     pipesWithParam++;
 

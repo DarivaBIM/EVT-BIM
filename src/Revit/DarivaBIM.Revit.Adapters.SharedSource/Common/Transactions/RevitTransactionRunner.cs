@@ -13,14 +13,17 @@ namespace DarivaBIM.Revit.Adapters.Common.Transactions
     {
         public static void Run(Document doc, string transactionName, Action action)
         {
+            if (action == null) throw new ArgumentNullException(nameof(action));
+            Run<object?>(doc, transactionName, () => { action(); return null; });
+        }
+
+        public static T Run<T>(Document doc, string transactionName, Func<T> action)
+        {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
             if (action == null) throw new ArgumentNullException(nameof(action));
 
             if (doc.IsModifiable)
-            {
-                action();
-                return;
-            }
+                return action();
 
             using Transaction tx = new Transaction(doc, transactionName);
             TransactionStatus status = tx.Start();
@@ -29,8 +32,9 @@ namespace DarivaBIM.Revit.Adapters.Common.Transactions
 
             try
             {
-                action();
+                T result = action();
                 tx.Commit();
+                return result;
             }
             catch
             {

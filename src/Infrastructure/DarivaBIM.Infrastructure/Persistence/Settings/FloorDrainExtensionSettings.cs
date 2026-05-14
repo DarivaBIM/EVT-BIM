@@ -14,6 +14,11 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
     /// </summary>
     public class FloorDrainExtensionSettings
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            WriteIndented = true,
+        };
+
         public double LengthMeters { get; set; } = 0.5;
 
         public List<FloorDrainExtensionTypePreference> TypePreferences { get; set; } = new();
@@ -57,10 +62,7 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
                     Directory.CreateDirectory(dir);
                 }
 
-                string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                });
+                string json = JsonSerializer.Serialize(this, JsonOptions);
 
                 File.WriteAllText(path, json);
             }

@@ -15,6 +15,11 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
     /// </summary>
     public class PipeCadMapperSettings
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            WriteIndented = true,
+        };
+
         public string? SystemName { get; set; }
         public string? PipeTypeName { get; set; }
         public double? DiameterMm { get; set; }
@@ -107,10 +112,7 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
                     Directory.CreateDirectory(dir);
                 }
 
-                string json = JsonSerializer.Serialize(this, new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                });
+                string json = JsonSerializer.Serialize(this, JsonOptions);
 
                 File.WriteAllText(path, json);
             }

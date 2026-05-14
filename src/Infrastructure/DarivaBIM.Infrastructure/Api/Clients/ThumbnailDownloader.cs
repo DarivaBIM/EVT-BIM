@@ -4,7 +4,6 @@ using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using DarivaBIM.Application.Common;
 using DarivaBIM.Infrastructure.Persistence.Cache;
 
 namespace DarivaBIM.Infrastructure.Api.Clients
@@ -19,7 +18,8 @@ namespace DarivaBIM.Infrastructure.Api.Clients
     /// </summary>
     public class ThumbnailDownloader
     {
-        private static readonly HttpClient HttpClient = CreateHttpClient();
+        private static readonly HttpClient HttpClient =
+            DarivaBimHttpClientFactory.Create(TimeSpan.FromSeconds(30));
 
         private readonly ThumbnailCacheService _cache;
         private readonly ConcurrentDictionary<string, Task<string?>> _inFlight = new();
@@ -78,15 +78,5 @@ namespace DarivaBIM.Infrastructure.Api.Clients
             }
         }
 
-        private static HttpClient CreateHttpClient()
-        {
-            var client = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(30)
-            };
-
-            client.DefaultRequestHeaders.Add("User-Agent", FeatureNames.FamiliesImporter);
-            return client;
-        }
     }
 }

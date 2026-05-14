@@ -192,10 +192,6 @@ namespace DarivaBIM.Revit.Adapters.Features.FloorDrainExtension
         }
 
         private static bool Contains(string text, string needle)
-        {
-            string a = TigreTextUtils.Normalize(text);
-            string b = TigreTextUtils.Normalize(needle);
-            return !string.IsNullOrEmpty(b) && a.IndexOf(b, StringComparison.Ordinal) >= 0;
-        }
+            => TigreTextUtils.ContainsNormalized(text, needle);
     }
 }

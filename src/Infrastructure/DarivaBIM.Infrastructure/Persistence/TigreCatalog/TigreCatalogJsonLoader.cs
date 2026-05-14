@@ -16,6 +16,11 @@ namespace DarivaBIM.Infrastructure.Persistence.TigreCatalog
     /// </summary>
     public sealed class TigreCatalogJsonLoader : ITigreCatalogProvider
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+        };
+
         private readonly string _jsonPath;
 
         public TigreCatalogJsonLoader(string? jsonPath = null)
@@ -37,8 +42,7 @@ namespace DarivaBIM.Infrastructure.Persistence.TigreCatalog
                     return null;
 
                 string json = File.ReadAllText(jsonPath, Encoding.UTF8);
-                List<TigreRawCatalogRow>? rows = JsonSerializer.Deserialize<List<TigreRawCatalogRow>>(json,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                List<TigreRawCatalogRow>? rows = JsonSerializer.Deserialize<List<TigreRawCatalogRow>>(json, JsonOptions);
                 return rows;
             }
             catch

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using DarivaBIM.Plugin.Ui.Models;
+using DarivaBIM.Presentation.Wpf.Common;
 
 namespace DarivaBIM.Plugin.Ui
 {
@@ -26,8 +27,8 @@ namespace DarivaBIM.Plugin.Ui
             Sistema = sistema ?? throw new ArgumentNullException(nameof(sistema));
             Description = sistema.Label;
             Key = sistema.Id;
-            BackgroundBrush = CreateFrozenBrush(sistema.BgHex);
-            ForegroundBrush = CreateFrozenBrush(sistema.ColorHex);
+            BackgroundBrush = FrozenBrushFactory.FromHex(sistema.BgHex);
+            ForegroundBrush = FrozenBrushFactory.FromHex(sistema.ColorHex);
             // Vetor: o mesmo DrawingImage congelado é reusado entre todos os
             // chips do mesmo sistema. Sem decode por tamanho — o WPF rasteriza
             // sob demanda no tamanho lógico do <Image> consumidor.
@@ -89,13 +90,6 @@ namespace DarivaBIM.Plugin.Ui
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        private static SolidColorBrush CreateFrozenBrush(string hex)
-        {
-            SolidColorBrush brush = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
-            brush.Freeze();
-            return brush;
         }
     }
 }

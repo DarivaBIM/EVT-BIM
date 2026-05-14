@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using DarivaBIM.Application.DTOs.Family;
+using DarivaBIM.Presentation.Wpf.Common;
 
 namespace DarivaBIM.Plugin.Ui.Models
 {
@@ -93,8 +94,8 @@ namespace DarivaBIM.Plugin.Ui.Models
         {
             Sistema = sistema ?? throw new ArgumentNullException(nameof(sistema));
             Label = sistema.Label;
-            BackgroundBrush = CreateFrozenBrush(sistema.BgHex);
-            BorderBrush = CreateFrozenBrush(sistema.ColorHex);
+            BackgroundBrush = FrozenBrushFactory.FromHex(sistema.BgHex);
+            BorderBrush = FrozenBrushFactory.FromHex(sistema.ColorHex);
             // Vetor: o mesmo DrawingImage congelado é reusado entre todos os
             // badges do mesmo sistema (potencialmente centenas de cards).
             Icon = SistemaIconLoader.Load(sistema.IconFileName);
@@ -106,12 +107,5 @@ namespace DarivaBIM.Plugin.Ui.Models
         public Brush BorderBrush { get; }
         public ImageSource? Icon { get; }
         public bool HasIcon => Icon != null;
-
-        private static SolidColorBrush CreateFrozenBrush(string hex)
-        {
-            SolidColorBrush brush = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
-            brush.Freeze();
-            return brush;
-        }
     }
 }

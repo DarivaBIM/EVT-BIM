@@ -6,6 +6,7 @@ using DarivaBIM.Application.Contracts;
 using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Domain.Tigre;
 using DarivaBIM.Revit.Adapters.Common.SharedParameters;
+using DarivaBIM.Revit.Adapters.Common.Transactions;
 
 namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
 {
@@ -51,7 +52,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             int noMatch = 0;
             int paramIssue = 0;
 
-            ExecuteInWriteTransaction(_doc, "Tigre — Inserir/Atualizar códigos", () =>
+            RevitTransactionRunner.Run(_doc, "Tigre — Inserir/Atualizar códigos", () =>
             {
                 foreach (long rawId in elementIds)
                 {
@@ -114,7 +115,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 return;
             }
 
-            Parameter? target = SharedParameterService.GetParameter(pipe, TigreCodesSharedParameters.Code);
+            Parameter? target = SharedParameterAccessor.GetParameter(pipe, TigreCodesSharedParameters.Code);
             if (target == null || target.IsReadOnly)
             {
                 paramIssue++;
@@ -160,22 +161,5 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             }
         }
 
-        private static void ExecuteInWriteTransaction(Document doc, string transactionName, Action action)
-        {
-            if (doc.IsModifiable)
-            {
-                action();
-                return;
-            }
-
-            using Transaction tx = new(doc, transactionName);
-            TransactionStatus status = tx.Start();
-            if (status != TransactionStatus.Started)
-                throw new InvalidOperationException(
-                    "Não foi possível abrir transação para aplicar os códigos Tigre.");
-
-            action();
-            tx.Commit();
-        }
     }
 }
