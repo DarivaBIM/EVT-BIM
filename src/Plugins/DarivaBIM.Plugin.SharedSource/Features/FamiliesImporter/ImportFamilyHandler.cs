@@ -24,7 +24,27 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
         public ImportFamilyRequest? PendingRequest { get; set; }
         public string? PendingLocalFilePath { get; set; }
 
+        // Sinalizado em todos os caminhos de saída do Execute (sucesso,
+        // erro, cancelamento, validação). Permite à UI WPF saber quando
+        // o handler terminou para limpar o flag de re-entrância — sem
+        // isso o usuário pode disparar imports concorrentes enfileirando
+        // ExternalEvents enquanto o Revit ainda processa o anterior.
+        public Action? Completed { get; set; }
+
         public void Execute(UIApplication app)
+        {
+            try
+            {
+                ExecuteCore(app);
+            }
+            finally
+            {
+                try { Completed?.Invoke(); }
+                catch { /* nada útil a fazer se a callback explodir */ }
+            }
+        }
+
+        private void ExecuteCore(UIApplication app)
         {
             if (PendingRequest == null || string.IsNullOrWhiteSpace(PendingLocalFilePath))
             {
@@ -173,36 +193,36 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
             };
         }
 
-        // Carrega a família a partir do .rfa em cache. Estratégia em camadas:
+        // Carrega a família a partir do .rfa em cache. Estratégia em
+        // camadas, da mais rápida pra mais robusta:
         //
-        // 1) OpenDocumentFile + familyDoc.LoadFamily(projectDoc, options) é
-        //    o caminho principal. Foi o caminho original do plugin e
-        //    funciona em runtime tanto pra famílias frescas quanto pra
-        //    upgrade de versão (v2023 → v2025 etc.).
-        //    No debugger com "break on NullReferenceException" ligado,
-        //    o OpenDocumentFile dispara 3+ first-chance NREs internas da
-        //    RevitAPI (resolução de path/versão) — são capturadas dentro
-        //    do próprio Revit e não vazam pra cá. Pra evitar pausas no
-        //    debug, desligue "Common Language Runtime Exceptions →
-        //    System.NullReferenceException" em Debug → Windows →
-        //    Exception Settings. Em release/uso normal NÃO acontece nada.
+        // 1) <c>projectDoc.LoadFamily(path, options, out family)</c> — o
+        //    overload "direto" do Revit. Quando funciona é instantâneo:
+        //    sem abrir o .rfa como Document, sem ciclo open/close, sem as
+        //    NREs first-chance internas que o OpenDocumentFile dispara no
+        //    debugger. Esse é o caminho feliz pra famílias compatíveis com
+        //    a versão do projeto.
         //
-        // 2) Caso o passo 1 não devolva a família (ex.: load no-op porque
-        //    a mesma .rfa já está no projeto na mesma versão), tiramos
-        //    snapshot dos Family.Id antes do load e procuramos um id
-        //    novo pra cobrir o bug clássico do out Family ficar null.
+        // 2) Snapshot dos Family.Id antes do load + diff depois — cobre o
+        //    bug clássico do overload acima retornar sem exceção mas com
+        //    <c>family == null</c> mesmo tendo carregado de fato (visto
+        //    em Revit 2025 com .rfa de versões anteriores).
         //
-        // 3) Última cartada: matching tolerante de nome (normalizado, sem
-        //    prefixos/sufixos comuns) — pra evitar que o usuário veja o
-        //    dialog "não foi localizada" quando a família claramente
-        //    existe sob algum nome próximo.
+        // 3) <c>Application.OpenDocumentFile + familyDoc.LoadFamily</c> —
+        //    caminho pesado mas confiável pra .rfa que precisam upgrade
+        //    silencioso de versão. Síncrono no UI thread, dispara as 3+
+        //    NREs first-chance no debugger (capturadas dentro do Revit).
+        //    Pra evitar pausas no debug, desligue
+        //    "System.NullReferenceException" em
+        //    Debug → Windows → Exception Settings.
         //
-        // O overload <c>Document.LoadFamily(string, options, out Family)</c>
-        // (sem abrir antes como Document) NÃO é confiável: em Revit 2025
-        // ele retorna sem exceção mas com <c>family == null</c> e nenhum
-        // id novo para famílias frescas vindas de versões anteriores —
-        // exatamente o caso de produção. Por isso voltamos pro caminho
-        // mais verboso porém estável.
+        // 4) Matching tolerante de nome — última cartada quando o load
+        //    foi no-op por "já está no projeto na mesma versão".
+        //
+        // A inversão (overload direto antes do OpenDocumentFile) garante
+        // que no caminho rápido o Revit não fica preso por segundos no UI
+        // thread. Famílias antigas continuam funcionando porque caem na
+        // camada 3 quando a 1+2 não derem conta.
         private static Family? LoadFamilyFromFile(
             UIApplication app,
             Document projectDoc,
@@ -214,10 +234,36 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
 
             HashSet<long> existingIds = SnapshotFamilyIds(projectDoc);
 
-            // Caminho principal: abre o .rfa como Document e carrega no
-            // projeto. Esse fluxo dispara as NREs first-chance internas do
-            // Revit no debugger, mas é o único que carrega corretamente
-            // famílias frescas com upgrade de versão.
+            // Camada 1: overload direto. Caminho rápido.
+            Family? family = null;
+            try
+            {
+                projectDoc.LoadFamily(cachedFilePath, new RevitFamilyLoadOptions(), out family);
+            }
+            catch
+            {
+                // Erro real (path inválido, .rfa corrompido) — cai pra camada 3.
+            }
+
+            if (family != null)
+            {
+                actualFamilyName = family.Name;
+                return family;
+            }
+
+            // Camada 2: o load pode ter sucedido mas devolvido out null.
+            family = FindNewlyLoadedFamily(projectDoc, existingIds);
+            if (family != null)
+            {
+                actualFamilyName = family.Name;
+                return family;
+            }
+
+            // Camada 3: caminho pesado via OpenDocumentFile. Só roda se as
+            // camadas 1+2 não conseguiram carregar a família — em famílias
+            // novas e compatíveis, esse bloco é pulado e o usuário não
+            // paga o custo do open/close cycle nem vê as NREs no debugger.
+            existingIds = SnapshotFamilyIds(projectDoc);
             Document? familyDoc = null;
             try
             {
@@ -252,20 +298,14 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
                 }
             }
 
-            // Caminho 2: o load foi efetivado mas familyDoc.LoadFamily
-            // devolveu null (raro mas acontece). Diff dos Family.Id acha
-            // a recém-carregada.
-            Family? family = FindNewlyLoadedFamily(projectDoc, existingIds);
+            family = FindNewlyLoadedFamily(projectDoc, existingIds);
             if (family != null)
             {
                 actualFamilyName = family.Name;
                 return family;
             }
 
-            // Caminho 3: load foi no-op porque a família já estava no
-            // projeto na mesma versão. Busca por nome — primeiro exato,
-            // depois normalizado. Devolve a família existente pra
-            // continuar o fluxo de posicionamento.
+            // Camada 4: load foi no-op porque a família já existe no projeto.
             family = FindExistingFamily(projectDoc, request, actualFamilyName);
             if (family != null)
             {

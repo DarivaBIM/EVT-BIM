@@ -15,9 +15,17 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
         private readonly ImportFamilyHandler _handler;
         private readonly ExternalEvent _externalEvent;
 
+        // Disparado no UI thread do Revit ao fim do handler — qualquer
+        // caminho de saída (sucesso, validação, exceção). A UI usa isso
+        // pra limpar o flag de "importando" e re-habilitar cliques. Sem
+        // o sinal, a janela ficaria bloqueando cliques até que o usuário
+        // forçasse algum reset.
+        public event Action? Completed;
+
         public ImportFamilyExternalEvent()
         {
             _handler = new ImportFamilyHandler();
+            _handler.Completed = () => Completed?.Invoke();
             _externalEvent = ExternalEvent.Create(_handler);
         }
 
