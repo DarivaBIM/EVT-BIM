@@ -13,11 +13,13 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -146,19 +148,144 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnImportFamilyCompleted()
         {
-            // O fix correto pro freeze pós-ESC vive no
-            // ImportFamilyHandler: bracket de PromptForFamilyInstancePlacement
-            // com ComponentDispatcher.PushModal/PopModal. Com o estado modal
-            // do Dispatcher consistente atravessando o nested message pump
-            // do Revit, não há mais frame stale ao retornar — então aqui
-            // basta liberar o guard de re-entrância.
-            //
-            // O Completed do ExternalEvent é levantado no UI thread do
-            // Revit, que coincide com a Dispatcher do WPF, mas usamos
-            // BeginInvoke como cinto-e-suspensórios pra evitar qualquer
-            // chance de tocar UI fora do Dispatcher caso a infra do Revit
-            // mude no futuro.
-            Dispatcher.BeginInvoke(new Action(() => _isImporting = false));
+            // ContextIdle (não Render) é proposital: queremos rodar DEPOIS
+            // que o WPF esgotou a fila normal — incluindo qualquer render
+            // pass pendente do nosso lado. Só então forçamos a repaint
+            // no nível Win32, garantindo que estamos invalidando em cima
+            // do frame mais novo do WPF, não no meio de um pass.
+            Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    _isImporting = false;
+                    ForcePaneRepaint();
+                }),
+                DispatcherPriority.ContextIdle);
+        }
+
+        // --- Workaround pro freeze pós-PromptForFamilyInstancePlacement ---
+        //
+        // Causa raiz: DockablePane do Revit envelopa nosso FrameworkElement
+        // numa HWND própria gerenciada pelo AdWindows.dll do Revit. Durante
+        // o nested message pump do PromptForFamilyInstancePlacement, esse
+        // wrapper acaba com estado de composição stale — só `WM_SIZE` em
+        // cascata (que o usuário dispara maximizando o Revit) o reseta.
+        //
+        // Sem API pública pra forçar isso, replicamos a operação no Win32:
+        //   1) Walk completo na cadeia de HWND-pais a partir do HwndSource
+        //      do WPF — invalida cada nível com flags equivalentes ao que
+        //      o sistema dispara em redimensionamento.
+        //   2) `SetWindowPos` com `SWP_FRAMECHANGED` no nível do dock pane
+        //      — força o `WM_NCCALCSIZE` + `WM_NCPAINT` que o `WM_SIZE`
+        //      naturalmente dispararia, sem realmente mudar dimensão.
+        //   3) `Window.Activate()` no nível WPF — restaura o estado de
+        //      ativação que o nested pump pode ter deixado inconsistente.
+        //
+        // ComponentDispatcher.PushModal/PopModal no ImportFamilyHandler
+        // (lado Revit) é mantido como padrão MS documentado — não custa
+        // e cobre o cenário em que o problema é WPF-modal-state.
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool RedrawWindow(
+            IntPtr hWnd,
+            IntPtr lprcUpdate,
+            IntPtr hrgnUpdate,
+            uint flags);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr GetParent(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(
+            IntPtr hWnd,
+            IntPtr hWndInsertAfter,
+            int X,
+            int Y,
+            int cx,
+            int cy,
+            uint uFlags);
+
+        // RedrawWindow flags equivalentes ao que o sistema envia em
+        // WM_SIZE/restore: invalida toda a área, marca o frame não-cliente
+        // como sujo, força o repaint imediato em vez de só agendar, e
+        // propaga pra todos os filhos.
+        private const uint RDW_INVALIDATE = 0x0001;
+        private const uint RDW_UPDATENOW = 0x0100;
+        private const uint RDW_ALLCHILDREN = 0x0080;
+        private const uint RDW_FRAME = 0x0400;
+
+        // SetWindowPos flags: não mexer em posição, tamanho, z-order ou
+        // ativação — só forçar o ciclo WM_NCCALCSIZE/WM_NCPAINT via
+        // SWP_FRAMECHANGED. É o mesmo gatilho que o Revit usa internamente
+        // quando o usuário maximiza, sem o efeito visual.
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint SWP_FRAMECHANGED = 0x0020;
+
+        private void ForcePaneRepaint()
+        {
+            try
+            {
+                if (PresentationSource.FromVisual(this) is not HwndSource source)
+                    return;
+
+                IntPtr hwnd = source.Handle;
+                if (hwnd == IntPtr.Zero)
+                    return;
+
+                const uint redrawFlags =
+                    RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN | RDW_FRAME;
+                const uint frameChangedFlags =
+                    SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED;
+
+                // Walk completo da cadeia de pais, invalidando cada nível.
+                // O wrapper de docking do Revit pode estar a N HWNDs acima
+                // do HwndSource do WPF — não basta hardcode 2 níveis.
+                // O loop limita em 6 saltos pra cortar infinite-loop em caso
+                // de janela órfã; a árvore real do Revit é tipicamente 3-4.
+                IntPtr current = hwnd;
+                for (int hop = 0; hop < 6 && current != IntPtr.Zero; hop++)
+                {
+                    RedrawWindow(current, IntPtr.Zero, IntPtr.Zero, redrawFlags);
+
+                    // SetWindowPos com SWP_FRAMECHANGED só no dock pane
+                    // wrapper (1 nível acima do HwndSource) — replica o
+                    // WM_NCCALCSIZE/WM_NCPAINT que o WM_SIZE de maximize
+                    // produz, sem alterar dimensões ou ativação.
+                    if (hop == 1)
+                    {
+                        SetWindowPos(
+                            current,
+                            IntPtr.Zero,
+                            0, 0, 0, 0,
+                            frameChangedFlags);
+                    }
+
+                    current = GetParent(current);
+                }
+
+                // No nível WPF, reativa a Window — o nested message pump
+                // do PromptForFamilyInstancePlacement pode ter deixado o
+                // foco/ativação em estado inconsistente, e Activate() é
+                // a forma WPF-pública de pedir restauração disso.
+                try
+                {
+                    Window.GetWindow(this)?.Activate();
+                }
+                catch
+                {
+                    // Activate pode falhar em alguns estados; não é fatal.
+                }
+            }
+            catch
+            {
+                // Falha em forçar repaint não trava nada — apenas o
+                // sintoma original (frame stale) permanece, e o próximo
+                // gesto do usuário acaba acordando a DWM via input.
+            }
         }
 
         // Footer mostra a versão da DLL do plugin (V2025 ou V2026), lida
