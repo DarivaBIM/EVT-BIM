@@ -624,11 +624,17 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
             if (elements.Count == 0)
                 return Array.Empty<CommonParameterOption>();
 
+            // Cache de parâmetros de tipo por typeId: tubos/conexões em lote
+            // costumam compartilhar o mesmo FamilyType/PipeType, e re-iterar
+            // type.Parameters por instância é o gargalo dessa rotina em
+            // seleções grandes.
+            Dictionary<long, Dictionary<(string, bool), CommonParameterOption>> typeCache = new();
             Dictionary<(string Name, bool IsInstance), CommonParameterOption>? intersection = null;
+            List<(string, bool)>? toRemove = null;
 
             foreach (Element el in elements)
             {
-                Dictionary<(string, bool), CommonParameterOption> current = CollectEditableParameters(el);
+                Dictionary<(string, bool), CommonParameterOption> current = CollectEditableParameters(el, typeCache);
 
                 if (intersection == null)
                 {
@@ -636,19 +642,29 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
                     continue;
                 }
 
-                Dictionary<(string, bool), CommonParameterOption> next = new();
+                // Filtragem in-place: marca chaves que saem da interseção e
+                // remove num segundo passo (não dá pra mutar o dicionário
+                // durante a iteração). Reusar a lista de descarte evita
+                // alocação por elemento.
+                toRemove ??= new();
+                toRemove.Clear();
                 foreach (var kv in intersection)
                 {
-                    if (current.TryGetValue(kv.Key, out CommonParameterOption? other) &&
-                        other.StorageType == kv.Value.StorageType)
+                    if (!current.TryGetValue(kv.Key, out CommonParameterOption? other) ||
+                        other.StorageType != kv.Value.StorageType)
                     {
-                        next[kv.Key] = kv.Value;
+                        toRemove.Add(kv.Key);
                     }
                 }
-                intersection = next;
+                foreach (var k in toRemove)
+                    intersection.Remove(k);
+
+                // Interseção vazia não volta a crescer — encerra cedo.
+                if (intersection.Count == 0)
+                    break;
             }
 
-            if (intersection == null)
+            if (intersection == null || intersection.Count == 0)
                 return Array.Empty<CommonParameterOption>();
 
             return intersection.Values
@@ -683,22 +699,36 @@ namespace DarivaBIM.Plugin.Features.BatchParameterEditor
             return null;
         }
 
-        private static Dictionary<(string Name, bool IsInstance), CommonParameterOption> CollectEditableParameters(Element element)
+        private static Dictionary<(string Name, bool IsInstance), CommonParameterOption> CollectEditableParameters(
+            Element element,
+            Dictionary<long, Dictionary<(string, bool), CommonParameterOption>> typeCache)
         {
             Dictionary<(string, bool), CommonParameterOption> map = new();
 
+            // Parâmetros de instância variam por elemento — sem cache possível.
             foreach (Parameter p in element.Parameters)
                 AddIfEditable(map, p, isInstance: true);
 
+            // Parâmetros de tipo são idênticos pra todas as instâncias do
+            // mesmo tipo — cache por typeId.
             ElementId typeId = element.GetTypeId();
             if (typeId != null && typeId != ElementId.InvalidElementId)
             {
-                Element? type = element.Document.GetElement(typeId);
-                if (type != null)
+                long key = typeId.Value;
+                if (!typeCache.TryGetValue(key, out Dictionary<(string, bool), CommonParameterOption>? typeParams))
                 {
-                    foreach (Parameter p in type.Parameters)
-                        AddIfEditable(map, p, isInstance: false);
+                    typeParams = new Dictionary<(string, bool), CommonParameterOption>();
+                    Element? type = element.Document.GetElement(typeId);
+                    if (type != null)
+                    {
+                        foreach (Parameter p in type.Parameters)
+                            AddIfEditable(typeParams, p, isInstance: false);
+                    }
+                    typeCache[key] = typeParams;
                 }
+
+                foreach (var kv in typeParams)
+                    map[kv.Key] = kv.Value;
             }
 
             return map;
