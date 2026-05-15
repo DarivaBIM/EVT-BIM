@@ -58,16 +58,15 @@ namespace DarivaBIM.Plugin.Ui
         private CancellationTokenSource? _searchCancellationTokenSource;
         private bool _hasLoaded;
         private bool _lastLoadFailed;
-        // Reentrance guard pro card-click — dividido em duas fases. Sem
-        // os dois flags, dois downloads concorrentes brigariam pelo mesmo
-        // arquivo de cache, ou dois ExternalEvents poderiam ser enfileirados
-        // enquanto o Revit ainda processa o anterior (o handler é pesado:
-        // OpenDocumentFile + LoadFamily + Activate + Prompt).
-        //
-        //   _isDownloading: setado durante o Task.Run do download HTTP/cache.
-        //   _isImporting:   setado entre Raise() e o callback Completed
-        //                   do handler — cobre a janela em que o Revit
-        //                   ainda está com o UI thread preso carregando.
+        // Reentrance guard pro card-click — dividido em duas fases:
+        //   _isDownloading: setado durante o Task.Run do download HTTP/cache,
+        //                   evita downloads concorrentes brigando pelo mesmo
+        //                   arquivo de cache.
+        //   _isImporting:   setado entre Raise() e o callback Completed do
+        //                   handler — cobre a janela em que o Revit ainda
+        //                   está executando o load (OpenDocumentFile +
+        //                   LoadFamily + Activate). PostRequestForElementType-
+        //                   Placement retorna em ms, então essa janela é curta.
         private bool _isDownloading;
         private bool _isImporting;
         private int _itemsPerRow = 1;

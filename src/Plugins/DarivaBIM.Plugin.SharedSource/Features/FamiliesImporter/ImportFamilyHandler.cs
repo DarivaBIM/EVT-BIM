@@ -193,7 +193,7 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
 
         // Allowlist instead of denylist: a future ViewType added to the Revit
         // API will fail closed (blocked) rather than silently slipping through
-        // and producing a confusing PromptForFamilyInstancePlacement failure.
+        // and producing a confusing placement request failure.
         private static bool IsViewSupportedForPlacement(View? view)
         {
             if (view == null || view.IsTemplate)
