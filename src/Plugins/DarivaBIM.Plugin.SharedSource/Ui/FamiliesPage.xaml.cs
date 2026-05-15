@@ -23,7 +23,7 @@ using System.Windows.Threading;
 
 namespace DarivaBIM.Plugin.Ui
 {
-    public partial class FamiliesPage : Page, IDockablePaneProvider
+    public partial class FamiliesPage : UserControl
     {
         private const int SearchDebounceMilliseconds = 120;
         private const int ResizeDebounceMilliseconds = 80;
@@ -84,7 +84,7 @@ namespace DarivaBIM.Plugin.Ui
 
         // Modo de exibição (grid/lista). Cada modo usa seu próprio
         // DataTemplate (GalleryRowGridTemplate inline na ListBox vs
-        // GalleryRowListTemplate em Page.Resources) e diferentes
+        // GalleryRowListTemplate em UserControl.Resources) e diferentes
         // _itemsPerRow (responsivo vs sempre 1).
         private string _currentView = "grid";
 
@@ -217,15 +217,6 @@ namespace DarivaBIM.Plugin.Ui
             // os 14 chips de saída — o conteúdo abaixo do chevron continua
             // recolhido por padrão para reservar espaço vertical à galeria.
             TagFiltersCard.Visibility = Visibility.Visible;
-        }
-
-        public void SetupDockablePane(DockablePaneProviderData data)
-        {
-            data.FrameworkElement = this;
-            data.InitialState = new DockablePaneState
-            {
-                DockPosition = DockPosition.Right
-            };
         }
 
         private async void OnPageLoaded(object sender, RoutedEventArgs e)

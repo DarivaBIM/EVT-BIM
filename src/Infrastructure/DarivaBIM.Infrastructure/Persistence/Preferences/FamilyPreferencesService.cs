@@ -67,6 +67,28 @@ namespace DarivaBIM.Infrastructure.Persistence.Preferences
             }
         }
 
+        /// <summary>
+        /// Posicionamento persistido da janela de famílias (left/top/width/
+        /// height + maximizado). Retorna <c>null</c> na primeira execução
+        /// ou se o JSON estava corrompido — caller usa default próprio.
+        /// </summary>
+        public WindowPlacement? GetWindowPlacement()
+        {
+            lock (_lock)
+            {
+                return _data.WindowPlacement;
+            }
+        }
+
+        public void SaveWindowPlacement(WindowPlacement placement)
+        {
+            lock (_lock)
+            {
+                _data.WindowPlacement = placement;
+                SaveToDisk();
+            }
+        }
+
         /// <returns><c>true</c> se a família passou a ser favorita; <c>false</c> se foi desfavoritada.</returns>
         public bool ToggleFavorite(int familyId)
         {
@@ -158,11 +180,21 @@ namespace DarivaBIM.Infrastructure.Persistence.Preferences
     {
         public HashSet<int> Favorites { get; set; } = new();
         public List<RecentFamilyEntry> Recents { get; set; } = new();
+        public WindowPlacement? WindowPlacement { get; set; }
     }
 
     public sealed class RecentFamilyEntry
     {
         public int FamilyId { get; set; }
         public DateTime Timestamp { get; set; }
+    }
+
+    public sealed class WindowPlacement
+    {
+        public double Left { get; set; }
+        public double Top { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public bool IsMaximized { get; set; }
     }
 }
