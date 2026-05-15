@@ -20,13 +20,11 @@ namespace DarivaBIM.Plugin.Composition
     /// específico via <see cref="AddRevitAdapters"/>. A classe concreta tem
     /// que viver em namespace versionada porque o manifesto <c>.addin</c>
     /// pino o <c>FullClassName</c> em <c>DarivaBIM.Plugin.V2025.App</c> /
-    /// <c>V2026.App</c>; tudo o mais — DI, ribbon, dockable pane,
+    /// <c>V2026.App</c>; tudo o mais — DI, ribbon,
     /// <c>ViewActivated</c> — é idêntico nas duas versões e mora aqui.
     /// </summary>
     public abstract class DarivaBimAppBase : IExternalApplication
     {
-        private const string PaneTitle = "Importar Famílias";
-
         private PluginHost? _host;
         private Document? _lastActiveDocument;
 
@@ -47,9 +45,12 @@ namespace DarivaBIM.Plugin.Composition
                 var ribbonBuilder = new RibbonBuilder(registry, assemblyPath);
                 ribbonBuilder.Build(application, DarivaBimRibbonDefinition.Build());
 
-                FamiliesPage familiesPage = new FamiliesPage();
-                DockablePaneId paneId = new DockablePaneId(PaneIds.FamiliesPaneId);
-                application.RegisterDockablePane(paneId, PaneTitle, familiesPage);
+                // A janela de Importar Famílias é criada sob demanda pelo
+                // ShowFamiliesPaneCommand quando o usuário clicar no botão
+                // da ribbon. Migrado de DockablePane (regressão do Revit
+                // 2025+ que congelava a pane após placement) para Window
+                // modeless — eliminando o wrapper de docking quebrado e
+                // economizando o custo de instanciar a UI no startup.
 
                 application.ViewActivated += OnViewActivated;
 

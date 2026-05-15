@@ -1,14 +1,13 @@
-<Page x:Class="DarivaBIM.Plugin.Ui.FamiliesPage"
-      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:ui="clr-namespace:DarivaBIM.Plugin.Ui"
-      Title="FamiliesPage"
-      Loaded="OnPageLoaded"
-      Background="{DynamicResource Paper}"
-      UseLayoutRounding="True"
-      SnapsToDevicePixels="True">
+<UserControl x:Class="DarivaBIM.Plugin.Ui.FamiliesPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:DarivaBIM.Plugin.Ui"
+             Loaded="OnPageLoaded"
+             Background="{DynamicResource Paper}"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True">
 
-    <Page.Resources>
+    <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Themes/DarivaTokens.xaml" />
@@ -651,7 +650,7 @@
             seta nas pontas, sem borda no track, thumb arredondado em
             InkFaint com opacidade que cresce em hover/drag para feedback.
 
-            Style sem x:Key — afeta toda ScrollBar dentro desta Page. Hoje
+            Style sem x:Key — afeta toda ScrollBar dentro deste UserControl. Hoje
             o único consumidor é o ScrollViewer interno do GalleryList; o
             popup do sort é pequeno demais pra precisar scroll. RepeatButtons
             sobrevivem (transparentes) para que o paging por click no track
@@ -723,7 +722,7 @@
         </Style>
 
         </ResourceDictionary>
-    </Page.Resources>
+    </UserControl.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
@@ -1458,4 +1457,4 @@
 
         </Grid>
     </Grid>
-</Page>
+</UserControl>

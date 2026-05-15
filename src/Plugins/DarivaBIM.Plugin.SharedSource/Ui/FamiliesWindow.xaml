@@ -1,0 +1,30 @@
+<Window x:Class="DarivaBIM.Plugin.Ui.FamiliesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:DarivaBIM.Plugin.Ui"
+        Title="Importar Famílias"
+        Width="500" Height="800"
+        MinWidth="380" MinHeight="500"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <!--
+        Window modeless que hospeda FamiliesPage (UserControl). Substitui o
+        registro como DockablePane porque o sistema de docking do Revit 2025+
+        deixa a pane congelada após placement de família (regressão na
+        migração para .NET 8 do AdWindows.dll). A Window WPF tem sua própria
+        HwndSource gerenciada diretamente pelo framework, sem o wrapper de
+        docking quebrado entre o WPF e o Windows.
+
+        Owner é setado em código (WindowInteropHelper.Owner = UIApplication.
+        MainWindowHandle) para que a janela:
+          · Minimize/restaure junto com o Revit
+          · Fique sempre acima da janela principal do Revit
+          · Feche quando o Revit fechar
+          · Não apareça na taskbar (ShowInTaskbar=False)
+
+        Posição/tamanho persistidos via FamilyPreferencesService entre sessões.
+    -->
+    <ui:FamiliesPage />
+</Window>
