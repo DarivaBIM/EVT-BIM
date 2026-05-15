@@ -142,55 +142,38 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
 
                 EnsureSymbolIsActive(projectDoc, symbol);
 
-                // Bracket da chamada com ComponentDispatcher.PushModal/PopModal.
+                // PostRequestForElementTypePlacement em vez de
+                // PromptForFamilyInstancePlacement.
                 //
-                // PromptForFamilyInstancePlacement é síncrono e roda no
-                // mesmo thread STA que hospeda a Dispatcher do WPF (Revit
-                // e WPF compartilham UI thread in-process). Internamente,
-                // o método inicia um *nested message pump* próprio do
-                // Revit pra processar cliques de posicionamento na
-                // viewport até o usuário apertar ESC.
+                // A diferença é arquitetural — e crítica pra UIs hospedadas
+                // em DockablePane:
                 //
-                // Esse pump aninhado NÃO chama ComponentDispatcher.PushModal,
-                // que é o protocolo oficial Microsoft pra avisar o WPF que
-                // o thread entrou em estado modal. Sem essa notificação, o
-                // estado interno do Dispatcher fica inconsistente após o
-                // pump retornar: o roteamento de mensagens da DockablePane
-                // fica parcialmente quebrado — entrada de teclado para
-                // controles já focados (o TextBox de busca) continua sendo
-                // processada, mas WM_PAINT, scroll e cliques não são
-                // entregues corretamente ao HwndSource. Isso é exatamente
-                // o sintoma reportado: a janela parece congelada visualmente
-                // mas typing na busca filtra de verdade, e só maximizar o
-                // Revit (que dispara WM_SIZE e cascateia repaint) "destrava".
+                //   • PromptForFamilyInstancePlacement executa IMEDIATAMENTE
+                //     dentro do contexto API atual e abre um nested message
+                //     pump próprio do Revit. Esse pump aninhado é o que
+                //     causava o freeze da DockablePane no Revit 2025/2026:
+                //     o wrapper de docking interno do Revit fica em estado
+                //     de composição stale e só WM_SIZE em cascata (= o
+                //     usuário maximizar a janela do Revit) o destrava.
                 //
-                // Doc: Microsoft - Sharing Message Loops Between Win32 and WPF
-                //   https://learn.microsoft.com/en-us/dotnet/desktop/wpf/advanced/sharing-message-loops-between-win32-and-wpf
+                //   • PostRequestForElementTypePlacement NÃO executa
+                //     imediatamente — coloca a request na fila de comandos
+                //     do Revit e retorna na hora. A interação de placement
+                //     acontece DEPOIS, quando o controle volta ao loop
+                //     principal do Revit. Não há nested message pump
+                //     dentro do nosso ExternalEvent, então a DockablePane
+                //     continua totalmente responsiva durante o placement.
                 //
-                //   "Your message loop should call PushModal() to indicate
-                //    that the thread is modal, and PopModal() to indicate
-                //    that the thread has reverted to nonmodal."
+                // Doc oficial (https://www.revitapidocs.com/2026/f9bf4ed3-0354-6bc1-6db3-e34fcbace950.htm):
+                //   "This does not execute immediately, but instead when
+                //    control returns to Revit from the current API context."
                 //
-                // Como o Revit não faz isso, fazemos no nosso lado — antes
-                // de entregar o thread ao pump aninhado do Revit, marcamos
-                // o WPF como modal; depois que volta, desmarcamos. Isso
-                // mantém o estado do Dispatcher coerente atravessando o
-                // nested loop, eliminando o freeze pós-ESC sem nenhuma
-                // gambiarra de forçar repaint via InvalidateVisual ou Win32.
-                System.Windows.Interop.ComponentDispatcher.PushModal();
-                try
-                {
-                    uiDoc.PromptForFamilyInstancePlacement(symbol);
-                }
-                catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-                {
-                    // Usuário cancelou com ESC.
-                    // A família continua carregada no projeto.
-                }
-                finally
-                {
-                    System.Windows.Interop.ComponentDispatcher.PopModal();
-                }
+                // Limitação: a API não notifica quando o usuário termina o
+                // placement. Pra nosso caso isso não importa — só queremos
+                // entregar a família ao cursor; ESC/cancelar é gestão
+                // normal do Revit. Caso futuro precise saber dos elementos
+                // criados, subscrever em DocumentChanged é o caminho.
+                uiDoc.PostRequestForElementTypePlacement(symbol);
             }
             catch (Exception ex)
             {
