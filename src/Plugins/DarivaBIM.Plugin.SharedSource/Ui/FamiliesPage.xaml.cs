@@ -26,7 +26,10 @@ namespace DarivaBIM.Plugin.Ui
     public partial class FamiliesPage : UserControl
     {
         private const int SearchDebounceMilliseconds = 120;
-        private const int ResizeDebounceMilliseconds = 80;
+        // Reduzido de 80→50ms depois do cache de ViewModels (BuildCardViewModel
+        // virou ~free pra cards já vistos). 50ms = 20 atualizações/seg durante
+        // drag de borda, ainda evita rebuild hiperativo mas dá feeling "live".
+        private const int ResizeDebounceMilliseconds = 50;
         private const int SkeletonCardCount = 6;
 
         // Card width 168 + horizontal margin 5+5 do FamilyCardStyle.
@@ -51,6 +54,15 @@ namespace DarivaBIM.Plugin.Ui
         // IDs de sistemas atualmente selecionados (subset dos 14 do catálogo).
         // OR-semantics: qualquer sistema selecionado mostra a família.
         private readonly HashSet<string> _selectedSistemaIds = new(StringComparer.Ordinal);
+        // Cache de FamilyCardViewModel por FamilyId — populado preguiçosamente
+        // em BuildCardViewModel, invalidado em LoadFamiliesAsync. Sem ele,
+        // todo resize/troca de aba/keystroke de busca que mude o layout
+        // (RebuildRows) recriava todos os 184 ViewModels do zero — incluindo
+        // resolução de sistemas, lookup de favorito, alocação de listas.
+        // O wrap das colunas é a operação mais frequente (acontece em cada
+        // arrasto de borda da janela), então o ganho aqui é direto na
+        // responsividade percebida.
+        private readonly Dictionary<int, FamilyCardViewModel> _cardCache = new();
         private readonly DispatcherTimer _searchDebounceTimer;
         private readonly DispatcherTimer _resizeDebounceTimer;
 
@@ -121,7 +133,15 @@ namespace DarivaBIM.Plugin.Ui
 
             GalleryList.ItemsSource = _rows;
             TagFiltersHost.ItemsSource = _tagFilters;
-            SkeletonHost.ItemsSource = Enumerable.Range(0, SkeletonCardCount).ToArray();
+            // SkeletonHost.ItemsSource é populado on-demand em
+            // SetInitialLoadingVisuals(true) e limpo em (false). Setar
+            // aqui no construtor faria as 6 storyboards de shimmer
+            // (RepeatBehavior=Forever) ficarem ativas no visual tree pra
+            // sempre, mesmo após o skeleton ser escondido — e animações
+            // WPF ativas durante LoadFamily disparam um bug conhecido
+            // (dotnet/wpf#6792 + REVIT-237190 reportado pela Autodesk)
+            // que trava o redraw do painel inteiro até o Revit ser
+            // minimizado/maximizado.
 
             _searchDebounceTimer = new DispatcherTimer
             {
@@ -561,6 +581,10 @@ namespace DarivaBIM.Plugin.Ui
 
                 _allFamilies.Clear();
                 _familySistemas.Clear();
+                // Invalida o cache de ViewModels — a lista de famílias pode
+                // ter mudado (família removida do catálogo, nova adicionada),
+                // então VMs estagnados ficariam órfãos no cache.
+                _cardCache.Clear();
 
                 List<FamilyItem> tigreFamilies = families
                     .Where(f =>
@@ -586,6 +610,7 @@ namespace DarivaBIM.Plugin.Ui
                 _lastLoadFailed = true;
                 _allFamilies.Clear();
                 _familySistemas.Clear();
+                _cardCache.Clear();
                 _filteredFamilies = new List<FamilyItem>();
                 _rows.Clear();
                 UpdateVisualState();
@@ -604,8 +629,25 @@ namespace DarivaBIM.Plugin.Ui
 
         private void SetInitialLoadingVisuals(bool isLoading)
         {
-            SkeletonHost.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
-            GalleryList.Visibility = isLoading ? Visibility.Collapsed : Visibility.Visible;
+            // ItemsSource é populado/limpo, não só Visibility — ItemsSource=
+            // null desmonta os 6 placeholders do visual tree, garantindo
+            // que as storyboards de shimmer (RepeatBehavior=Forever) sejam
+            // descartadas pelo GC. Sem isso elas ficam animando em background
+            // mesmo com SkeletonHost Collapsed, e animações ativas durante
+            // LoadFamily disparam o bug WPF (dotnet/wpf#6792) que congela
+            // o redraw do painel inteiro após o placement.
+            if (isLoading)
+            {
+                SkeletonHost.ItemsSource = Enumerable.Range(0, SkeletonCardCount).ToArray();
+                SkeletonHost.Visibility = Visibility.Visible;
+                GalleryList.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                SkeletonHost.Visibility = Visibility.Collapsed;
+                SkeletonHost.ItemsSource = null;
+                GalleryList.Visibility = Visibility.Visible;
+            }
         }
 
         private async Task ApplySearchAsync(string? rawSearch, bool scrollToTop)
@@ -718,6 +760,16 @@ namespace DarivaBIM.Plugin.Ui
 
         private FamilyCardViewModel BuildCardViewModel(FamilyItem family)
         {
+            // Cache lookup primeiro — resize/troca de aba/keystroke de busca
+            // re-arranjam os 184 cards mas a identidade dos VMs é estável
+            // (mesma família = mesmo ViewModel). Reusar economiza a resolução
+            // de sistemas + lookup de favorito + alocação de listas, e
+            // mantém os bindings WPF intactos (não-flicker no re-layout).
+            if (_cardCache.TryGetValue(family.Id, out FamilyCardViewModel? cached))
+            {
+                return cached;
+            }
+
             // Resolve sistemas usando o cache pré-computado em LoadFamiliesAsync.
             // Sistema desconhecido (familia sem sistemas mapeados) renderiza
             // sem badges no rodapé, mas ainda aparece no card.
@@ -736,10 +788,13 @@ namespace DarivaBIM.Plugin.Ui
                 }
             }
 
-            return new FamilyCardViewModel(
+            FamilyCardViewModel vm = new FamilyCardViewModel(
                 family,
                 sistemas,
                 _preferences.IsFavorite(family.Id));
+
+            _cardCache[family.Id] = vm;
+            return vm;
         }
 
         private void UpdateToolbarCount(int count)
