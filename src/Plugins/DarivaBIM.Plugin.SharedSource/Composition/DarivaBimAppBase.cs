@@ -4,6 +4,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Events;
 using DarivaBIM.Plugin.Ribbon;
+using DarivaBIM.Plugin.Sidecar;
 using DarivaBIM.Plugin.Ui;
 using DarivaBIM.Revit.Abstractions.Ribbon;
 using DarivaBIM.Revit.Hosting.Commands;
@@ -66,6 +67,15 @@ namespace DarivaBIM.Plugin.Composition
         public Result OnShutdown(UIControlledApplication application)
         {
             application.ViewActivated -= OnViewActivated;
+
+            // Encerra sidecar EXE + pipe server. Sem isso, o usuario fica com
+            // o navegador de familias aberto depois de fechar o Revit (pipe
+            // morto, sem como reconectar) ate matar manualmente no Task
+            // Manager. Shutdown e best-effort: nao propaga excecoes pra nao
+            // mascarar erros maiores no fechamento do plugin.
+            try { SidecarHost.Instance.Shutdown(); }
+            catch { /* nada util a fazer no shutdown */ }
+
             _host?.Dispose();
             _host = null;
             return Result.Succeeded;

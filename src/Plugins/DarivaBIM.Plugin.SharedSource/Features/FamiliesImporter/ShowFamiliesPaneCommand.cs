@@ -1,30 +1,28 @@
-using System.Windows;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using DarivaBIM.Infrastructure.Persistence.Preferences;
-using DarivaBIM.Plugin.Ui;
+using DarivaBIM.Plugin.Sidecar;
 using DarivaBIM.Revit.Hosting.Commands;
 
 namespace DarivaBIM.Plugin.Features.FamiliesImporter
 {
     /// <summary>
-    /// Abre (ou foca, se já estiver aberta) a janela modeless de Importar
-    /// Famílias. Migrado de <c>DockablePane</c> para <see cref="FamiliesWindow"/>
-    /// — DockablePane do Revit 2025+ tem regressão que congela a UI após
-    /// placement de família.
+    /// Abre (ou foca, se ja estiver aberta) a janela de Importar Familias.
     ///
-    /// Single-instance: a referência da janela viva é mantida em campo
-    /// estático. Click no botão da ribbon enquanto a janela já está aberta
-    /// apenas ativa/restaura — não cria uma segunda instância. Quando a
-    /// janela fecha (X, ALT+F4, Revit fechando), o evento Closed limpa a
-    /// referência para que o próximo click crie uma nova.
+    /// Arquitetura: o conteudo nao e mais um WPF UC in-process. Em vez disso,
+    /// spawnamos o sidecar EXE <c>DarivaBIM.FamilyBrowser</c> que hospeda o
+    /// AcervoBIM (Next.js) via WebView2 em processo separado, contornando o
+    /// bug do Win11 + Revit 2025/2026 que congela qualquer UI WPF in-process
+    /// apos placement de familia (REVIT-236376 / REVIT-237190).
+    ///
+    /// O sidecar conversa com este plugin via NamedPipe; quando o usuario
+    /// clica "Inserir" no AcervoBIM, o JS invoca a bridge, a bridge envia
+    /// IPC, e o <see cref="ImportFamilyDispatcher"/> deste lado dispara o
+    /// mesmo <see cref="ImportFamilyExternalEvent"/> de sempre.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     public class ShowFamiliesPaneCommand : IExternalCommand
     {
-        private static FamiliesWindow? _instance;
-
         public Result Execute(
             ExternalCommandData commandData,
             ref string message,
@@ -33,37 +31,24 @@ namespace DarivaBIM.Plugin.Features.FamiliesImporter
             string outerMessage = message;
             Result result = RevitCommandExecutor.Current!.Execute(commandData, ref outerMessage, _ =>
             {
-                // Já existe instância viva — restaura se estava minimizada
-                // e traz pro topo. Não cria nova.
-                if (_instance != null)
+                try
                 {
-                    if (_instance.WindowState == WindowState.Minimized)
-                    {
-                        _instance.WindowState = WindowState.Normal;
-                    }
-
-                    _instance.Activate();
+                    // Operacao sincrona do ponto de vista do comando: o
+                    // EnsureRunningAsync apenas dispara o Process.Start +
+                    // garante que o pipe server esta no ar; ambos sao
+                    // rapidissimos. O await em si nao espera o sidecar
+                    // terminar de carregar a UI.
+                    SidecarHost.Instance.EnsureRunningAsync().GetAwaiter().GetResult();
                     return Result.Succeeded;
                 }
-
-                // Cria nova instância. Owner é a janela principal do Revit
-                // — comportamento de filha (minimiza/fecha junto, fica
-                // acima do Revit, não aparece na taskbar).
-                FamiliesWindow window = new FamiliesWindow(
-                    commandData.Application.MainWindowHandle,
-                    new FamilyPreferencesService());
-
-                _instance = window;
-                window.Closed += (_, _) =>
+                catch (System.Exception ex)
                 {
-                    if (ReferenceEquals(_instance, window))
-                    {
-                        _instance = null;
-                    }
-                };
-
-                window.Show();
-                return Result.Succeeded;
+                    TaskDialog.Show(
+                        "Importar Famílias",
+                        "Nao foi possivel iniciar o navegador de familias.\n\n" +
+                        "Detalhes: " + ex.Message);
+                    return Result.Failed;
+                }
             });
 
             message = outerMessage;

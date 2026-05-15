@@ -1,0 +1,12 @@
+<Application x:Class="DarivaBIM.FamilyBrowser.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Sem StartupUri: a MainWindow e construida em App.OnStartup pra que
+        a URL inicial possa vir de argumento de linha de comando
+        (flag url). Isso permite o mesmo EXE servir tanto pra dev
+        (localhost:3000) quanto pra prod (acervobim.com) sem rebuild.
+    -->
+    <Application.Resources>
+    </Application.Resources>
+</Application>

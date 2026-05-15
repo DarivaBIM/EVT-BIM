@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Contratos de IPC compartilhados entre o sidecar EXE (DarivaBIM.FamilyBrowser)
+    e os plugins Revit (DarivaBIM.Plugin.V2025/V2026). Mantem o protocolo wire
+    isolado: alterar uma mensagem aqui obriga recompilar os dois lados, evitando
+    drift silencioso.
+
+    Targeta netstandard2.0 pra ser consumivel tanto pelo plugin (que compila
+    contra netstandard2.0 + net8.0-windows dependendo da camada) quanto pelo
+    sidecar EXE (net8.0-windows). System.Text.Json e a unica dependencia
+    externa — escolhida em vez de Newtonsoft pra evitar conflitos com o JSON.NET
+    que o Revit ja carrega no processo (que vive em versao propria privada e
+    desencadeia assembly load issues em plugins que tentam usar uma diferente).
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DarivaBIM.Sidecar.Ipc</RootNamespace>
+    <AssemblyName>DarivaBIM.Sidecar.Ipc</AssemblyName>
+    <Description>Contratos de IPC (envelope JSON + mensagens) entre o sidecar EXE e os plugins Revit.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+</Project>
