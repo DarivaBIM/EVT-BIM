@@ -22,10 +22,13 @@ namespace DarivaBIM.Plugin.Sidecar
         private static readonly Lazy<SidecarHost> _instance = new(() => new SidecarHost());
         public static SidecarHost Instance => _instance.Value;
 
-        // URL do AcervoBIM dentro do WebView2. Hardcoded em dev pro spike;
-        // futuramente vira config via FamilyPreferencesService (env-aware
-        // dev vs prod).
-        private const string EmbedUrl = "http://localhost:3000/embed/revit";
+        // URL do AcervoBIM dentro do WebView2. Default = prod (deploy de
+        // 2026-05-16 em https://acervobim.darivabim.com). Pra apontar pra
+        // dev local, setar env var DARIVABIM_ACERVO_EMBED_URL antes de abrir
+        // o Revit (ex.: $env:DARIVABIM_ACERVO_EMBED_URL = "http://localhost:3000/embed/revit").
+        private static readonly string EmbedUrl =
+            Environment.GetEnvironmentVariable("DARIVABIM_ACERVO_EMBED_URL")
+            ?? "https://acervobim.darivabim.com/embed/revit";
 
         private readonly object _stateLock = new();
         private readonly PipeServer _pipeServer;

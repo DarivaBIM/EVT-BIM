@@ -14,7 +14,7 @@ namespace DarivaBIM.FamilyBrowser
         // por padrao pra que o spike funcione "sem dependencias" — qualquer
         // maquina com WebView2 runtime carrega. Em uso real, o plugin Revit
         // spawna o EXE com --url http://localhost:3000/embed/revit (dev) ou
-        // https://acervobim.com/embed/revit (prod).
+        // https://acervobim.darivabim.com/embed/revit (prod).
         private const string DefaultUrl = "https://www.bing.com";
 
         protected override void OnStartup(StartupEventArgs e)

@@ -5,7 +5,7 @@
         Sem StartupUri: a MainWindow e construida em App.OnStartup pra que
         a URL inicial possa vir de argumento de linha de comando
         (flag url). Isso permite o mesmo EXE servir tanto pra dev
-        (localhost:3000) quanto pra prod (acervobim.com) sem rebuild.
+        (localhost:3000) quanto pra prod (acervobim.darivabim.com) sem rebuild.
     -->
     <Application.Resources>
     </Application.Resources>
