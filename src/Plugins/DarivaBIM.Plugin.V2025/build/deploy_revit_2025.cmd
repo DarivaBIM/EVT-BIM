@@ -111,5 +111,17 @@ if exist "%TARGET_DIR%Ribbon" (
     )
 )
 
+REM Sidecar EXE (DarivaBIM.FamilyBrowser) e suas dependencias.
+REM Vive em subpasta dedicada pra evitar misturar com as DLLs do plugin
+REM (o sidecar carrega proprias copias de WebView2.*.dll, System.Text.Json
+REM etc., e roda em processo separado).
+if exist "%TARGET_DIR%Sidecar" (
+    xcopy /Y /D /I /E "%TARGET_DIR%Sidecar" "%ADDIN_SUBFOLDER%\Sidecar\"
+    if errorlevel 1 (
+        echo ERRO: falha ao copiar Sidecar.
+        exit /b 1
+    )
+)
+
 echo Deploy concluido com sucesso.
 exit /b 0

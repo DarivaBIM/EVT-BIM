@@ -26,6 +26,18 @@
     <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Adapters.V2025\DarivaBIM.Revit.Adapters.V2025.csproj" />
     <ProjectReference Include="..\..\Presentation\DarivaBIM.Presentation.Wpf\DarivaBIM.Presentation.Wpf.csproj" />
     <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure\DarivaBIM.Infrastructure.csproj" />
+    <!-- Contratos compartilhados com o sidecar EXE (envelope IPC + mensagens). -->
+    <ProjectReference Include="..\..\Sidecar\DarivaBIM.Sidecar.Ipc\DarivaBIM.Sidecar.Ipc.csproj" />
+    <!--
+      Build-order-only: garante que o sidecar EXE seja compilado antes do
+      plugin (e antes do DeployAddin) pra que o Target CopySidecarOutput
+      abaixo encontre os arquivos. ReferenceOutputAssembly=false evita
+      linkar o EXE no plugin — sidecar roda em processo proprio.
+    -->
+    <ProjectReference Include="..\..\Sidecar\DarivaBIM.FamilyBrowser\DarivaBIM.FamilyBrowser.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false"
+                      SkipGetTargetFrameworkProperties="true" />
   </ItemGroup>
 
   <!--
@@ -69,6 +81,24 @@
              Exclude="..\..\Revit\DarivaBIM.Revit.Hosting\**\bin\**;..\..\Revit\DarivaBIM.Revit.Hosting\**\obj\**"
              Link="Hosting\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
+
+  <!--
+    Copia o output do sidecar EXE pra subpasta Sidecar\ ao lado do plugin.
+    Roda DEPOIS do build do plugin (e portanto depois do build do sidecar,
+    que e dependency via ProjectReference acima) e ANTES do DeployAddin.
+  -->
+  <Target Name="CopySidecarOutput" AfterTargets="Build" BeforeTargets="DeployAddin">
+    <PropertyGroup>
+      <SidecarOutputDir>$(MSBuildThisFileDirectory)..\..\Sidecar\DarivaBIM.FamilyBrowser\bin\$(Configuration)\net8.0-windows\</SidecarOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <SidecarFiles Include="$(SidecarOutputDir)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SidecarFiles)"
+          DestinationFiles="@(SidecarFiles->'$(TargetDir)Sidecar\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(SidecarFiles)' != ''" />
+  </Target>
 
   <!--
     Sem ContinueOnError: falha de deploy (Revit aberto, permissao, manifesto
