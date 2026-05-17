@@ -1,79 +1,115 @@
-# Avaliação de migração para Cloudflare — EVT-BIM (plugin Revit)
+# EVT-BIM → DarivaBIM V2 — Integração com ecossistema Cloudflare
 
-> **Data:** 2026-05-17
-> **Documento mestre:** Ver `AcervoBIM/docs/migration/cloudflare-evaluation.md` para o plano completo do ecossistema.
+> **Atualizado:** 2026-05-17
+> **Plano mestre:** `AcervoBIM/docs/migration/cloudflare-migration-plan.md`
 
 ---
 
 ## TL;DR
 
-**EVT-BIM fica fora da migração para Cloudflare.**
+EVT-BIM continua sendo um plugin desktop C# / .NET 8 / WPF, distribuído via GitHub Releases. **Nada disso muda.**
 
-É um plugin desktop nativo C# / .NET 8 / WPF que roda **dentro do Autodesk Revit 2025/2026**, distribuído via instalador `.exe` (Inno Setup) através de **GitHub Releases**. Não consome cloud em produção.
+O que muda: quando as pastas hoje vazias `Infrastructure/Api/`, `Infrastructure/Licensing/` e `Infrastructure/Telemetry/` forem implementadas, elas vão se conectar diretamente ao **ecossistema Cloudflare novo** (não ao backend Express legado).
 
----
-
-## 1. Estado atual
-
-| Item | Atual | Cloudflare relevante? |
-|------|-------|----------------------|
-| Tipo | Plugin desktop, executa dentro do Revit | ❌ Não |
-| Runtime | .NET 8 (`net8.0-windows`), WPF | ❌ Não |
-| Distribuição | `.exe` via GitHub Releases | ❌ Não (GitHub já é grátis) |
-| Catálogo Tigre | JSON embarcado no assembly | ❌ Não |
-| API consumida | **Nenhuma** em produção. Pasta `Infrastructure/Api/` ainda stub | ❌ Não hoje |
-| Telemetria | Pasta `Infrastructure/Telemetry/` vazia | ⚠️ Eventual (ver §3) |
-| Licensing | Pasta `Infrastructure/Licensing/` vazia | ⚠️ Eventual (ver §3) |
-
-**Conclusão:** Hoje o EVT-BIM **não toca infraestrutura cloud nenhuma** — nem AWS, nem Vercel. Logo, migrar para Cloudflare é não-aplicável.
+Este repo é **a base do DarivaBIM V2** (sucessor do plugin DarivaBIM v1.9 antigo). Quando V2 estiver pronto para distribuição, EVT-BIM passa por rebranding (ADR-0014 já documenta isso) e vira o plugin oficial.
 
 ---
 
-## 2. O que NÃO muda
+## Como o plugin se conecta ao ecossistema
 
-- ✅ Continuar com **GitHub Releases** para distribuir o instalador (já é grátis, mundial, CDN-edge no GitHub)
-- ✅ Continuar com **Inno Setup** para gerar o `.exe`
-- ✅ Continuar com **PowerShell `release.ps1`** para bump version + tag + release
-- ✅ Manter `tigre_codes.json` embarcado no assembly
-- ✅ Arquitetura Clean (Domain → Application → Adapters → Plugin) **não é afetada**
+```
+DarivaBIM V2 plugin (este repo, rebranded)
+              │
+              ├─ api.darivabim.com  (Workers + Hono)
+              │    - Licensing check (isPremium)
+              │    - Telemetry events (fire-and-forget)
+              │    - Sync de famílias com AcervoBIM
+              │
+              ├─ cdn.darivabim.com  (R2 público)
+              │    - Download de famílias públicas
+              │    - Templates compartilhados
+              │
+              ├─ files.darivabim.com  (R2 privado, presigned)
+              │    - Download de famílias premium / privadas
+              │
+              └─ updates.darivabim.com  (R2 público)
+                   - manifest.json com versão mais recente
+                   - .exe / .msi do auto-update
+```
 
----
-
-## 3. Quando a Cloudflare entra na vida do EVT-BIM (futuro)
-
-Hoje as pastas `Infrastructure/Api/`, `Infrastructure/Licensing/`, e `Infrastructure/Telemetry/` existem mas estão vazias. Quando essas features forem implementadas (provavelmente perto do lançamento de **DarivaBIM V2**, que herda este código), elas vão precisar de backend cloud.
-
-Recomendações para esse momento futuro:
-
-### 3.1 Telemetria
-- Apontar para um endpoint Cloudflare Worker (não Express, porque telemetria é fire-and-forget e Workers escala melhor)
-- Sink em Cloudflare Workers Analytics Engine (free tier generoso)
-- Custo: ~R$0/mês até dezenas de milhares de eventos/dia
-
-### 3.2 Licensing / Premium check
-- Endpoint para validar `isPremium` do usuário — pode reusar o backend Express atual em `darivabim.link/api`
-- Ou criar Worker dedicado em `license.darivabim.com` para reduzir carga no Express
-- Cache de resposta em local file (`%LOCALAPPDATA%`) com TTL para tolerar offline
-
-### 3.3 Downloads de famílias / sync com AcervoBIM
-- Se o plugin futuramente baixar famílias diretamente do AcervoBIM:
-  - Usar URLs **R2 via `cdn.darivabim.com`** (já estará em produção pós-Fase 1B do plano mestre)
-  - Zero egress = downloads gratuitos para a plataforma
-
-### 3.4 Auto-update do plugin
-- Hoje: usuário precisa reinstalar manualmente
-- Futuro: hospedar `latest.json` (manifest com versão + URL do `.exe`) em **R2 + custom domain** `updates.darivabim.com`
-- Custo: praticamente zero, latência baixa global
+**Nenhum dos endpoints fala com a stack AWS legada.**
 
 ---
 
-## 4. Resumo
+## Roadmap de integração
 
-| Aspecto | Recomendação |
-|---------|-------------|
-| Migrar EVT-BIM para Cloudflare agora? | **Não — não há nada cloud para migrar.** |
-| Mudar distribuição? | **Não — manter GitHub Releases.** |
-| Mudar build/release? | **Não — manter Inno Setup + `release.ps1`.** |
-| Quando entra Cloudflare? | Quando `Infrastructure/Api`, `Telemetry`, `Licensing` forem implementadas. **Usar Workers + R2 nessa hora**, alinhado com o resto do ecossistema. |
+### Quando implementar `Infrastructure/Api/`
+- Cliente HTTP em C# (`HttpClient` ou `Refit`) apontando para `api.darivabim.com`
+- Endpoints consumidos:
+  - `POST /api/auth/login` (se plugin tiver login próprio)
+  - `GET /api/me/profile`
+  - `GET /api/families?owner=me` (listar famílias do usuário)
+  - `GET /api/families/:id/file/:version` (presigned URL para download)
+  - `POST /api/families` (upload de família via plugin — alternativa ao web)
+- TLS 1.2+, cert pinning opcional
 
-Sem ação imediata neste repo. Este documento é apenas registro de avaliação para a branch `claude/evaluate-cloudflare-migration-fCT0Y`.
+### Quando implementar `Infrastructure/Licensing/`
+- Endpoint: `GET /api/licensing/check?userId=...`
+- Resposta: `{ tier: 'free' | 'basic' | 'pro' | 'studio' | 'enterprise', expiresAt: ISO8601 }`
+- Cache local em `%LOCALAPPDATA%\DarivaBIM\license.json` com TTL 24h (tolera offline)
+- Renovação background quando online
+
+### Quando implementar `Infrastructure/Telemetry/`
+- Endpoint: `POST /api/telemetry/events` (Workers, fire-and-forget)
+- Eventos: plugin loaded, tool invoked, error caught, family inserted
+- Sink: Cloudflare Workers Analytics Engine (free, generoso)
+- Sem PII: usar UUID anônimo persistido em registro
+
+### Auto-update
+- Manifest: `https://updates.darivabim.com/manifest.json`
+  ```json
+  {
+    "latest": "2.1.0",
+    "url": "https://updates.darivabim.com/DarivaBIM-V2-2.1.0.exe",
+    "minRevit": "2025",
+    "changelog": "..."
+  }
+  ```
+- Plugin checa na inicialização (background, com timeout 3s)
+- Se versão nova: mostra banner não-intrusivo
+- Download em `%TEMP%`, executa instalador, fecha plugin
+
+---
+
+## Rebranding EVT-BIM → DarivaBIM V2 (ADR-0014)
+
+Ver `src/docs/adr/ADR-0014-evt-bim-rebrand-darivabim-origins.md` — plano já documentado.
+
+Resumo:
+- Assemblies: `EVT-BIM` → `DarivaBIM` (namespace, AppId Inno Setup, install paths)
+- Manifest `.addin`: nome visível "DarivaBIM 2026"
+- Catálogo Tigre: continua embarcado (parceria Tigre é parte do appeal)
+- README, docs, instalador: marca DarivaBIM
+
+Timing: após backend novo estar estável e o ecossistema Cloudflare em produção. Provavelmente Q3 2026.
+
+---
+
+## Nada para fazer agora
+
+Este repo não tem dependência da migração Cloudflare. Continua sendo desenvolvido normalmente conforme o roadmap do EVT-BIM:
+- Mais ferramentas (Tools)
+- Migração de modeless windows (V2026)
+- Cobertura de testes
+- Mais ADRs conforme necessário
+
+A integração cloud entra quando essas pastas `Infrastructure/*` deixarem de ser stubs.
+
+---
+
+## Documentos relacionados
+
+- Plano mestre do ecossistema: `AcervoBIM/docs/migration/cloudflare-migration-plan.md`
+- Status do backend legado: `darivabim-backend/docs/migration/cloudflare-evaluation.md`
+- ADR-0014 (rebranding): `src/docs/adr/ADR-0014-evt-bim-rebrand-darivabim-origins.md`
+- ADRs gerais do projeto: `src/docs/adr/`
