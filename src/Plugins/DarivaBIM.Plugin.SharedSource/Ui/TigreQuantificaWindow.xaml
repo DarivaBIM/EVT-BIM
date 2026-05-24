@@ -116,7 +116,11 @@
             </Style.Triggers>
         </Style>
 
-        <!-- DataTemplate da linha agregada (uma por QuantityGroupViewModel). -->
+        <!-- DataTemplate da linha agregada (uma por QuantityGroupViewModel).
+             Tabela: 11 colunas. CSV: 12 colunas (Família e Tipo separados
+             no export, consolidados no slice 1.6 F3 #4 caso seja necessário).
+             Coluna "DESCRIÇÃO (tipo)" REMOVIDA — bindava o mesmo Description
+             que a coluna 5; era ruído visual sem informação distinta. -->
         <DataTemplate x:Key="GroupRowTemplate">
             <Border BorderBrush="{StaticResource SoftBorder}"
                     BorderThickness="0,0,0,1"
@@ -125,7 +129,6 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.6*" />
                         <ColumnDefinition Width="1.2*" />
-                        <ColumnDefinition Width="1.0*" />
                         <ColumnDefinition Width="0.7*" />
                         <ColumnDefinition Width="0.7*" />
                         <ColumnDefinition Width="1.5*" />
@@ -138,16 +141,15 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0"  Style="{StaticResource BodyCell}" Text="{Binding Family}" />
                     <TextBlock Grid.Column="1"  Style="{StaticResource BodyCell}" Text="{Binding Type}" />
-                    <TextBlock Grid.Column="2"  Style="{StaticResource BodyCell}" Text="{Binding Description}" />
-                    <TextBlock Grid.Column="3"  Style="{StaticResource BodyCell}" Text="{Binding Diameter}" />
-                    <TextBlock Grid.Column="4"  Style="{StaticResource BodyCell}" Text="{Binding TigreCode}" />
-                    <TextBlock Grid.Column="5"  Style="{StaticResource BodyCell}" Text="{Binding Description}" />
-                    <TextBlock Grid.Column="6"  Style="{StaticResource BodyCell}" Text="{Binding Manufacturer}" />
-                    <TextBlock Grid.Column="7"  Style="{StaticResource BodyCell}" Text="{Binding System}" />
-                    <TextBlock Grid.Column="8"  Style="{StaticResource BodyCell}" Text="{Binding ElementCountText}" />
-                    <TextBlock Grid.Column="9"  Style="{StaticResource BodyCell}" Text="{Binding QuantityText}" />
-                    <TextBlock Grid.Column="10" Style="{StaticResource BodyCell}" Text="{Binding Unit}" />
-                    <TextBlock Grid.Column="11" Style="{StaticResource BodyCell}" Text="{Binding AuditNote}"
+                    <TextBlock Grid.Column="2"  Style="{StaticResource BodyCell}" Text="{Binding Diameter}" />
+                    <TextBlock Grid.Column="3"  Style="{StaticResource BodyCell}" Text="{Binding TigreCode}" />
+                    <TextBlock Grid.Column="4"  Style="{StaticResource BodyCell}" Text="{Binding Description}" />
+                    <TextBlock Grid.Column="5"  Style="{StaticResource BodyCell}" Text="{Binding Manufacturer}" />
+                    <TextBlock Grid.Column="6"  Style="{StaticResource BodyCell}" Text="{Binding System}" />
+                    <TextBlock Grid.Column="7"  Style="{StaticResource BodyCell}" Text="{Binding ElementCountText}" />
+                    <TextBlock Grid.Column="8"  Style="{StaticResource BodyCell}" Text="{Binding QuantityText}" />
+                    <TextBlock Grid.Column="9"  Style="{StaticResource BodyCell}" Text="{Binding Unit}" />
+                    <TextBlock Grid.Column="10" Style="{StaticResource BodyCell}" Text="{Binding AuditNote}"
                                Foreground="{StaticResource RedAccent}" />
                 </Grid>
             </Border>
@@ -180,7 +182,8 @@
                                    Text="{Binding Unit}"
                                    VerticalAlignment="Center" />
                     </Grid>
-                    <!-- Cabeçalho da tabela. 12 colunas, ratios iguais ao GroupRowTemplate. -->
+                    <!-- Cabeçalho da tabela. 11 colunas, ratios iguais ao GroupRowTemplate.
+                         CSV continua com 12 colunas (Família e Tipo separados no export). -->
                     <Border BorderBrush="{StaticResource SoftBorder}"
                             BorderThickness="0,0,0,1"
                             Padding="0,0,0,4">
@@ -188,7 +191,6 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="1.6*" />
                                 <ColumnDefinition Width="1.2*" />
-                                <ColumnDefinition Width="1.0*" />
                                 <ColumnDefinition Width="0.7*" />
                                 <ColumnDefinition Width="0.7*" />
                                 <ColumnDefinition Width="1.5*" />
@@ -201,16 +203,15 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0"  Style="{StaticResource HeaderCell}" Text="FAMÍLIA" />
                             <TextBlock Grid.Column="1"  Style="{StaticResource HeaderCell}" Text="TIPO" />
-                            <TextBlock Grid.Column="2"  Style="{StaticResource HeaderCell}" Text="DESCRIÇÃO (tipo)" />
-                            <TextBlock Grid.Column="3"  Style="{StaticResource HeaderCell}" Text="DIÂM." />
-                            <TextBlock Grid.Column="4"  Style="{StaticResource HeaderCell}" Text="COD. TIGRE" />
-                            <TextBlock Grid.Column="5"  Style="{StaticResource HeaderCell}" Text="DESCRIÇÃO" />
-                            <TextBlock Grid.Column="6"  Style="{StaticResource HeaderCell}" Text="FABRICANTE" />
-                            <TextBlock Grid.Column="7"  Style="{StaticResource HeaderCell}" Text="SISTEMA" />
-                            <TextBlock Grid.Column="8"  Style="{StaticResource HeaderCell}" Text="QTD" />
-                            <TextBlock Grid.Column="9"  Style="{StaticResource HeaderCell}" Text="QUANTIDADE" />
-                            <TextBlock Grid.Column="10" Style="{StaticResource HeaderCell}" Text="UN" />
-                            <TextBlock Grid.Column="11" Style="{StaticResource HeaderCell}" Text="AUDITORIA" />
+                            <TextBlock Grid.Column="2"  Style="{StaticResource HeaderCell}" Text="DIÂM." />
+                            <TextBlock Grid.Column="3"  Style="{StaticResource HeaderCell}" Text="COD. TIGRE" />
+                            <TextBlock Grid.Column="4"  Style="{StaticResource HeaderCell}" Text="DESCRIÇÃO" />
+                            <TextBlock Grid.Column="5"  Style="{StaticResource HeaderCell}" Text="FABRICANTE" />
+                            <TextBlock Grid.Column="6"  Style="{StaticResource HeaderCell}" Text="SISTEMA" />
+                            <TextBlock Grid.Column="7"  Style="{StaticResource HeaderCell}" Text="QTD" />
+                            <TextBlock Grid.Column="8"  Style="{StaticResource HeaderCell}" Text="QUANTIDADE" />
+                            <TextBlock Grid.Column="9"  Style="{StaticResource HeaderCell}" Text="UN" />
+                            <TextBlock Grid.Column="10" Style="{StaticResource HeaderCell}" Text="AUDITORIA" />
                         </Grid>
                     </Border>
                     <ItemsControl ItemsSource="{Binding Groups}"
