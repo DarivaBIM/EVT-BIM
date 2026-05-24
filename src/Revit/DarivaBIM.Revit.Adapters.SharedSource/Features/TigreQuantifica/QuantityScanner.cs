@@ -132,7 +132,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
         {
             string category = element.Category?.Name ?? string.Empty;
             (string family, string type) = ReadFamilyAndType(element);
-            string? diameter = ReadDiameterText(element);
+            string? diameter = ReadDiameterText(element, bic);
             string? tigreCode = ReadTigreCode(element);
             string description = ReadDescription(element);
             string? manufacturer = ReadManufacturer(element);
@@ -175,44 +175,125 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             return (familyName, typeName);
         }
 
-        private static string? ReadDiameterText(Element element)
+        private static string? ReadDiameterText(Element element, BuiltInCategory bic)
         {
-            // Tubos / dutos / conduítes: parâmetro double em feet.
-            Parameter? p = element.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM);
-            if (p != null && p.StorageType == StorageType.Double)
+            switch (bic)
             {
-                try
-                {
-                    double feet = p.AsDouble();
-                    if (feet > 0)
-                    {
-                        int mm = (int)Math.Round(RevitUnitConverter.FeetToMillimeters(feet));
-                        return mm.ToString(CultureInfo.InvariantCulture) + " mm";
-                    }
-                }
-                catch
-                {
-                    // continua
-                }
-            }
+                case BuiltInCategory.OST_PipeCurves:
+                case BuiltInCategory.OST_PipeFitting:
+                case BuiltInCategory.OST_PipeAccessory:
+                case BuiltInCategory.OST_PlumbingFixtures:
+                    return ReadPipeDiameter(element);
 
-            // Fittings/accessories: tamanho já formatado pelo Revit (ex.: "25 mm - 32 mm").
-            p = element.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE);
-            if (p != null)
+                case BuiltInCategory.OST_DuctCurves:
+                case BuiltInCategory.OST_DuctFitting:
+                case BuiltInCategory.OST_DuctAccessory:
+                    return ReadDuctDiameter(element);
+
+                case BuiltInCategory.OST_Conduit:
+                    return ReadConduitDiameter(element);
+
+                case BuiltInCategory.OST_CableTray:
+                    return ReadRectFromBuiltIns(
+                        element,
+                        BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM,
+                        BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM);
+
+                default:
+                    return null;
+            }
+        }
+
+        private static string? ReadPipeDiameter(Element element)
+        {
+            string? d = ReadDiameterFromDoubleFeet(element, BuiltInParameter.RBS_PIPE_DIAMETER_PARAM);
+            if (d != null) return d;
+
+            // Fittings/accessories: Revit também expõe tamanho pré-formatado
+            // em RBS_CALCULATED_SIZE (ex.: "25 mm" ou "25 mm - 32 mm"
+            // pra reduções).
+            return ReadCalculatedSize(element);
+        }
+
+        private static string? ReadDuctDiameter(Element element)
+        {
+            // Duto redondo primeiro; se vazio/zero cai pra retangular.
+            string? d = ReadDiameterFromDoubleFeet(element, BuiltInParameter.RBS_CURVE_DIAMETER_PARAM);
+            if (d != null) return d;
+
+            string? rect = ReadRectFromBuiltIns(
+                element,
+                BuiltInParameter.RBS_CURVE_WIDTH_PARAM,
+                BuiltInParameter.RBS_CURVE_HEIGHT_PARAM);
+            if (rect != null) return rect;
+
+            return ReadCalculatedSize(element);
+        }
+
+        private static string? ReadConduitDiameter(Element element)
+        {
+            string? d = ReadDiameterFromDoubleFeet(element, BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM);
+            if (d != null) return d;
+            return ReadCalculatedSize(element);
+        }
+
+        private static string? ReadDiameterFromDoubleFeet(Element element, BuiltInParameter bip)
+        {
+            Parameter? p = element.get_Parameter(bip);
+            if (p == null || p.StorageType != StorageType.Double) return null;
+
+            try
             {
-                try
-                {
-                    string? s = p.AsString();
-                    if (!string.IsNullOrWhiteSpace(s))
-                        return s!.Trim();
-                }
-                catch
-                {
-                    // continua
-                }
+                double feet = p.AsDouble();
+                if (feet <= 0) return null;
+                int mm = (int)Math.Round(RevitUnitConverter.FeetToMillimeters(feet));
+                return mm.ToString(CultureInfo.InvariantCulture) + " mm";
             }
+            catch
+            {
+                return null;
+            }
+        }
 
-            return null;
+        private static string? ReadRectFromBuiltIns(Element element, BuiltInParameter widthBip, BuiltInParameter heightBip)
+        {
+            int? widthMm = TryReadMillimeters(element, widthBip);
+            int? heightMm = TryReadMillimeters(element, heightBip);
+            if (widthMm == null || heightMm == null) return null;
+
+            return widthMm.Value.ToString(CultureInfo.InvariantCulture) + " × " +
+                   heightMm.Value.ToString(CultureInfo.InvariantCulture) + " mm";
+        }
+
+        private static int? TryReadMillimeters(Element element, BuiltInParameter bip)
+        {
+            Parameter? p = element.get_Parameter(bip);
+            if (p == null || p.StorageType != StorageType.Double) return null;
+            try
+            {
+                double feet = p.AsDouble();
+                if (feet <= 0) return null;
+                return (int)Math.Round(RevitUnitConverter.FeetToMillimeters(feet));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string? ReadCalculatedSize(Element element)
+        {
+            Parameter? p = element.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE);
+            if (p == null) return null;
+            try
+            {
+                string? s = p.AsString();
+                return string.IsNullOrWhiteSpace(s) ? null : s!.Trim();
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static string? ReadTigreCode(Element element)
