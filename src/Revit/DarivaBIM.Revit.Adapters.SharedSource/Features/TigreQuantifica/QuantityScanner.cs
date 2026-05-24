@@ -82,16 +82,26 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 }
                 acc.Add(data.Quantity);
 
-                if (QuantityCategoryMap.ExpectsTigreCode(bic))
+                // Audit por categoria — só rastreia BICs nas quais algum
+                // dos 3 campos é esperado. Se a categoria não espera nada,
+                // não criamos counter (evita poluir findings).
+                bool expectsCode = QuantityCategoryMap.ExpectsTigreCode(bic);
+                bool expectsManufacturer = QuantityCategoryMap.ExpectsManufacturer(bic);
+                bool expectsSystem = QuantityCategoryMap.ExpectsSystem(bic);
+                if (expectsCode || expectsManufacturer || expectsSystem)
                 {
                     if (!categoryCounters.TryGetValue(bic, out CategoryAuditCounters? counters))
                     {
-                        counters = new CategoryAuditCounters(data.Category);
+                        counters = new CategoryAuditCounters(data.Category, expectsCode, expectsManufacturer, expectsSystem);
                         categoryCounters[bic] = counters;
                     }
                     counters.Total++;
                     if (!string.IsNullOrWhiteSpace(data.TigreCode))
                         counters.WithCode++;
+                    if (!string.IsNullOrWhiteSpace(data.Manufacturer))
+                        counters.WithManufacturer++;
+                    if (!string.IsNullOrWhiteSpace(data.System))
+                        counters.WithSystem++;
                 }
             }
 
@@ -391,13 +401,48 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             foreach (KeyValuePair<BuiltInCategory, CategoryAuditCounters> kv in categoryCounters)
             {
                 CategoryAuditCounters c = kv.Value;
-                if (c.Total > 0 && c.WithCode == 0)
+                if (c.Total <= 0) continue;
+
+                // Vermelho — categoria inteira sem código Tigre: bloqueia o
+                // relatório de compras. Mantém a regra estrita ("zero
+                // elementos com código") porque qualquer código já indica
+                // que o usuário está usando families Tigre na categoria.
+                if (c.ExpectsCode && c.WithCode == 0)
                 {
                     yield return new QuantityAuditFinding
                     {
                         FamilyType = c.CategoryName,
                         MissingFields = new[] { "Tigre: Código" },
                         Severity = AuditSeverity.Red,
+                    };
+                }
+
+                // Amarelo — fabricante ausente em N elementos. Aparece
+                // sempre que houver gap, não só quando 100% faltam, porque
+                // qualquer fittings sem fabricante quebra agrupamento por
+                // marca no relatório de compras.
+                if (c.ExpectsManufacturer && c.WithManufacturer < c.Total)
+                {
+                    int missing = c.Total - c.WithManufacturer;
+                    yield return new QuantityAuditFinding
+                    {
+                        FamilyType = c.CategoryName,
+                        MissingFields = new[] { $"Fabricante ausente em {missing} elemento(s)" },
+                        Severity = AuditSeverity.Yellow,
+                    };
+                }
+
+                // Amarelo — sistema ausente em N elementos. Sistema é
+                // como o relatório isola Água Fria vs Esgoto vs Águas
+                // Pluviais; sem ele as totalizações ficam misturadas.
+                if (c.ExpectsSystem && c.WithSystem < c.Total)
+                {
+                    int missing = c.Total - c.WithSystem;
+                    yield return new QuantityAuditFinding
+                    {
+                        FamilyType = c.CategoryName,
+                        MissingFields = new[] { $"Sistema ausente em {missing} elemento(s)" },
+                        Severity = AuditSeverity.Yellow,
                     };
                 }
             }
@@ -490,14 +535,26 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
 
         private sealed class CategoryAuditCounters
         {
-            public CategoryAuditCounters(string categoryName)
+            public CategoryAuditCounters(
+                string categoryName,
+                bool expectsCode,
+                bool expectsManufacturer,
+                bool expectsSystem)
             {
                 CategoryName = categoryName ?? string.Empty;
+                ExpectsCode = expectsCode;
+                ExpectsManufacturer = expectsManufacturer;
+                ExpectsSystem = expectsSystem;
             }
 
             public string CategoryName { get; }
+            public bool ExpectsCode { get; }
+            public bool ExpectsManufacturer { get; }
+            public bool ExpectsSystem { get; }
             public int Total { get; set; }
             public int WithCode { get; set; }
+            public int WithManufacturer { get; set; }
+            public int WithSystem { get; set; }
         }
 
         private readonly struct ElementData
