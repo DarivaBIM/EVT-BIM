@@ -12,8 +12,11 @@ namespace DarivaBIM.Application.Contracts
     {
         /// <summary>
         /// Lê o projeto e devolve o snapshot. Em caso de documento de família
-        /// ou modelo vazio, retorna um snapshot com <c>ErrorMessage</c>
-        /// preenchida (não lança).
+        /// (.rfa), retorna um snapshot com <c>ErrorMessage</c> preenchida
+        /// (não lança). Modelo sem elementos nas categorias mapeadas é
+        /// estado válido — devolve snapshot com <c>Groups</c> vazio e
+        /// <c>ProjectInfo</c> lido normalmente; a UI mostra um status
+        /// amigável em vez de erro.
         /// </summary>
         QuantitySnapshot Scan();
     }
