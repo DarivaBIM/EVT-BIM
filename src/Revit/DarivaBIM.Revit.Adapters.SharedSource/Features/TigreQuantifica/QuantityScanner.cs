@@ -207,7 +207,12 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
 
         private static string? ReadTigreCode(Element element)
         {
-            Parameter? p = SharedParameterAccessor.GetParameter(element, TigreCodesSharedParameters.Code);
+            // Families Tigre fornecidas pelo fabricante geralmente expõem
+            // "Tigre: Código" como TYPE parameter (todas instâncias do
+            // mesmo type compartilham o mesmo SKU). GetParameter (instance
+            // only) é usado pelo PipeCodes pra escrita; aqui precisamos do
+            // fallback type pra leitura.
+            Parameter? p = SharedParameterAccessor.GetParameterIncludingType(element, TigreCodesSharedParameters.Code);
             if (p == null)
                 return null;
 
