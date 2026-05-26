@@ -22,7 +22,7 @@ namespace DarivaBIM.Domain.Tigre
         // (diâmetro, pressão, comprimento). SR/SN/REDUX/Soldável/Roscável,
         // Curta/Longa e acentos NÃO são strippados — diferenciam produtos.
         private static readonly Regex StripDnRegex = new(
-            @"\b(?:DN|dn)\s*\d+(?:[xX]\d+)?(?:[xX]\d+)?\b",
+            @"\b(?:DN|dn)\s*\d+(?:[xX]\d+)?(?:[xX]\d+)?(?:\s*mm)?\b",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private static readonly Regex StripMmRegex = new(
