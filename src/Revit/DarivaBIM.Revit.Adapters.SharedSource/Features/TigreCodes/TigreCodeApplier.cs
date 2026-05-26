@@ -106,8 +106,12 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
 
             string combined = TigreTextUtils.Normalize(
                 $"{data.Description} {data.Segment} {data.TypeName}");
+            // kindFilter="pipe" defensivo — applier roda em Pipes só, mas
+            // catálogo expandido tem 803 fittings cujos tokens poderiam
+            // colidir com a descrição de um tubo legacy (Slice 2B.5).
             TigreCatalogEntry? match = catalog.FindMatch(
-                data.Description, data.Segment, data.TypeName, combined, data.DiameterMm.Value);
+                data.Description, data.Segment, data.TypeName, combined,
+                data.DiameterMm.Value, kindFilter: "pipe");
 
             if (match == null)
             {

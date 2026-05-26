@@ -57,8 +57,13 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 {
                     string combined = TigreTextUtils.Normalize(
                         $"{data.Description} {data.Segment} {data.TypeName}");
+                    // PipeCodes só processa Pipes (TigrePipeCollector já
+                    // filtra), então passamos kindFilter="pipe" defensivo
+                    // pra evitar colisão de tokens com fittings do catálogo
+                    // expandido (Slice 2B.5).
                     match = catalog.FindMatch(
-                        data.Description, data.Segment, data.TypeName, combined, data.DiameterMm.Value);
+                        data.Description, data.Segment, data.TypeName, combined,
+                        data.DiameterMm.Value, kindFilter: "pipe");
                 }
 
                 Parameter? param = SharedParameterAccessor.GetParameter(pipe, TigreCodesSharedParameters.Code);
