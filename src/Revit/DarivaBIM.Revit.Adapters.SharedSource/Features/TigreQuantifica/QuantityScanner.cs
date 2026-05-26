@@ -5,6 +5,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using DarivaBIM.Application.Contracts;
 using DarivaBIM.Application.DTOs.Quantifica;
+using DarivaBIM.Revit.Adapters.Common.Parameters;
 using DarivaBIM.Revit.Adapters.Common.SharedParameters;
 using DarivaBIM.Revit.Adapters.Common.Units;
 using DarivaBIM.Revit.Adapters.Features.TigreCodes;
@@ -334,70 +335,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
         }
 
         private string ReadDescription(Element element)
-        {
-            string?[] candidates = new[]
-            {
-                SafeLookupString(element, "Descrição"),
-                SafeLookupString(element, "Description"),
-                SafeAsString(element.get_Parameter(BuiltInParameter.ALL_MODEL_DESCRIPTION)),
-            };
-            foreach (string? c in candidates)
-            {
-                if (!string.IsNullOrWhiteSpace(c))
-                    return c!.Trim();
-            }
-
-            Element? type = _doc.GetElement(element.GetTypeId());
-            if (type != null)
-            {
-                string?[] typeCandidates = new[]
-                {
-                    SafeLookupString(type, "Descrição"),
-                    SafeLookupString(type, "Description"),
-                    SafeAsString(type.get_Parameter(BuiltInParameter.ALL_MODEL_DESCRIPTION)),
-                };
-                foreach (string? c in typeCandidates)
-                {
-                    if (!string.IsNullOrWhiteSpace(c))
-                        return c!.Trim();
-                }
-            }
-
-            return string.Empty;
-        }
-
-        /// <summary>
-        /// Lookup de parâmetro por nome com tratamento defensivo: param
-        /// pode ter <see cref="StorageType"/> diferente de
-        /// <see cref="StorageType.String"/> (raro em "Descrição"/"Description"
-        /// custom, mas plausível em projetos legados), e <c>AsString</c>
-        /// pode jogar em edge cases (id inválido, GUID corrompido). Sem
-        /// esse wrapper, uma exception aqui derruba o Scanner inteiro.
-        /// </summary>
-        private static string? SafeLookupString(Element element, string parameterName)
-        {
-            Parameter? p;
-            try
-            {
-                p = element.LookupParameter(parameterName);
-            }
-            catch
-            {
-                return null;
-            }
-
-            if (p == null || p.StorageType != StorageType.String)
-                return null;
-
-            try
-            {
-                return p.AsString();
-            }
-            catch
-            {
-                return null;
-            }
-        }
+            => ElementDescriptionReader.Read(element) ?? string.Empty;
 
         private string? ReadManufacturer(Element element)
         {
