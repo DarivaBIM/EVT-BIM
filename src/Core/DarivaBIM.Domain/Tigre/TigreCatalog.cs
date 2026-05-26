@@ -24,6 +24,7 @@ namespace DarivaBIM.Domain.Tigre
 
         private readonly IReadOnlyList<TigreCatalogEntry> _entries;
         private readonly Dictionary<int, IReadOnlyList<TigreCatalogEntry>> _entriesByDiameter;
+        private readonly HashSet<int> _allCodes;
         private readonly ISet<string> _ignoreTokens;
 
         public TigreCatalog(IEnumerable<TigreRawCatalogRow> rows, ISet<string>? ignoreTokens = null)
@@ -45,9 +46,20 @@ namespace DarivaBIM.Domain.Tigre
             _entriesByDiameter = _entries
                 .GroupBy(e => e.DiameterMm)
                 .ToDictionary(g => g.Key, g => (IReadOnlyList<TigreCatalogEntry>)g.ToList());
+
+            // Set de todos os codes pra HasCode O(1). Usado pelo
+            // TigreDetectionRules (Slice 2C) pra validar Tigre: Código
+            // pré-existente em elemento — Sinal 0 trumpa veto Manufacturer.
+            _allCodes = new HashSet<int>(_entries.Select(e => e.Code));
         }
 
         public IReadOnlyList<TigreCatalogEntry> Entries => _entries;
+
+        /// <summary>
+        /// True quando <paramref name="code"/> é positivo e existe em
+        /// alguma entry do catálogo. Lookup O(1). Code 0 = ausente.
+        /// </summary>
+        public bool HasCode(int code) => code > 0 && _allCodes.Contains(code);
 
         public TigreCatalogEntry? FindMatch(
             string descriptionText,
