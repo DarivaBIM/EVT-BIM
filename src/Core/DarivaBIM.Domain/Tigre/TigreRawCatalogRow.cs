@@ -38,5 +38,12 @@ namespace DarivaBIM.Domain.Tigre
         /// pra itens de DN único.
         /// </summary>
         public int? Dn2 { get; set; }
+
+        /// <summary>
+        /// Classe de pressão (PN). Hoje preenchida só em tubos PPR
+        /// (PN12.5/PN20/PN25). String pra preservar precisão decimal —
+        /// "12.5" e não 12. Null em entradas sem PN explícito.
+        /// </summary>
+        public string? Pn { get; set; }
     }
 }

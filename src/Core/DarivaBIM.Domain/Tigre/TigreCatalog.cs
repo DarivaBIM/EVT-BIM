@@ -34,7 +34,7 @@ namespace DarivaBIM.Domain.Tigre
 
             _entries = rows
                 .Where(r => !string.IsNullOrWhiteSpace(r.Description) && r.DiameterMm > 0 && r.Code > 0)
-                .Select(r => new TigreCatalogEntry(r.Description, r.DiameterMm, r.Code, _ignoreTokens))
+                .Select(r => new TigreCatalogEntry(r, _ignoreTokens))
                 .OrderByDescending(e => e.LeanCoreTokens.Count)
                 .ThenByDescending(e => e.LeanTokens.Count)
                 .ToList();

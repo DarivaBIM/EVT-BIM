@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using DarivaBIM.Domain.Tigre;
@@ -146,6 +147,24 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
                     $"LeanTokens vazios em code {r.Code}: " +
                     $"'{r.Description}' → lean='{entry.LeanDescription}'");
             }
+        }
+
+        [Fact]
+        public void Pn_field_reaches_domain_for_ppr_pipes()
+        {
+            // 2B.2 sanity check: campo `pn` do JSON sobe até o domain via
+            // TigreRawCatalogRow.Pn. Esperado: tubos PPR (PN12.5/PN20/PN25)
+            // ~24 entries no payload atual. Threshold conservador em 20.
+            List<TigreRawCatalogRow> rows = LoadRows();
+            List<TigreRawCatalogRow> withPn = rows.Where(r => !string.IsNullOrEmpty(r.Pn)).ToList();
+
+            Assert.True(withPn.Count >= 20,
+                $"Esperado >= 20 entries com Pn, achei {withPn.Count}");
+
+            HashSet<string> distinctPns = new HashSet<string>(
+                withPn.Select(r => r.Pn!),
+                StringComparer.Ordinal);
+            Assert.Equal(new HashSet<string> { "12.5", "20", "25" }, distinctPns);
         }
 
         [Fact]
