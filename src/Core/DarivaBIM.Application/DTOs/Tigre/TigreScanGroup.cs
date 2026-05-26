@@ -5,19 +5,26 @@ namespace DarivaBIM.Application.DTOs.Tigre
 {
     /// <summary>
     /// Linha agrupada exibida em uma das quatro caixinhas da janela
-    /// "Codificar Tubos". Agrega tubos de mesmo Tipo + Diâmetro que
-    /// compartilham o mesmo <see cref="Status"/> — cada combinação
-    /// (TipoNome, Diâmetro, Status) vira uma linha distinta.
+    /// "Codificar Tigre". Agrega elementos do mesmo (Categoria, Tipo,
+    /// Diâmetro) que compartilham o mesmo <see cref="Status"/> — cada
+    /// combinação vira uma linha distinta. Slice 3 ampliou a chave de
+    /// (TipoNome, Diâmetro, Status) pra (CategoryName, Kind, TipoNome,
+    /// Diâmetro, Status) cobrindo Pipes + Conexões + Acessórios +
+    /// Aparelhos.
     /// </summary>
     public sealed class TigreScanGroup
     {
         public TigreScanGroup(
+            string categoryName,
+            string kind,
             string typeName,
             int? diameterMm,
             TigrePipeStatus status,
             IReadOnlyList<long> elementIds,
             int? matchedCode)
         {
+            CategoryName = categoryName ?? string.Empty;
+            Kind = kind ?? string.Empty;
             TypeName = typeName ?? string.Empty;
             DiameterMm = diameterMm;
             Status = status;
@@ -25,11 +32,24 @@ namespace DarivaBIM.Application.DTOs.Tigre
             MatchedCode = matchedCode;
         }
 
+        /// <summary>
+        /// Nome da categoria Revit ("Tubulações", "Conexões de tubo",
+        /// "Acessórios de tubulação", "Aparelhos hidrossanitários" em
+        /// pt-BR). Usado pelo XAML pra agrupar via CollectionViewSource.
+        /// </summary>
+        public string CategoryName { get; }
+
+        /// <summary>
+        /// Kind do match catálogo (pipe/fitting/accessory/fixture).
+        /// Mesmo valor passado no kindFilter do FindMatch.
+        /// </summary>
+        public string Kind { get; }
+
         public string TypeName { get; }
 
         /// <summary>
-        /// Diâmetro nominal em milímetros, arredondado. <c>null</c> quando o
-        /// tubo não expõe diâmetro (vai para o estado <see cref="TigrePipeStatus.NoMatch"/>).
+        /// Diâmetro nominal em milímetros, arredondado. <c>null</c> quando
+        /// o elemento não expõe diâmetro (vai para <see cref="TigrePipeStatus.NoMatch"/>).
         /// </summary>
         public int? DiameterMm { get; }
 

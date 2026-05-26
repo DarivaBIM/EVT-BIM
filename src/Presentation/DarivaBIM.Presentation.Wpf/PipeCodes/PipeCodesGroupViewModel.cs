@@ -14,6 +14,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
     public sealed class PipeCodesGroupViewModel : ObservableObject
     {
         public PipeCodesGroupViewModel(
+            string categoryName,
             string typeName,
             int? diameterMm,
             int count,
@@ -21,6 +22,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             IReadOnlyList<long> elementIds,
             int? matchedCode)
         {
+            CategoryName = categoryName ?? string.Empty;
             TypeName = typeName ?? string.Empty;
             DiameterMm = diameterMm;
             Count = count;
@@ -28,6 +30,13 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             ElementIds = elementIds ?? Array.Empty<long>();
             MatchedCode = matchedCode;
         }
+
+        /// <summary>
+        /// Categoria Revit do grupo ("Tubulações", "Conexões de tubo",
+        /// "Acessórios de tubulação", "Aparelhos hidrossanitários"). Slice
+        /// 3 — usada pelo XAML pra subgroup via CollectionViewSource.
+        /// </summary>
+        public string CategoryName { get; }
 
         public string TypeName { get; }
 
