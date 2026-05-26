@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using DarivaBIM.Application.DTOs.Quantifica;
+using DarivaBIM.Domain.Tigre;
 
 namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
 {
@@ -105,6 +106,20 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
         {
             return CategoriesExpectingTigreCode.Contains(bic);
         }
+
+        /// <summary>
+        /// Substitui <see cref="ExpectsTigreCode(BuiltInCategory)"/> a partir
+        /// do Slice 2D — agora "esperar Tigre: Código" é decidido por
+        /// elemento, não por categoria. Famílias Knauf/Amanco em
+        /// PipeFitting/PipeAccessory/PlumbingFixtures deixam de poluir
+        /// o audit com finding falso positivo.
+        ///
+        /// <see cref="CategoriesExpectingTigreCode"/> permanece como
+        /// referência informativa — pode ser útil em logs/diagnóstico —
+        /// mas o caminho oficial agora é este método.
+        /// </summary>
+        public static bool ShouldExpectTigreCode(Element element, TigreCatalog catalog)
+            => TigreManufacturerDetector.IsTigreElement(element, catalog);
 
         public static bool ExpectsManufacturer(BuiltInCategory bic)
         {

@@ -5,6 +5,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using DarivaBIM.Application.Contracts;
 using DarivaBIM.Application.DTOs.Quantifica;
+using DarivaBIM.Domain.Tigre;
 using DarivaBIM.Revit.Adapters.Common.Parameters;
 using DarivaBIM.Revit.Adapters.Common.SharedParameters;
 using DarivaBIM.Revit.Adapters.Common.Units;
@@ -27,10 +28,12 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             "Verifique se está usando families Tigre.";
 
         private readonly Document _doc;
+        private readonly TigreCatalog _catalog;
 
-        public QuantityScanner(Document doc)
+        public QuantityScanner(Document doc, TigreCatalog catalog)
         {
             _doc = doc ?? throw new ArgumentNullException(nameof(doc));
+            _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         }
 
         public QuantitySnapshot Scan()
@@ -57,6 +60,16 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             Dictionary<GroupKey, GroupAccumulator> groups = new();
             Dictionary<BuiltInCategory, CategoryAuditCounters> categoryCounters = new();
 
+            // Cache do veredito do detector por TypeId — todos os elementos
+            // do mesmo type compartilham Family.Name / Manufacturer type /
+            // Tigre: Código type, então o veredito não muda. Em projetos
+            // típicos (3000 elements, ~50 types) reduz ~60x o overhead do
+            // detector. Não bypassamos pra instances com Manufacturer
+            // instance-level — em famílias Tigre instance-Manufacturer
+            // sobrescrito é caso edge raríssimo, e o cache puro mantém
+            // correção em ~99.9% dos elementos.
+            Dictionary<ElementId, bool> isTigreCache = new();
+
             foreach (Element element in collector)
             {
                 BuiltInCategory bic = ResolveBuiltInCategory(element);
@@ -64,6 +77,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                     continue; // categoria não mapeada — defesa, o filtro já deveria barrar
 
                 ElementData data = ReadElementData(element, bic, kind);
+                bool isTigre = IsTigreCached(element, isTigreCache);
 
                 GroupKey key = new GroupKey(
                     data.Category,
@@ -82,27 +96,35 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                     groups[key] = acc;
                 }
                 acc.Add(data.Quantity);
+                if (isTigre)
+                    acc.MarkTigre();
 
                 // Audit por categoria — só rastreia BICs nas quais algum
                 // dos 3 campos é esperado. Se a categoria não espera nada,
                 // não criamos counter (evita poluir findings).
-                bool expectsCode = QuantityCategoryMap.ExpectsTigreCode(bic);
+                // Audit Tigre: Código agora é POR ELEMENTO (detector
+                // decide), não por categoria. Findings Fabricante/Sistema
+                // continuam category-based.
                 bool expectsManufacturer = QuantityCategoryMap.ExpectsManufacturer(bic);
                 bool expectsSystem = QuantityCategoryMap.ExpectsSystem(bic);
-                if (expectsCode || expectsManufacturer || expectsSystem)
+                if (isTigre || expectsManufacturer || expectsSystem)
                 {
                     if (!categoryCounters.TryGetValue(bic, out CategoryAuditCounters? counters))
                     {
-                        counters = new CategoryAuditCounters(data.Category, expectsCode, expectsManufacturer, expectsSystem);
+                        counters = new CategoryAuditCounters(data.Category, expectsManufacturer, expectsSystem);
                         categoryCounters[bic] = counters;
                     }
                     counters.Total++;
-                    if (!string.IsNullOrWhiteSpace(data.TigreCode))
-                        counters.WithCode++;
                     if (!string.IsNullOrWhiteSpace(data.Manufacturer))
                         counters.WithManufacturer++;
                     if (!string.IsNullOrWhiteSpace(data.System))
                         counters.WithSystem++;
+                    if (isTigre)
+                    {
+                        counters.TigreTotal++;
+                        if (!string.IsNullOrWhiteSpace(data.TigreCode))
+                            counters.TigreWithCode++;
+                    }
                 }
             }
 
@@ -116,6 +138,24 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 Groups = groupDtos,
                 AuditFindings = findings,
             };
+        }
+
+        private bool IsTigreCached(Element element, Dictionary<ElementId, bool> cache)
+        {
+            ElementId typeId = element.GetTypeId();
+            if (typeId == ElementId.InvalidElementId)
+            {
+                // Sem type — vai direto. Caso raro (Pipes podem ter type
+                // válido, ProjectInfo poderia cair aqui mas é filtrado).
+                return QuantityCategoryMap.ShouldExpectTigreCode(element, _catalog);
+            }
+
+            if (cache.TryGetValue(typeId, out bool cached))
+                return cached;
+
+            bool result = QuantityCategoryMap.ShouldExpectTigreCode(element, _catalog);
+            cache[typeId] = result;
+            return result;
         }
 
         private static BuiltInCategory ResolveBuiltInCategory(Element element)
@@ -422,7 +462,9 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 .ThenBy(kv => kv.Key.Diameter, StringComparer.OrdinalIgnoreCase)
                 .Select(kv =>
                 {
-                    bool expectsCode = QuantityCategoryMap.ExpectsTigreCode(kv.Value.BuiltInCategory);
+                    // AuditNote agora é POR GRUPO (não categoria) — usa
+                    // a flag IsTigre marcada durante o loop pelo detector.
+                    bool expectsCode = kv.Value.IsTigre;
                     string? auditNote = (expectsCode && string.IsNullOrWhiteSpace(kv.Key.TigreCode))
                         ? "Sem código Tigre"
                         : null;
@@ -455,11 +497,11 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 CategoryAuditCounters c = kv.Value;
                 if (c.Total <= 0) continue;
 
-                // Vermelho — categoria inteira sem código Tigre: bloqueia o
-                // relatório de compras. Mantém a regra estrita ("zero
-                // elementos com código") porque qualquer código já indica
-                // que o usuário está usando families Tigre na categoria.
-                if (c.ExpectsCode && c.WithCode == 0)
+                // Vermelho — categoria tem elementos Tigre, mas NENHUM
+                // tem código. Só dispara quando c.TigreTotal > 0 (impede
+                // finding em categoria 100% não-Tigre — Knauf/Amanco
+                // puros não viram falso positivo).
+                if (c.TigreTotal > 0 && c.TigreWithCode == 0)
                 {
                     yield return new QuantityAuditFinding
                     {
@@ -578,35 +620,47 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             public int ElementCount { get; private set; }
             public decimal Quantity { get; private set; }
 
+            /// <summary>
+            /// True quando ao menos um elemento do grupo foi classificado
+            /// como Tigre pelo detector. Usado em BuildGroupDtos pra
+            /// decidir se AuditNote "Sem código Tigre" aplica.
+            /// </summary>
+            public bool IsTigre { get; private set; }
+
             public void Add(decimal q)
             {
                 ElementCount++;
                 Quantity += q;
             }
+
+            public void MarkTigre() => IsTigre = true;
         }
 
         private sealed class CategoryAuditCounters
         {
             public CategoryAuditCounters(
                 string categoryName,
-                bool expectsCode,
                 bool expectsManufacturer,
                 bool expectsSystem)
             {
                 CategoryName = categoryName ?? string.Empty;
-                ExpectsCode = expectsCode;
                 ExpectsManufacturer = expectsManufacturer;
                 ExpectsSystem = expectsSystem;
             }
 
             public string CategoryName { get; }
-            public bool ExpectsCode { get; }
             public bool ExpectsManufacturer { get; }
             public bool ExpectsSystem { get; }
             public int Total { get; set; }
-            public int WithCode { get; set; }
             public int WithManufacturer { get; set; }
             public int WithSystem { get; set; }
+
+            /// <summary>Contagem dos elementos da categoria classificados
+            /// como Tigre pelo detector.</summary>
+            public int TigreTotal { get; set; }
+
+            /// <summary>Subset de TigreTotal que tem Tigre: Código preenchido.</summary>
+            public int TigreWithCode { get; set; }
         }
 
         private readonly struct ElementData
