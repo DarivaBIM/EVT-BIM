@@ -290,6 +290,75 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
         }
 
         [Fact]
+        public void Integration_kindFilter_and_pn_extraction_compose()
+        {
+            // 2B.6: cenário integração — catalog misto com Soldável (Tubo +
+            // Joelho 90) e PPR (PN20 + PN25), todos dm=50. Combina:
+            //   1) kindFilter="pipe" restringe a tubos
+            //   2) AmbiguityGuard escolhe a mais específica em empate
+            //   3) PN extraction desambigua PPR multi-PN
+            //   4) Query sem PN em PPR multi-PN → null seguro
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo Soldável 50mm - 6m",
+                    DiameterMm = 50, Code = 10120500,
+                    Kind = "pipe", ProductLine = "Soldável",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Joelho 90 Soldável 50mm",
+                    DiameterMm = 50, Code = 22150502,
+                    Kind = "elbow", ProductLine = "Soldável",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 20 50mm - 3m",
+                    DiameterMm = 50, Code = 17010107, Pn = "20",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 25 50mm - 3m",
+                    DiameterMm = 50, Code = 17010409, Pn = "25",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            // 1) PipeCodes passa kindFilter="pipe": query Soldável casa o
+            // tubo, NÃO o joelho. Mas Tubo PPR também é pipe — query sem
+            // PN cai no AmbiguityGuard (2 entries pipe sem PN match).
+            TigreCatalogEntry? soldavel = cat.FindMatch(
+                "Tubo Soldável", "", "", "Tubo Soldável 50",
+                50, kindFilter: "pipe");
+            Assert.NotNull(soldavel);
+            Assert.Equal(10120500, soldavel!.Code);
+
+            // 2) Sem kindFilter, query joelho casa Joelho (3 tokens
+            // específicos vencem o Tubo Soldável 1-token).
+            TigreCatalogEntry? joelho = cat.FindMatch(
+                "Joelho 90 Soldável", "", "", "Joelho 90 Soldável 50", 50);
+            Assert.NotNull(joelho);
+            Assert.Equal(22150502, joelho!.Code);
+
+            // 3) Query menciona PN → filtra PPR pra PN20 específico antes
+            // do AmbiguityGuard.
+            TigreCatalogEntry? pprPn20 = cat.FindMatch(
+                "Tubo PPR PN 20", "", "", "Tubo PPR PN 20 50", 50);
+            Assert.NotNull(pprPn20);
+            Assert.Equal(17010107, pprPn20!.Code);
+            Assert.Equal("20", pprPn20.Pn);
+
+            // 4) Query "Tubo PPR" sem PN: 2 entries PPR colapsam → null
+            // (falha segura, audit reclama no Quantifica).
+            TigreCatalogEntry? pprAmbiguo = cat.FindMatch(
+                "Tubo PPR", "", "", "Tubo PPR 50", 50);
+            Assert.Null(pprAmbiguo);
+        }
+
+        [Fact]
         public void DisambiguationCase_prefers_more_specific_entry()
         {
             // "Tê" vs "Tê Redução" com query "Tê Redução": ambos passam
