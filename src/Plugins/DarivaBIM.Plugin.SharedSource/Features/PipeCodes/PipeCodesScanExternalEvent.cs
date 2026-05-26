@@ -10,8 +10,9 @@ using DarivaBIM.Revit.Adapters.Features.TigreCodes;
 namespace DarivaBIM.Plugin.Features.PipeCodes
 {
     /// <summary>
-    /// Wrapper de <c>ExternalEvent</c> que dispara a varredura de tubos para
-    /// a janela "Codificar Tubos". Sem transação — só leitura.
+    /// Wrapper de <c>ExternalEvent</c> que dispara a varredura de
+    /// elementos Tigre (Pipes + Conexões + Acessórios + Aparelhos) para
+    /// a janela "Codificar Tigre". Sem transação — só leitura.
     /// </summary>
     public sealed class PipeCodesScanExternalEvent
     {
@@ -66,7 +67,7 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
             {
                 win.NotifyScanCompleted(new TigreScanResult
                 {
-                    ErrorMessage = $"Falha ao varrer os tubos: {ex.Message}",
+                    ErrorMessage = $"Falha ao varrer os elementos Tigre: {ex.Message}",
                 });
             }
         }

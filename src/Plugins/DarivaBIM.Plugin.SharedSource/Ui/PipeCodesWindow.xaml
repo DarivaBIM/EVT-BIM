@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:common="clr-namespace:DarivaBIM.Presentation.Wpf.Common;assembly=DarivaBIM.Presentation.Wpf"
-        Title="Codificar Tubos — Tigre"
+        Title="Codificar Tigre — EVT-BIM"
         Width="1180"
         Height="720"
         MinWidth="980"
@@ -351,7 +351,7 @@
         <!-- ========================= Cabeçalho da página ========================= -->
         <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,12">
             <TextBlock DockPanel.Dock="Left"
-                       Text="Codificar Tubos — Tigre"
+                       Text="Codificar Tigre — EVT-BIM"
                        Style="{StaticResource PageTitleStyle}"
                        VerticalAlignment="Center"
                        Margin="0,0,14,0" />
@@ -493,7 +493,7 @@
                 <!-- Botão "Criar parâmetro nos tubos" -->
                 <Button Grid.Column="11"
                         Style="{StaticResource CreateParamButtonStyle}"
-                        Content="Criar parâmetro nos tubos"
+                        Content="Criar parâmetro Tigre: Código"
                         IsEnabled="{Binding CanCreateParameter}"
                         VerticalAlignment="Center"
                         Click="OnEnsureParameterClicked" />

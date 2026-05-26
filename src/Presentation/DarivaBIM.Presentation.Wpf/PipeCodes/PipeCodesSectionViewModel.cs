@@ -69,8 +69,8 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
         public string HeaderCountText => Groups.Count switch
         {
             0 => "—",
-            1 => $"1 tipo · {TotalPipes} tubo(s)",
-            _ => $"{Groups.Count} tipos · {TotalPipes} tubo(s)",
+            1 => $"1 tipo · {TotalPipes} elemento(s)",
+            _ => $"{Groups.Count} tipos · {TotalPipes} elemento(s)",
         };
 
         private bool _suppressBulkUpdate;
