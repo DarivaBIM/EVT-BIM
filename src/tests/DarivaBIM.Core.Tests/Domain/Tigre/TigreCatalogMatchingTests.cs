@@ -73,14 +73,127 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
         [Fact]
         public void Edge_accents_are_normalized_for_matching()
         {
-            // Descrição com ç/ã ("Conexão Macho ClicPEX") deve casar
-            // mesmo que o Normalize remova acentos antes do compare —
-            // input e entry passam pela mesma normalização.
-            TigreCatalogEntry? entry = Find("Conexão Macho ClicPEX", 25);
+            // Descrição com ç/ã ("Conexão Transição ClicPEX AQxPEX") deve
+            // casar mesmo que o Normalize remova acentos antes do compare —
+            // input e entry passam pela mesma normalização. Uso descrição
+            // única (DN 16 só tem uma Conexão Transição) pra evitar empate
+            // do AmbiguityGuard.
+            // diameterMm da entry "Conexão Transição ClicPEX AQxPEX 15x16mm"
+            // é 15 (dn1), não 16 — primeiro número da redução.
+            TigreCatalogEntry? entry = Find("Conexão Transição ClicPEX AQxPEX", 15);
 
             Assert.NotNull(entry);
             Assert.Contains("Conex", entry!.DescriptionRaw);
             Assert.Contains("ClicPEX", entry.DescriptionRaw);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // 2A.4 — Strip de polegada robusto + AmbiguityGuard
+        // ─────────────────────────────────────────────────────────────
+
+        [Theory]
+        // mm × polegada fracionária com aspa reta
+        [InlineData("Bucha Soldável 25x3/4\"", "Bucha Soldável")]
+        [InlineData("Conector 75x2.1/2\"", "Conector")]
+        [InlineData("Adaptador 22x1/2\"", "Adaptador")]
+        // polegada fracionária solo
+        [InlineData("Tubo CPVC TIGREFire 3/4'", "Tubo CPVC TIGREFire")]
+        [InlineData("Conector AQUATHERM 1.1/4\"", "Conector AQUATHERM")]
+        [InlineData("Registro 1.1/2'", "Registro")]
+        // polegada × polegada (aspa no meio)
+        [InlineData("Tê Redução TIGREFire 2.1/2'x2'", "Tê Redução TIGREFire")]
+        [InlineData("Bucha Redução 1.1/4\"x3/4\"", "Bucha Redução")]
+        // aspas Unicode curvas (copy/paste de Word)
+        [InlineData("Tubo CPVC TIGREFire 3/4’", "Tubo CPVC TIGREFire")]
+        [InlineData("Adaptador 22x1/2”", "Adaptador")]
+        // prime e double prime
+        [InlineData("Tubo 1′", "Tubo")]
+        [InlineData("Conector 2.1/2″", "Conector")]
+        public void StripDimensions_handles_inch_variants(
+            string input, string expectedLean)
+        {
+            string actual = TigreTextUtils.StripDimensions(input);
+            Assert.Equal(expectedLean, actual);
+        }
+
+        [Fact]
+        public void AmbiguousMatch_returns_null_when_lean_tokens_tied()
+        {
+            // PPR PN12.5/PN20/PN25 50mm tinham lean idêntica "Tubo PPR"
+            // e diameter 50 — pre-fix, FindMatch retornava o primeiro
+            // ordering, gravando SKU arbitrário. AmbiguityGuard agora
+            // detecta empate e devolve null.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 12.5 50mm - 3m",
+                    DiameterMm = 50, Code = 17010603,
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 20 50mm - 3m",
+                    DiameterMm = 50, Code = 17010107,
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 25 50mm - 3m",
+                    DiameterMm = 50, Code = 17010409,
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? entry = cat.FindMatch(
+                descriptionText: "Tubo PPR",
+                segmentText: string.Empty,
+                typeNameText: string.Empty,
+                combinedText: "Tubo PPR 50",
+                diameterMmRound: 50);
+
+            Assert.Null(entry);
+        }
+
+        [Fact]
+        public void DisambiguationCase_prefers_more_specific_entry()
+        {
+            // "Tê" vs "Tê Redução" com query "Tê Redução": ambos passam
+            // ContainsAllTokens (Tê é subset de "Tê Redução"), mas o
+            // tie-break por LeanCoreTokens.Count escolhe a mais específica.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tê TIGREFire 2.1/2'",
+                    DiameterMm = 64, Code = 22891332,
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tê Redução TIGREFire 2.1/2'x2'",
+                    DiameterMm = 64, Code = 22891642,
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? specific = cat.FindMatch(
+                descriptionText: "Tê Redução TIGREFire",
+                segmentText: string.Empty,
+                typeNameText: string.Empty,
+                combinedText: "Tê Redução TIGREFire 64",
+                diameterMmRound: 64);
+            Assert.NotNull(specific);
+            Assert.Equal(22891642, specific!.Code);
+
+            // Query "Tê TIGREFire" SEM "Redução": "Tê Redução" entry tem
+            // token "redução" que não está na query, então ela NÃO casa.
+            // Só "Tê TIGREFire" casa → match único.
+            TigreCatalogEntry? plain = cat.FindMatch(
+                descriptionText: "Tê TIGREFire",
+                segmentText: string.Empty,
+                typeNameText: string.Empty,
+                combinedText: "Tê TIGREFire 64",
+                diameterMmRound: 64);
+            Assert.NotNull(plain);
+            Assert.Equal(22891332, plain!.Code);
         }
     }
 }

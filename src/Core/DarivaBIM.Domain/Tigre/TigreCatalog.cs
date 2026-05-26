@@ -16,6 +16,10 @@ namespace DarivaBIM.Domain.Tigre
             "tubo", "tubos", "pipe", "pipes", "pvc", "material", "materiais",
             "marrom", "laranja", "branco", "branca", "azul", "verde", "cinza",
             "preto", "preta", "linha", "sistema",
+            // "x" sobra como resíduo de pares dimensionais que o
+            // StripInch não consegue colar 100% (ex.: "2.1/2'x2'"
+            // vira "x" no lean depois de strippar os dois termos).
+            "x",
         };
 
         private readonly IReadOnlyList<TigreCatalogEntry> _entries;
@@ -73,25 +77,39 @@ namespace DarivaBIM.Domain.Tigre
             // FindMatch via _entriesByDiameter. Famílias Revit não carregam
             // DN/mm/comprimento no segment, então comparar tokens raw da
             // descrição completa falha em ~todas entries do catálogo novo.
+            //
+            // AmbiguityGuard: coleta TODAS as entries que casam no tier,
+            // em vez de retornar a primeira. Tie-break = especificidade
+            // (mais tokens lean = mais específica). Empate no topo
+            // (várias entries com mesmo número de tokens, mesmo lean
+            // após strip) → retorna null. PipeCodes deixa código vazio
+            // e o audit do Quantifica reclama, em vez de gravar SKU
+            // arbitrário escolhido pela ordem de leitura do JSON.
+            List<TigreCatalogEntry> matches = new();
             foreach (TigreCatalogEntry entry in candidates)
             {
                 IReadOnlyList<string> tokens = core ? entry.LeanCoreTokens : entry.LeanTokens;
                 if (tokens.Count == 0)
                     continue;
 
-                if (core)
-                {
-                    if (TigreTextUtils.ContainsAllCoreTokens(text, tokens, _ignoreTokens))
-                        return entry;
-                }
-                else
-                {
-                    if (TigreTextUtils.ContainsAllTokens(text, tokens))
-                        return entry;
-                }
+                bool isMatch = core
+                    ? TigreTextUtils.ContainsAllCoreTokens(text, tokens, _ignoreTokens)
+                    : TigreTextUtils.ContainsAllTokens(text, tokens);
+
+                if (isMatch)
+                    matches.Add(entry);
             }
 
-            return null;
+            if (matches.Count == 0) return null;
+            if (matches.Count == 1) return matches[0];
+
+            int maxTokens = matches.Max(e =>
+                (core ? e.LeanCoreTokens : e.LeanTokens).Count);
+            List<TigreCatalogEntry> mostSpecific = matches
+                .Where(e =>
+                    (core ? e.LeanCoreTokens : e.LeanTokens).Count == maxTokens)
+                .ToList();
+            return mostSpecific.Count == 1 ? mostSpecific[0] : null;
         }
     }
 }

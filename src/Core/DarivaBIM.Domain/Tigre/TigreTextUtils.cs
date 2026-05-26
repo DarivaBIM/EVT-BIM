@@ -29,8 +29,35 @@ namespace DarivaBIM.Domain.Tigre
             @"\b\d+(?:[xX]\d+)?(?:[xX]\d+)?\s*mm\b",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        // 9 variantes de aspas/apóstrofes que aparecem em descrições de
+        // polegada — reta, apóstrofe, agudo, curvas (copy/paste de Word)
+        // e os primes Unicode usados pela ABNT.
+        //   U+0022 " quote reto          U+0027 ' apóstrofe reto
+        //   U+00B4 ´ agudo               U+2018 ‘ single curve esq
+        //   U+2019 ’ single curve dir    U+201C “ double curve esq
+        //   U+201D ” double curve dir    U+2032 ′ prime
+        //   U+2033 ″ double prime
+        private static readonly string InchQuoteChars =
+            "\u0022\u0027\u00B4\u2018\u2019\u201C\u201D\u2032\u2033";
+
+        // Pré-strip: "25x3/4\"", "75x2.1/2\"" — mm × polegada fracionária
+        // com aspas. Aplicado ANTES do StripInchRegex pra eliminar o par
+        // como unidade; senão o main strip consome só metade e deixa
+        // "25x3/" como lixo no lean.
+        private static readonly Regex StripFractionInchRegex = new(
+            @"\b\d+(?:\.\d+)?[xX]\d+(?:\.\d+)?/\d+\s*[" + InchQuoteChars + "]",
+            RegexOptions.Compiled);
+
+        // Pré-strip: "2.1/2'x2'", "1.1/4\"x3/4\"" — polegada × polegada
+        // com aspas no meio. Sem isso o main strip consome só metade
+        // e deixa "x2'" sobrando.
+        private static readonly Regex StripFractionInchPairRegex = new(
+            @"\b\d+(?:\.\d+)?(?:/\d+)?\s*[" + InchQuoteChars + @"]\s*[xX]\s*" +
+            @"\d+(?:\.\d+)?(?:/\d+)?\s*[" + InchQuoteChars + "]",
+            RegexOptions.Compiled);
+
         private static readonly Regex StripInchRegex = new(
-            @"\b\d+(?:\.\d+)?(?:[xX]\d+(?:\.\d+)?)?\s*['""´]",
+            @"\b\d+(?:\.\d+)?(?:[xX]\d+(?:\.\d+)?)?(?:/\d+)?\s*[" + InchQuoteChars + "]",
             RegexOptions.Compiled);
 
         private static readonly Regex StripPnRegex = new(
@@ -63,6 +90,10 @@ namespace DarivaBIM.Domain.Tigre
             string s = text!;
             s = StripDnRegex.Replace(s, " ");
             s = StripMmRegex.Replace(s, " ");
+            // Pré-strips de polegada precisam vir antes do strip simples
+            // pra capturar pares como unidade (25x3/4", 2.1/2'x2').
+            s = StripFractionInchPairRegex.Replace(s, " ");
+            s = StripFractionInchRegex.Replace(s, " ");
             s = StripInchRegex.Replace(s, " ");
             s = StripPnRegex.Replace(s, " ");
             s = StripLengthRegex.Replace(s, " ");
