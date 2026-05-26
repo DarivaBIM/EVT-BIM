@@ -154,6 +154,72 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
         }
 
         [Fact]
+        public void FindMatch_with_kindFilter_restricts_candidates_to_kind()
+        {
+            // 2B.3: dado catalog com Tubo Soldável (pipe) + Joelho 90
+            // Soldável (elbow) ambos dm=25, e query que contém ambos os
+            // tokens (Joelho + Soldável + 90):
+            //  - SEM kindFilter: AmbiguityGuard prefere o mais específico
+            //    (Joelho, 3 tokens) sobre Tubo (1 token).
+            //  - kindFilter="pipe": Joelho eliminado do candidate set,
+            //    sobra Tubo → Tubo casa (defensivo pra PipeCodes onde
+            //    o coletor já restringe a Pipes).
+            //  - kindFilter="elbow": Tubo eliminado, sobra Joelho → casa.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo Soldável 25mm - 6m",
+                    DiameterMm = 25, Code = 10120250, Kind = "pipe",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Joelho 90 Soldável 25mm",
+                    DiameterMm = 25, Code = 22150251, Kind = "elbow",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+            const string query = "Soldável Joelho 90";
+
+            TigreCatalogEntry? noFilter = cat.FindMatch(
+                query, "", "", query + " 25", 25);
+            Assert.NotNull(noFilter);
+            Assert.Equal(22150251, noFilter!.Code);
+
+            TigreCatalogEntry? onlyPipes = cat.FindMatch(
+                query, "", "", query + " 25", 25, kindFilter: "pipe");
+            Assert.NotNull(onlyPipes);
+            Assert.Equal(10120250, onlyPipes!.Code);
+            Assert.Equal("pipe", onlyPipes.Kind);
+
+            TigreCatalogEntry? onlyElbows = cat.FindMatch(
+                query, "", "", query + " 25", 25, kindFilter: "elbow");
+            Assert.NotNull(onlyElbows);
+            Assert.Equal(22150251, onlyElbows!.Code);
+        }
+
+        [Fact]
+        public void FindMatch_with_unknown_kindFilter_returns_null()
+        {
+            // 2B.3: kindFilter inexistente retorna null sem chamar matcher.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo Soldável 25mm - 6m",
+                    DiameterMm = 25, Code = 10120250, Kind = "pipe",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? entry = cat.FindMatch(
+                "Tubo Soldável", "", "", "Tubo Soldável 25",
+                25, kindFilter: "unicorn");
+
+            Assert.Null(entry);
+        }
+
+        [Fact]
         public void DisambiguationCase_prefers_more_specific_entry()
         {
             // "Tê" vs "Tê Redução" com query "Tê Redução": ambos passam

@@ -55,9 +55,40 @@ namespace DarivaBIM.Domain.Tigre
             string typeNameText,
             string combinedText,
             int diameterMmRound)
+            => FindMatch(
+                descriptionText, segmentText, typeNameText, combinedText,
+                diameterMmRound, kindFilter: null);
+
+        /// <summary>
+        /// Overload com filtro de kind ("pipe", "fitting", etc.). Quando
+        /// não-nulo, restringe candidates às entries onde
+        /// <see cref="TigreCatalogEntry.Kind"/> == kindFilter (compare
+        /// ordinal case-insensitive). PipeCodes usa "pipe" pra evitar
+        /// que um joelho/tê do catálogo cole acidentalmente num Pipe do
+        /// Revit. kindFilter desconhecido (sem entries) retorna null sem
+        /// chamar o matcher.
+        /// </summary>
+        public TigreCatalogEntry? FindMatch(
+            string descriptionText,
+            string segmentText,
+            string typeNameText,
+            string combinedText,
+            int diameterMmRound,
+            string? kindFilter)
         {
             if (!_entriesByDiameter.TryGetValue(diameterMmRound, out IReadOnlyList<TigreCatalogEntry>? sameDiameter))
                 return null;
+
+            if (kindFilter != null)
+            {
+                List<TigreCatalogEntry> filtered = sameDiameter
+                    .Where(e => e.Kind != null &&
+                                StringComparer.OrdinalIgnoreCase.Equals(e.Kind, kindFilter))
+                    .ToList();
+                if (filtered.Count == 0)
+                    return null;
+                sameDiameter = filtered;
+            }
 
             return
                 MatchByTokens(descriptionText, sameDiameter, core: false) ??
