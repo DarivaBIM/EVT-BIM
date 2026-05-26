@@ -199,6 +199,76 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
         }
 
         [Fact]
+        public void FindMatch_with_pn_in_query_disambiguates_ppr_pn20()
+        {
+            // 2B.4: catalog com PPR PN12.5/PN20/PN25 mesmo dm. Query
+            // que menciona "PN 20" filtra pra entry PN20 antes do
+            // AmbiguityGuard, evitando o null que o 2A.4 retornava.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 12.5 50mm - 3m",
+                    DiameterMm = 50, Code = 17010603, Pn = "12.5",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 20 50mm - 3m",
+                    DiameterMm = 50, Code = 17010107, Pn = "20",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 25 50mm - 3m",
+                    DiameterMm = 50, Code = 17010409, Pn = "25",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? pn20 = cat.FindMatch(
+                "Tubo PPR PN 20", "", "", "Tubo PPR PN 20 50",
+                50, kindFilter: null);
+            Assert.NotNull(pn20);
+            Assert.Equal(17010107, pn20!.Code);
+            Assert.Equal("20", pn20.Pn);
+
+            TigreCatalogEntry? pn125 = cat.FindMatch(
+                "Tubo PPR PN 12.5", "", "", "Tubo PPR PN 12.5 50",
+                50, kindFilter: null);
+            Assert.NotNull(pn125);
+            Assert.Equal("12.5", pn125!.Pn);
+
+            // Query sem PN: AmbiguityGuard mantém o comportamento atual
+            // (3 entries lean=Tubo PPR, mesmo count → null).
+            TigreCatalogEntry? noPn = cat.FindMatch(
+                "Tubo PPR", "", "", "Tubo PPR 50", 50, kindFilter: null);
+            Assert.Null(noPn);
+        }
+
+        [Fact]
+        public void FindMatch_with_pn_query_but_no_matching_pn_returns_null()
+        {
+            // 2B.4: catalog só tem PN20, query pede PN25 → null direto.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 20 50mm - 3m",
+                    DiameterMm = 50, Code = 17010107, Pn = "20",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? entry = cat.FindMatch(
+                "Tubo PPR PN 25", "", "", "Tubo PPR PN 25 50",
+                50, kindFilter: null);
+            Assert.Null(entry);
+        }
+
+        [Fact]
         public void FindMatch_with_unknown_kindFilter_returns_null()
         {
             // 2B.3: kindFilter inexistente retorna null sem chamar matcher.

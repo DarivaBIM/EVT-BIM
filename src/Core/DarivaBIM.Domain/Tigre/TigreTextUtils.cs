@@ -72,6 +72,25 @@ namespace DarivaBIM.Domain.Tigre
             @"\s+",
             RegexOptions.Compiled);
 
+        // Captura classe de pressão PPR em qualquer texto da query/entry.
+        // "PN 20" / "PN20" / "PN 12.5" → "20" / "20" / "12.5".
+        private static readonly Regex ExtractPnRegex = new(
+            @"\bPN\s*(\d+(?:\.\d+)?)\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
+        /// Extrai a classe de pressão (PN) do texto se houver. Retorna
+        /// string pra preservar precisão decimal — "12.5" e não 12.5
+        /// (float arredondamento). Null se o texto não menciona PN.
+        /// </summary>
+        public static string? ExtractPn(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+            Match m = ExtractPnRegex.Match(text!);
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
         /// <summary>
         /// Remove marcadores dimensionais (DN, mm, polegadas, PN, "- 6m"
         /// trailing) preservando a identificação do produto. Famílias Revit

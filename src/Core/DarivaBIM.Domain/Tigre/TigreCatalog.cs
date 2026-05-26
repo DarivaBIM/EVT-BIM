@@ -79,6 +79,25 @@ namespace DarivaBIM.Domain.Tigre
             if (!_entriesByDiameter.TryGetValue(diameterMmRound, out IReadOnlyList<TigreCatalogEntry>? sameDiameter))
                 return null;
 
+            // PN extraction: se a query menciona "PN 20"/"PN12.5"/etc, só
+            // entries com mesma classe podem casar — desambigua PPR
+            // PN12.5/PN20/PN25 que colapsariam pro mesmo lean. Primeira
+            // ocorrência no combined > description > typeName > segment.
+            string? queryPn =
+                TigreTextUtils.ExtractPn(combinedText) ??
+                TigreTextUtils.ExtractPn(descriptionText) ??
+                TigreTextUtils.ExtractPn(typeNameText) ??
+                TigreTextUtils.ExtractPn(segmentText);
+            if (queryPn != null)
+            {
+                List<TigreCatalogEntry> withPn = sameDiameter
+                    .Where(e => string.Equals(e.Pn, queryPn, StringComparison.Ordinal))
+                    .ToList();
+                if (withPn.Count == 0)
+                    return null;
+                sameDiameter = withPn;
+            }
+
             if (kindFilter != null)
             {
                 List<TigreCatalogEntry> filtered = sameDiameter
