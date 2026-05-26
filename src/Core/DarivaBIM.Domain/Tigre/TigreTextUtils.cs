@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace DarivaBIM.Domain.Tigre
 {
@@ -14,6 +15,60 @@ namespace DarivaBIM.Domain.Tigre
         };
 
         private static readonly char[] WordSplit = new[] { ' ' };
+
+        // Strip ordenado de marcadores dimensionais que poluem o token
+        // matching: a descrição "lean" preserva apenas o que identifica o
+        // PRODUTO (família, tipo, variação), nunca a especificação
+        // (diâmetro, pressão, comprimento). SR/SN/REDUX/Soldável/Roscável,
+        // Curta/Longa e acentos NÃO são strippados — diferenciam produtos.
+        private static readonly Regex StripDnRegex = new(
+            @"\b(?:DN|dn)\s*\d+(?:[xX]\d+)?(?:[xX]\d+)?\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex StripMmRegex = new(
+            @"\b\d+(?:[xX]\d+)?(?:[xX]\d+)?\s*mm\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex StripInchRegex = new(
+            @"\b\d+(?:\.\d+)?(?:[xX]\d+(?:\.\d+)?)?\s*['""´]",
+            RegexOptions.Compiled);
+
+        private static readonly Regex StripPnRegex = new(
+            @"\bPN\s*\d+(?:\.\d+)?\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex StripLengthRegex = new(
+            @"\s*-\s*\d+m\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex CollapseWhitespaceRegex = new(
+            @"\s+",
+            RegexOptions.Compiled);
+
+        /// <summary>
+        /// Remove marcadores dimensionais (DN, mm, polegadas, PN, "- 6m"
+        /// trailing) preservando a identificação do produto. Famílias Revit
+        /// raramente carregam diâmetro no segment/typeName, então a entry
+        /// do catálogo precisa estar "limpa" pra casar token-a-token.
+        ///
+        /// "Tubo Série Normal DN50 - 6m" → "Tubo Série Normal"
+        /// "Bucha de Redução AQUATHERM 73x35mm" → "Bucha de Redução AQUATHERM"
+        /// "Tubo PPR PN 20 50mm - 3m" → "Tubo PPR"
+        /// </summary>
+        public static string StripDimensions(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+
+            string s = text!;
+            s = StripDnRegex.Replace(s, " ");
+            s = StripMmRegex.Replace(s, " ");
+            s = StripInchRegex.Replace(s, " ");
+            s = StripPnRegex.Replace(s, " ");
+            s = StripLengthRegex.Replace(s, " ");
+            s = CollapseWhitespaceRegex.Replace(s, " ").Trim();
+            return s;
+        }
 
         public static string Normalize(string? text)
         {

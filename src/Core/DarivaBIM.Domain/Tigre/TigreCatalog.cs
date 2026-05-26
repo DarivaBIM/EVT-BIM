@@ -31,8 +31,8 @@ namespace DarivaBIM.Domain.Tigre
             _entries = rows
                 .Where(r => !string.IsNullOrWhiteSpace(r.Description) && r.DiameterMm > 0 && r.Code > 0)
                 .Select(r => new TigreCatalogEntry(r.Description, r.DiameterMm, r.Code, _ignoreTokens))
-                .OrderByDescending(e => e.CoreTokens.Count)
-                .ThenByDescending(e => e.Tokens.Count)
+                .OrderByDescending(e => e.LeanCoreTokens.Count)
+                .ThenByDescending(e => e.LeanTokens.Count)
                 .ToList();
 
             // Indexa por diâmetro (int) para eliminar o filtro O(n) por chamada
@@ -68,9 +68,14 @@ namespace DarivaBIM.Domain.Tigre
 
         private TigreCatalogEntry? MatchByTokens(string text, IReadOnlyList<TigreCatalogEntry> candidates, bool core)
         {
+            // Tokeniza contra LeanCoreTokens/LeanTokens (descrição sem
+            // marcadores dimensionais) — diâmetro já foi pre-filtrado em
+            // FindMatch via _entriesByDiameter. Famílias Revit não carregam
+            // DN/mm/comprimento no segment, então comparar tokens raw da
+            // descrição completa falha em ~todas entries do catálogo novo.
             foreach (TigreCatalogEntry entry in candidates)
             {
-                IReadOnlyList<string> tokens = core ? entry.CoreTokens : entry.Tokens;
+                IReadOnlyList<string> tokens = core ? entry.LeanCoreTokens : entry.LeanTokens;
                 if (tokens.Count == 0)
                     continue;
 
