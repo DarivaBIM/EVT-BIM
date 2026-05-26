@@ -3,6 +3,8 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.DTOs.Quantifica;
 using DarivaBIM.Application.UseCases.GenerateQuantitySnapshot;
+using DarivaBIM.Domain.Tigre;
+using DarivaBIM.Infrastructure.Persistence.TigreCatalog;
 using DarivaBIM.Plugin.Ui;
 using DarivaBIM.Revit.Adapters.Features.TigreQuantifica;
 
@@ -58,7 +60,14 @@ namespace DarivaBIM.Plugin.Features.TigreQuantifica
                 }
 
                 Document doc = uiDoc.Document;
-                QuantityScanner scanner = new(doc);
+                // Slice 2D — Scanner agora consome o detector "é Tigre?"
+                // (TigreManufacturerDetector via QuantityCategoryMap.
+                // ShouldExpectTigreCode) pra audit POR ELEMENTO. Loader
+                // do catálogo é instanciado por scan (espelhando padrão
+                // do PipeCodesScanExternalEvent), sem cache cross-scan
+                // — o JSON é leitura única + cheap.
+                TigreCatalog catalog = new TigreCatalogJsonLoader().Load();
+                QuantityScanner scanner = new(doc, catalog);
                 GenerateQuantitySnapshotUseCase useCase = new(scanner);
                 QuantitySnapshot snapshot = useCase.Execute();
 
