@@ -508,11 +508,53 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Cliente: " Style="{StaticResource PageHintStyle}" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ProjectClient}"
-                               Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" Margin="0,0,18,4" />
+                    <!-- Slice 4.3.B F4 — Cliente/Autor editáveis inline.
+                         LostFocus dispara save (binding default em TextBox);
+                         Enter força commit do binding + save imediato;
+                         Esc descarta dirty. Borda azul sutil indica dirty. -->
+                    <TextBox Grid.Row="0" Grid.Column="1"
+                             Text="{Binding ProjectClient, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                             FontSize="12" FontWeight="SemiBold"
+                             Foreground="{StaticResource TextMuted}"
+                             Background="Transparent"
+                             BorderBrush="{StaticResource SoftBorder}"
+                             BorderThickness="0,0,0,1"
+                             Padding="2,1"
+                             Margin="0,0,18,4"
+                             LostFocus="OnProjectFieldLostFocus"
+                             KeyDown="OnProjectFieldKeyDown">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsProjectInfoDirty}" Value="True">
+                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
                     <TextBlock Grid.Row="0" Grid.Column="2" Text="Autor: " Style="{StaticResource PageHintStyle}" />
-                    <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding ProjectAuthor}"
-                               Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBox Grid.Row="0" Grid.Column="3"
+                             Text="{Binding ProjectAuthor, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                             FontSize="12" FontWeight="SemiBold"
+                             Foreground="{StaticResource TextMuted}"
+                             Background="Transparent"
+                             BorderBrush="{StaticResource SoftBorder}"
+                             BorderThickness="0,0,0,1"
+                             Padding="2,1"
+                             Margin="0,0,0,4"
+                             LostFocus="OnProjectFieldLostFocus"
+                             KeyDown="OnProjectFieldKeyDown">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsProjectInfoDirty}" Value="True">
+                                        <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Data: " Style="{StaticResource PageHintStyle}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ProjectIssueDate}"
                                Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" Margin="0,0,18,0" />
@@ -591,10 +633,63 @@
                 <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
 
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0">
-                <ItemsControl ItemsSource="{Binding Categories}"
-                              ItemTemplate="{StaticResource CategoryCardTemplate}" />
-            </ScrollViewer>
+            <!-- Slice 4.3.B F3 — TextBox de busca acima do scroll de
+                 categorias. Filter substring case-insensitive sobre
+                 Familia, Tipo, Diametro, COD. TIGRE, Descricao,
+                 TigreDescricao, Fabricante. Bind em FilteredCategories
+                 (projecao filtrada). Categorias sem matches ficam
+                 Collapsed via DataTrigger no ItemContainerStyle. -->
+            <Grid Grid.Column="0" Margin="0,0,12,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Padding="0,0,0,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchBox"
+                                 Grid.Column="0"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="12"
+                                 Padding="8,5"
+                                 BorderBrush="{StaticResource SoftBorder}"
+                                 BorderThickness="1"
+                                 Background="{StaticResource CardBg}"
+                                 ToolTip="Busca substring em Família, Tipo, Diâmetro, Código Tigre, Descrição, Fabricante." />
+                        <Button Grid.Column="1"
+                                Content="✕"
+                                Click="OnClearSearchClicked"
+                                Margin="6,0,0,0"
+                                Padding="10,5"
+                                FontSize="11"
+                                Background="{StaticResource CardBg}"
+                                BorderBrush="{StaticResource SoftBorder}"
+                                BorderThickness="1"
+                                Cursor="Hand"
+                                ToolTip="Limpar busca"
+                                Visibility="{Binding HasSearchText, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding FilteredCategories}"
+                                  ItemTemplate="{StaticResource CategoryCardTemplate}">
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsVisible}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
 
             <Border Grid.Column="1"
                     Background="{StaticResource CardBg}"
