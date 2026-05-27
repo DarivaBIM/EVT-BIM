@@ -1115,33 +1115,45 @@
             </Border>
         </Grid>
 
-        <!-- ========================= Rodapé ========================= -->
+        <!-- ========================= Rodape =========================
+             Slice 4.1 — footer responsivo: status em coluna proporcional com
+             text-wrap (libera espaco quando os botoes crescem com contador
+             "(999)") + WrapPanel pra que os botoes quebrem pra linha de
+             baixo em janelas estreitas (MinWidth=980). MinWidth no status
+             evita que o status seja zerado quando o ApplyButton expande. -->
         <Grid Grid.Row="3" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="220" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0"
                        Text="{Binding StatusMessage}"
                        Style="{StaticResource PageHintStyle}"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Margin="0,0,12,0" />
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+            <WrapPanel Grid.Column="1"
+                       Orientation="Horizontal"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center">
                 <Button Style="{StaticResource NeutralButtonStyle}"
                         Content="Atualizar lista"
-                        Margin="0,0,0,0"
+                        Margin="0,4,0,0"
                         ToolTip="Re-varre o projeto e atualiza as caixinhas."
                         Click="OnRescanClicked" />
                 <Button Style="{StaticResource GhostDangerButtonStyle}"
                         Content="{Binding ClearButtonLabel}"
+                        Margin="6,4,0,0"
                         IsEnabled="{Binding CanClear}"
                         Click="OnClearClicked" />
                 <Button Style="{StaticResource PrimaryButtonStyle}"
                         Content="{Binding ApplyButtonLabel}"
+                        Margin="6,4,0,0"
                         IsEnabled="{Binding CanApply}"
                         Click="OnApplyClicked" />
-            </StackPanel>
+            </WrapPanel>
         </Grid>
     </Grid>
 </Window>
