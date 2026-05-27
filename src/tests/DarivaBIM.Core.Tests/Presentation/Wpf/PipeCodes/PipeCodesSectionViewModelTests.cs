@@ -36,6 +36,7 @@ namespace DarivaBIM.Core.Tests.Presentation.Wpf.PipeCodes
 
             section.Groups.Add(new PipeCodesGroupViewModel(
                 categoryName: "Tubulações",
+                familyName: "Tubo Soldável 25mm",
                 typeName: "Tubo Soldável 25mm",
                 diameterMm: 25,
                 count: 3,
@@ -45,7 +46,8 @@ namespace DarivaBIM.Core.Tests.Presentation.Wpf.PipeCodes
 
             section.Groups.Add(new PipeCodesGroupViewModel(
                 categoryName: "Conexões de tubo",
-                typeName: "Joelho 90 Soldável",
+                familyName: "Tigre - Joelho 90 Soldável",
+                typeName: "JL90-25",
                 diameterMm: 25,
                 count: 2,
                 status: TigrePipeStatus.Missing,
@@ -54,6 +56,7 @@ namespace DarivaBIM.Core.Tests.Presentation.Wpf.PipeCodes
 
             section.Groups.Add(new PipeCodesGroupViewModel(
                 categoryName: "Tubulações",
+                familyName: "Tubo Série Normal",
                 typeName: "Tubo Série Normal",
                 diameterMm: 50,
                 count: 1,

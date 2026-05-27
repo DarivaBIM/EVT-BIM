@@ -325,6 +325,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
 
                 section.Groups.Add(new PipeCodesGroupViewModel(
                     g.CategoryName,
+                    g.FamilyName,
                     g.TypeName,
                     g.DiameterMm,
                     g.Count,
