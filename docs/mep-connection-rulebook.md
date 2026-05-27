@@ -336,69 +336,134 @@ Arquivo proposto: `src/Core/DarivaBIM.Domain/Mep/Connections/Resources/connectio
 
 ---
 
-## 4. Algoritmo de classificação
+## 4. O que são `lexicalHints` e `lexicalDisambiguators`
 
+Esses dois blocos no JSON **não são** sobre fontes do elemento — são sobre **quais tokens caracterizam cada subtipo**. Ficam no JSON por subtype, não por elemento.
+
+### `lexicalHints` — tokens **típicos** que descrevem o subtype
+
+Lista de palavras que normalmente aparecem em FamilyName/TypeName/Description quando o elemento é desse subtipo. Usados pra:
+
+- **Validar / aumentar confiança** do match topológico (topologia é Elbow+90°, e "joelho" aparece no nome → confiança alta).
+- **Tiebreak** entre múltiplos candidatos topologicamente compatíveis (`joelho-90` e `curva-90` têm mesma topologia; quem tem mais hints no texto vence).
+
+Exemplo:
+```json
+"joelho-90": { "lexicalHints": ["joelho", "curva", "90"] }
+"te":        { "lexicalHints": ["te"] }
+"juncao-simples": { "lexicalHints": ["juncao"] }
 ```
-ConnectionIdentity Classify(topology, familyName, typeName, tigreDescription, description):
 
-  1. CAMADA TOPOLÓGICA — filtra regras compatíveis:
-     candidates = rules.Where(r => r.topology.matches(topology))
+### `lexicalDisambiguators` — palavra-chave promove pra subtipo-filho
 
-  2. Se candidates.Count == 0:
-     return ConnectionIdentity { Subtype: Unknown, Confidence: Low }
+Mapa `palavra → subtype-id` que **reclassifica** o match pra uma variante específica quando o token aparece no texto.
 
-  3. Se candidates.Count == 1:
-     subtype = candidates[0].id
-     [continua pra desambiguação léxica de subtype-filho — disambiguators]
-
-  4. CAMADA LÉXICA — desambigua subtipos com mesma topologia:
-     fontes = [familyName×4, typeName×3, tigreDescription×2, description×1]
-     allText = concat(fontes), case-insensitive, accent-stripped
-
-     pra cada candidate em candidates:
-       score = soma(weight × hint matches in source) pra cada lexicalHint
-       disambig = aplicar lexicalDisambiguators (palavra A→subtype B substitui)
-
-     winner = argmax(score)
-     se empate, prioriza candidate sem requiresLexicalConfirmation;
-     se ainda empate, primeiro candidate por ordem do JSON
-
-  5. CAMADA LINHA — identifica material/linha do produto:
-     linha = match em lexicalLines (mesmo allText)
-     ex: "ESG_Redux_Joelho 45_90" → linha = "redux"
-
-  6. Retorna ConnectionIdentity {
-       Subtype = winner.id,
-       PrimaryDn = topology.diameters[0],
-       SecondaryDn = topology.diameters[1] if reduction,
-       AngleDeg = topology.primaryAngleDeg,
-       Line = linha,
-       ConfidenceTopology = "high" | "medium" | "low",
-       ConfidenceLexical = "high" | "medium" | "low"
-     }
+Exemplo:
+```json
+"joelho-90": {
+  "lexicalHints": ["joelho", "curva", "90"],
+  "lexicalDisambiguators": {
+    "curva":        "curva-90",
+    "transposicao": "curva-transposicao",
+    "rosca":        "joelho-90-rosca",
+    "bucha":        "joelho-90-bucha-latao"
+  }
+}
 ```
+
+Lógica: o classifier acha `joelho-90` topologicamente. Procura disambiguators no texto. Se nenhum bate, mantém `joelho-90`. Se "rosca" aparece, promove pra `joelho-90-rosca` (subtype-filho).
 
 ---
 
-## 5. Integração com Códigos Tigre
+## 5. Algoritmo de classificação (refinado — score universal)
+
+Score usa **só fontes universais** (FamilyName/TypeName/Description). Esses params existem em **qualquer** família Revit, não dependem de shared params específicos Tigre. Mantém o módulo `Mep.Connections` reusável por outras ferramentas (perda de carga, gerenciador de famílias, etc).
 
 ```
-TigreCatalogV2.FindMatch(connectionIdentity):
+ConnectionIdentity Classify(topology, familyName, typeName, description):
 
-  1. Filtra entries onde:
-       entry.subtype == identity.Subtype
-       AND entry.dn1 == identity.PrimaryDn (±tolerância)
-       AND (identity.SecondaryDn == null OR entry.dn2 == identity.SecondaryDn ±tol)
-       AND entry.productLine == identity.Line (se identity.Line não-null)
+  // CAMADA 1 — TOPOLOGIA: filtra regras compatíveis
+  candidates = rules.Where(r => r.topology.matches(topology))
+  Se candidates.Count == 0:
+    return ConnectionIdentity { Subtype: Unknown, Confidence: Low }
 
-  2. Se 1 match: retorna code
+  // CAMADA 2 — SCORE LÉXICO: desempata entre candidates topologicamente compatíveis
+  allText = NormalizeForSearch(familyName + " " + typeName + " " + description)
+  // (3 fontes universais: peso por origem)
+  scoredText = {
+    "familyName":  NormalizeForSearch(familyName),   // peso 3
+    "typeName":    NormalizeForSearch(typeName),     // peso 2
+    "description": NormalizeForSearch(description)   // peso 1
+  }
 
-  3. Se múltiplos: desempate por LeanCoreTokens em description/tigreDescription/family
-     (mesma lógica de score atual mas só nas entries pre-filtradas)
+  pra cada candidate em candidates:
+    candidate.score = 0
+    pra cada hint em candidate.lexicalHints:
+      se hint in scoredText.familyName:   candidate.score += 3
+      se hint in scoredText.typeName:     candidate.score += 2
+      se hint in scoredText.description:  candidate.score += 1
 
-  4. Se 0 matches mas identity.Confidence=High: confiável audit issue
-     ("Tigre não tem SKU pra esse subtipo + DN")
+  winner = argmax(candidates.score)
+  Se empate persistente:
+    1) prioriza candidate sem requiresLexicalConfirmation
+    2) prioriza candidate que apareceu primeiro no JSON
+
+  // CAMADA 3 — DISAMBIGUATORS: promove pra subtype-filho se palavra-chave bate
+  pra cada (palavra → subtypeFilho) em winner.lexicalDisambiguators:
+    se palavra ∈ allText:
+      winner = rules[subtypeFilho]
+      break
+
+  // CAMADA 4 — LINHA: identifica material/linha (sempre opcional, não bloqueia)
+  linha = matchInLexicalLines(allText)
+    // ex: "ESG_Redux_Joelho 45_90" → linha = "redux"
+
+  return ConnectionIdentity {
+    Subtype = winner.id,
+    PrimaryDn = topology.diameters[0],
+    SecondaryDn = topology.diameters[1] se reduction,
+    AngleDeg = topology.primaryAngleDeg,
+    Line = linha,    // opcional — só preenchido se algum token de linha matchou
+    ConfidenceTopology = "high"|"medium"|"low",
+    ConfidenceLexical = "high"|"medium"|"low"
+  }
 ```
+
+**Nota arquitetural:** o classifier NÃO conhece `Tigre: Descrição` nem outros shared params específicos de fabricante. Esses só entram **a jusante**, no consumer (ex: `TigreCatalogV2.FindMatch` faz seu próprio bonus de match contra `Tigre: Descrição` depois do classifier produzir o `ConnectionIdentity`).
+
+---
+
+## 6. Integração com Códigos Tigre (consumer-side)
+
+A camada "Tigre: Descrição" entra **só aqui**, sem poluir `Mep.Connections`:
+
+```
+TigreCatalogV2.FindMatch(connectionIdentity, element):
+
+  // PRE-FILTER por estrutura (já temos via classifier)
+  candidates = entries.Where(e =>
+    e.subtype == connectionIdentity.Subtype
+    AND e.dn1 ≈ connectionIdentity.PrimaryDn (±tolerância)
+    AND (connectionIdentity.SecondaryDn == null OR e.dn2 ≈ connectionIdentity.SecondaryDn)
+    AND (connectionIdentity.Line == null OR e.productLine == connectionIdentity.Line)
+  )
+
+  Se candidates.Count == 0: return null  // audit "Tigre não tem SKU"
+  Se candidates.Count == 1: return candidates[0]
+
+  // TIEBREAK específico Tigre: bonus se "Tigre: Descrição" preenchido bate
+  tigreDescricao = LookupParameter(element, "Tigre: Descrição")
+  Se tigreDescricao não-vazio:
+    pra cada candidate em candidates:
+      bonus = tokensIntersection(candidate.description, tigreDescricao) * 5  // peso alto
+
+  // Fallback: score por descrição completa do catalog vs família+tipo
+  // (mesma lógica universal do classifier mas comparando contra entry.description
+  // em vez de subtype hints)
+  return argmax(candidates.score + bonus)
+```
+
+Vantagem: `Mep.Connections` permanece agnóstico de fabricante; `TigreCatalogV2` usa Tigre: Descrição como bonus opcional sem amarrar o módulo Domain à Tigre.
 
 ---
 
@@ -420,7 +485,11 @@ TigreCatalogV2.FindMatch(connectionIdentity):
 ## 7. Perguntas pra você antes da implementação
 
 1. **Aceita o schema acima?** Quer adicionar/remover algum subtipo?
-2. **Faz sentido `lexicalDisambiguators` ser um simples mapa palavra→subtype-filho?** Ou prefere lógica de score mais elaborada (peso por fonte: family > type > tigreDesc > desc)?
+2. ~~`lexicalDisambiguators` simples ou score elaborado?~~ ✅ Decidido (2026-05-28):
+   - Score universal `FamilyName×3 + TypeName×2 + Description×1` (sem Tigre: Descrição)
+   - `lexicalHints` valida/desempata candidatos topológicos
+   - `lexicalDisambiguators` promove pra subtype-filho via palavra-chave
+   - Tigre: Descrição entra só no consumer-side (TigreCatalogV2), não no classifier genérico
 3. **Caixas Sifonadas / Ralos / Corpo Caixa** ficam fora do rulebook (são PlumbingFixtures, geometria não-cilíndrica) ou criamos categoria separada?
 4. **Tubos** ficam fora (só conexões aqui)? Tubo é Pipe, não FamilyInstance — não tem ConnectorManager da mesma forma. Já funciona razoável no matcher atual via texto. Manteria fora?
 5. **PartType "Other"/"Undefined"** sempre permite match topológico (inferimos via topologia mesmo) ou só algumas regras aceitam?
