@@ -147,55 +147,75 @@
         </Style>
 
         <!-- DataTemplate da linha agregada (uma por QuantityGroupViewModel).
-             Tabela: 11 colunas. CSV: 12 colunas (Família e Tipo separados
-             no export, consolidados no slice 1.6 F3 #4 caso seja necessário).
-             Coluna "DESCRIÇÃO (tipo)" REMOVIDA — bindava o mesmo Description
-             que a coluna 5; era ruído visual sem informação distinta. -->
+             Tabela: 8 colunas (Slice 4.5).
+               1. ELEMENTO        (TigreDescription | Familia · Tipo)
+               2. DIÂM.
+               3. COD. TIGRE
+               4. DESCRIÇÃO
+               5. FABRICANTE
+               6. QTD             (QuantityText — un/m/m² conforme MeasurementKind)
+               7. UN
+               8. AUDITORIA
+             CSV continua com 12 colunas (Familia e Tipo separados no
+             export pra relatorio estruturado).
+             Tooltip "Família: X / Tipo: Y" em ELEMENTO permite inspecao
+             sem custar coluna na grade visual. -->
         <DataTemplate x:Key="GroupRowTemplate">
             <Border BorderBrush="{StaticResource SoftBorder}"
                     BorderThickness="0,0,0,1"
                     Padding="0,6">
-                <!-- Slice 4.2 F3 #6 — MinWidth nas colunas mais criticas
-                     pra evitar que truncamento agressivo apague campos
-                     essenciais (FAMILIA / TIPO / COD. TIGRE / DESCRICAO).
-                     ToolTip por celula via Setter no Style.Triggers nao
-                     funciona em TextBlock (sem ContextMenu nem Tag), entao
-                     ToolTip e setado inline. -->
+                <!-- Larguras: ELEMENTO ganha o ratio combinado de
+                     FAMILIA(1.6) + TIPO(1.2) = 2.8* — texto longo do
+                     TigreDescription cabe sem truncar agressivo. SISTEMA
+                     e QTD (ElementCountText, mesmo valor de QuantityText
+                     pra Count) sairam — coluna QTD agora = QuantityText. -->
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.6*" MinWidth="90" />
-                        <ColumnDefinition Width="1.2*" MinWidth="70" />
+                        <ColumnDefinition Width="2.8*" MinWidth="180" />
                         <ColumnDefinition Width="0.7*" MinWidth="45" />
                         <ColumnDefinition Width="0.7*" MinWidth="60" />
                         <ColumnDefinition Width="1.5*" MinWidth="100" />
                         <ColumnDefinition Width="0.9*" MinWidth="60" />
-                        <ColumnDefinition Width="0.9*" MinWidth="60" />
-                        <ColumnDefinition Width="0.5*" MinWidth="34" />
                         <ColumnDefinition Width="0.7*" MinWidth="55" />
                         <ColumnDefinition Width="0.4*" MinWidth="28" />
                         <ColumnDefinition Width="1.0*" MinWidth="80" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"  Style="{StaticResource BodyCell}" Text="{Binding Family}"
-                               ToolTip="{Binding Family}" />
-                    <TextBlock Grid.Column="1"  Style="{StaticResource BodyCell}" Text="{Binding Type}"
-                               ToolTip="{Binding Type}" />
-                    <TextBlock Grid.Column="2"  Style="{StaticResource BodyCell}" Text="{Binding Diameter}"
+                    <TextBlock Grid.Column="0" Style="{StaticResource BodyCell}" Text="{Binding ElementText}">
+                        <TextBlock.ToolTip>
+                            <ToolTip>
+                                <StackPanel>
+                                    <TextBlock>
+                                        <Run Text="Família: " FontWeight="SemiBold" />
+                                        <Run Text="{Binding Family, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <TextBlock>
+                                        <Run Text="Tipo: " FontWeight="SemiBold" />
+                                        <Run Text="{Binding Type, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <!-- Descricao Tigre quando preenchida (familia do catalogo).
+                                         Quando vazia, o Run fica vazio mas nao quebra o tooltip;
+                                         a linha some visualmente porque TextBlock vazio nao
+                                         desenha conteudo nem ocupa altura quando o pai e StackPanel. -->
+                                    <TextBlock>
+                                        <Run Text="{Binding TigreDescription, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </ToolTip>
+                        </TextBlock.ToolTip>
+                    </TextBlock>
+                    <TextBlock Grid.Column="1" Style="{StaticResource BodyCell}" Text="{Binding Diameter}"
                                ToolTip="{Binding Diameter}" />
-                    <TextBlock Grid.Column="3"  Style="{StaticResource BodyCell}" Text="{Binding TigreCode}"
+                    <TextBlock Grid.Column="2" Style="{StaticResource BodyCell}" Text="{Binding TigreCode}"
                                ToolTip="{Binding TigreCode}" />
-                    <TextBlock Grid.Column="4"  Style="{StaticResource BodyCell}" Text="{Binding Description}"
+                    <TextBlock Grid.Column="3" Style="{StaticResource BodyCell}" Text="{Binding Description}"
                                ToolTip="{Binding Description}" />
-                    <TextBlock Grid.Column="5"  Style="{StaticResource BodyCell}" Text="{Binding Manufacturer}"
+                    <TextBlock Grid.Column="4" Style="{StaticResource BodyCell}" Text="{Binding Manufacturer}"
                                ToolTip="{Binding Manufacturer}" />
-                    <TextBlock Grid.Column="6"  Style="{StaticResource BodyCell}" Text="{Binding System}"
-                               ToolTip="{Binding System}" />
-                    <TextBlock Grid.Column="7"  Style="{StaticResource BodyCell}" Text="{Binding ElementCountText}"
-                               ToolTip="{Binding ElementCountText}" />
-                    <TextBlock Grid.Column="8"  Style="{StaticResource BodyCell}" Text="{Binding QuantityText}"
+                    <TextBlock Grid.Column="5" Style="{StaticResource BodyCell}" Text="{Binding QuantityText}"
                                ToolTip="{Binding QuantityText}" />
-                    <TextBlock Grid.Column="9"  Style="{StaticResource BodyCell}" Text="{Binding Unit}"
+                    <TextBlock Grid.Column="6" Style="{StaticResource BodyCell}" Text="{Binding Unit}"
                                ToolTip="{Binding Unit}" />
-                    <TextBlock Grid.Column="10" Style="{StaticResource BodyCell}" Text="{Binding AuditNote}"
+                    <TextBlock Grid.Column="7" Style="{StaticResource BodyCell}" Text="{Binding AuditNote}"
                                Foreground="{StaticResource RedAccent}"
                                ToolTip="{Binding AuditNote}" />
                 </Grid>
@@ -310,39 +330,35 @@
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <!-- Cabeçalho da tabela. 11 colunas, ratios + MinWidth
-                             iguais ao GroupRowTemplate (Slice 4.2 F3 #6) pra
-                             header e rows alinharem mesmo com truncamento.
-                             CSV continua com 12 colunas (Família e Tipo
-                             separados no export). -->
+                        <!-- Cabeçalho da tabela. 8 colunas (Slice 4.5), ratios
+                             + MinWidth iguais ao GroupRowTemplate pra header e
+                             rows alinharem mesmo com truncamento.
+                             FAMÍLIA + TIPO consolidados em ELEMENTO; SISTEMA
+                             + QTD (ElementCount redundante) removidos.
+                             CSV mantém 12 colunas (Família, Tipo e Tigre:
+                             Descrição separadas no export estruturado). -->
                         <Border BorderBrush="{StaticResource SoftBorder}"
                                 BorderThickness="0,0,0,1"
                                 Padding="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.6*" MinWidth="90" />
-                                    <ColumnDefinition Width="1.2*" MinWidth="70" />
+                                    <ColumnDefinition Width="2.8*" MinWidth="180" />
                                     <ColumnDefinition Width="0.7*" MinWidth="45" />
                                     <ColumnDefinition Width="0.7*" MinWidth="60" />
                                     <ColumnDefinition Width="1.5*" MinWidth="100" />
                                     <ColumnDefinition Width="0.9*" MinWidth="60" />
-                                    <ColumnDefinition Width="0.9*" MinWidth="60" />
-                                    <ColumnDefinition Width="0.5*" MinWidth="34" />
                                     <ColumnDefinition Width="0.7*" MinWidth="55" />
                                     <ColumnDefinition Width="0.4*" MinWidth="28" />
                                     <ColumnDefinition Width="1.0*" MinWidth="80" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0"  Style="{StaticResource HeaderCell}" Text="FAMÍLIA" />
-                                <TextBlock Grid.Column="1"  Style="{StaticResource HeaderCell}" Text="TIPO" />
-                                <TextBlock Grid.Column="2"  Style="{StaticResource HeaderCell}" Text="DIÂM." />
-                                <TextBlock Grid.Column="3"  Style="{StaticResource HeaderCell}" Text="COD. TIGRE" />
-                                <TextBlock Grid.Column="4"  Style="{StaticResource HeaderCell}" Text="DESCRIÇÃO" />
-                                <TextBlock Grid.Column="5"  Style="{StaticResource HeaderCell}" Text="FABRICANTE" />
-                                <TextBlock Grid.Column="6"  Style="{StaticResource HeaderCell}" Text="SISTEMA" />
-                                <TextBlock Grid.Column="7"  Style="{StaticResource HeaderCell}" Text="QTD" />
-                                <TextBlock Grid.Column="8"  Style="{StaticResource HeaderCell}" Text="QUANTIDADE" />
-                                <TextBlock Grid.Column="9"  Style="{StaticResource HeaderCell}" Text="UN" />
-                                <TextBlock Grid.Column="10" Style="{StaticResource HeaderCell}" Text="AUDITORIA" />
+                                <TextBlock Grid.Column="0" Style="{StaticResource HeaderCell}" Text="ELEMENTO" />
+                                <TextBlock Grid.Column="1" Style="{StaticResource HeaderCell}" Text="DIÂM." />
+                                <TextBlock Grid.Column="2" Style="{StaticResource HeaderCell}" Text="COD. TIGRE" />
+                                <TextBlock Grid.Column="3" Style="{StaticResource HeaderCell}" Text="DESCRIÇÃO" />
+                                <TextBlock Grid.Column="4" Style="{StaticResource HeaderCell}" Text="FABRICANTE" />
+                                <TextBlock Grid.Column="5" Style="{StaticResource HeaderCell}" Text="QTD" />
+                                <TextBlock Grid.Column="6" Style="{StaticResource HeaderCell}" Text="UN" />
+                                <TextBlock Grid.Column="7" Style="{StaticResource HeaderCell}" Text="AUDITORIA" />
                             </Grid>
                         </Border>
                         <ItemsControl ItemsSource="{Binding Groups}"
