@@ -100,7 +100,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 if (isTigre)
                     acc.MarkTigre();
                 if (isTigre && string.IsNullOrWhiteSpace(data.TigreDescription))
-                    acc.MarkTigreDescriptionMissing();
+                    acc.MarkTigreDescriptionMissing(element.Id.Value);
 
                 // Audit por categoria — só rastreia BICs nas quais algum
                 // dos 3 campos é esperado. Se a categoria não espera nada,
@@ -118,31 +118,42 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                         categoryCounters[bic] = counters;
                     }
                     counters.Total++;
+                    long elementIdLong = element.Id.Value;
                     if (!string.IsNullOrWhiteSpace(data.Manufacturer))
                         counters.WithManufacturer++;
+                    else if (expectsManufacturer)
+                        counters.MissingManufacturerIds.Add(elementIdLong);
                     if (!string.IsNullOrWhiteSpace(data.System))
                         counters.WithSystem++;
+                    else if (expectsSystem)
+                        counters.MissingSystemIds.Add(elementIdLong);
                     if (isTigre)
                     {
                         counters.TigreTotal++;
                         if (!string.IsNullOrWhiteSpace(data.TigreCode))
                             counters.TigreWithCode++;
+                        else
+                            counters.MissingTigreCodeIds.Add(elementIdLong);
                     }
                 }
             }
 
-            // F6-LITE — Agrega "Tigre: Descrição" ausente por categoria a
-            // partir dos acumuladores (apenas grupos IsTigre). Categoria é
+            // F6-LITE/F1 — Agrega "Tigre: Descrição" ausente por categoria
+            // a partir dos acumuladores (apenas grupos IsTigre). Categoria é
             // a chave (não BIC) pra alinhar com os outros findings que já
-            // saem por CategoryName.
-            Dictionary<string, int> tigreDescriptionMissingByCategory =
+            // saem por CategoryName. Lista de IDs vai pro DTO ElementIds.
+            Dictionary<string, List<long>> tigreDescriptionMissingByCategory =
                 new(StringComparer.OrdinalIgnoreCase);
             foreach (KeyValuePair<GroupKey, GroupAccumulator> kv in groups)
             {
                 if (kv.Value.TigreDescriptionMissingCount <= 0) continue;
                 string catName = kv.Key.Category;
-                tigreDescriptionMissingByCategory.TryGetValue(catName, out int prev);
-                tigreDescriptionMissingByCategory[catName] = prev + kv.Value.TigreDescriptionMissingCount;
+                if (!tigreDescriptionMissingByCategory.TryGetValue(catName, out List<long>? sink))
+                {
+                    sink = new List<long>();
+                    tigreDescriptionMissingByCategory[catName] = sink;
+                }
+                sink.AddRange(kv.Value.TigreDescriptionMissingIds);
             }
 
             List<QuantityGroup> groupDtos = BuildGroupDtos(groups);
@@ -159,16 +170,17 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
         }
 
         private static IEnumerable<QuantityAuditFinding> BuildTigreDescriptionFindings(
-            Dictionary<string, int> missingByCategory)
+            Dictionary<string, List<long>> missingByCategory)
         {
-            foreach (KeyValuePair<string, int> kv in missingByCategory)
+            foreach (KeyValuePair<string, List<long>> kv in missingByCategory)
             {
-                if (kv.Value <= 0) continue;
+                if (kv.Value.Count <= 0) continue;
                 yield return new QuantityAuditFinding
                 {
                     FamilyType = kv.Key,
-                    MissingFields = new[] { $"Tigre: Descrição ausente em {kv.Value} elemento(s)" },
+                    MissingFields = new[] { $"Tigre: Descrição ausente em {kv.Value.Count} elemento(s)" },
                     Severity = AuditSeverity.Yellow,
+                    ElementIds = kv.Value.ToArray(),
                 };
             }
         }
@@ -547,6 +559,8 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                         FamilyType = c.CategoryName,
                         MissingFields = new[] { "Tigre: Código" },
                         Severity = AuditSeverity.Red,
+                        ElementIds = c.MissingTigreCodeIds.ToArray(),
+                        IsTigreCodigoMissing = true,
                     };
                 }
 
@@ -562,6 +576,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                         FamilyType = c.CategoryName,
                         MissingFields = new[] { $"Fabricante ausente em {missing} elemento(s)" },
                         Severity = AuditSeverity.Yellow,
+                        ElementIds = c.MissingManufacturerIds.ToArray(),
                     };
                 }
 
@@ -576,6 +591,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                         FamilyType = c.CategoryName,
                         MissingFields = new[] { $"Sistema ausente em {missing} elemento(s)" },
                         Severity = AuditSeverity.Yellow,
+                        ElementIds = c.MissingSystemIds.ToArray(),
                     };
                 }
             }
@@ -677,11 +693,13 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             public bool IsTigre { get; private set; }
 
             /// <summary>
-            /// Contagem de elementos Tigre do grupo com "Tigre: Descrição"
+            /// IDs dos elementos Tigre do grupo com "Tigre: Descrição"
             /// ausente/vazio. F6-LITE — alimenta o audit Yellow por
-            /// categoria em BuildCategoryFindings.
+            /// categoria; F1 — passa pro DTO ElementIds.
             /// </summary>
-            public int TigreDescriptionMissingCount { get; private set; }
+            public List<long> TigreDescriptionMissingIds { get; } = new();
+
+            public int TigreDescriptionMissingCount => TigreDescriptionMissingIds.Count;
 
             public void Add(decimal q)
             {
@@ -691,7 +709,8 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
 
             public void MarkTigre() => IsTigre = true;
 
-            public void MarkTigreDescriptionMissing() => TigreDescriptionMissingCount++;
+            public void MarkTigreDescriptionMissing(long elementId) =>
+                TigreDescriptionMissingIds.Add(elementId);
         }
 
         private sealed class CategoryAuditCounters
@@ -719,6 +738,14 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
 
             /// <summary>Subset de TigreTotal que tem Tigre: Código preenchido.</summary>
             public int TigreWithCode { get; set; }
+
+            // Slice 4.3.A F1 — Listas de IDs por gap, populadas em paralelo
+            // com os contadores. Findings agregados (Yellow/Red) levam essas
+            // listas pro DTO, alimentando o "Corrigir agora" e a
+            // SelectInRevit. ElementId.Value já é long (cross-version 2024+).
+            public List<long> MissingTigreCodeIds { get; } = new();
+            public List<long> MissingManufacturerIds { get; } = new();
+            public List<long> MissingSystemIds { get; } = new();
         }
 
         private readonly struct ElementData
