@@ -404,6 +404,7 @@
     <Grid Margin="20,16,20,14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />  <!-- Slice 4.3.A F1 ampliado: banner de filtro -->
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -421,8 +422,35 @@
                        Text="Marque os Tipo + Diâmetro para inserir, regravar ou apagar o parâmetro Tigre: Código." />
         </DockPanel>
 
-        <!-- ========================= Faixa de resumo ========================= -->
+        <!-- ========================= Slice 4.3.A F1 ampliado — Banner de filtro =========================
+             Aparece quando ShowSingleton(prefilterIds) foi acionado pelo
+             "Corrigir agora" do Tigre Quantifica. Mostra contagem dos IDs
+             filtrados e botão pra remover o filtro (rescan completo). -->
         <Border Grid.Row="1"
+                Background="#FFFAEB"
+                BorderBrush="#F4DFA1"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="14,8"
+                Margin="0,0,0,12"
+                Visibility="{Binding IsFiltered, Converter={StaticResource BoolToVisibilityConverter}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Content="Limpar filtro"
+                        Padding="10,4"
+                        Margin="14,0,0,0"
+                        FontWeight="SemiBold"
+                        Cursor="Hand"
+                        Click="OnClearFilterClicked" />
+                <TextBlock Foreground="#92660B"
+                           VerticalAlignment="Center"
+                           Text="{Binding FilteredCountText}"
+                           FontWeight="SemiBold" />
+            </DockPanel>
+        </Border>
+
+        <!-- ========================= Faixa de resumo ========================= -->
+        <Border Grid.Row="2"
                 Background="{StaticResource CardBackgroundBrush}"
                 BorderBrush="{StaticResource SoftBorderBrush}"
                 BorderThickness="1"
@@ -562,7 +590,7 @@
         </Border>
 
         <!-- ========================= 4 cards lado a lado ========================= -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -1125,7 +1153,7 @@
              "(999)") + WrapPanel pra que os botoes quebrem pra linha de
              baixo em janelas estreitas (MinWidth=980). MinWidth no status
              evita que o status seja zerado quando o ApplyButton expande. -->
-        <Grid Grid.Row="3" Margin="0,12,0,0">
+        <Grid Grid.Row="4" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="220" />
                 <ColumnDefinition Width="Auto" />

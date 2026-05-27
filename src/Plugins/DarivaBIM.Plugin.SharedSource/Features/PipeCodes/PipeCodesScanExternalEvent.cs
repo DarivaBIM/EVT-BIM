@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.DTOs.Tigre;
@@ -13,6 +14,10 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
     /// Wrapper de <c>ExternalEvent</c> que dispara a varredura de
     /// elementos Tigre (Pipes + Conexões + Acessórios + Aparelhos) para
     /// a janela "Codificar Tigre". Sem transação — só leitura.
+    ///
+    /// Slice 4.3.A F1 ampliado — <see cref="Raise"/> aceita prefilter
+    /// opcional de IDs, propagado pro <see cref="TigreCodeScanner"/>
+    /// via ctor. Se null/vazio, comportamento original (varredura completa).
     /// </summary>
     public sealed class PipeCodesScanExternalEvent
     {
@@ -25,9 +30,10 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
             _externalEvent = ExternalEvent.Create(_handler);
         }
 
-        public void Raise(PipeCodesWindow window)
+        public void Raise(PipeCodesWindow window, IReadOnlyCollection<long>? prefilterIds = null)
         {
             _handler.Window = window ?? throw new ArgumentNullException(nameof(window));
+            _handler.PrefilterIds = prefilterIds;
             _externalEvent.Raise();
         }
     }
@@ -35,6 +41,7 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
     internal sealed class PipeCodesScanHandler : IExternalEventHandler
     {
         public PipeCodesWindow? Window { get; set; }
+        public IReadOnlyCollection<long>? PrefilterIds { get; set; }
 
         public string GetName() => "EvtBim.PipeCodesScanHandler";
 
@@ -57,7 +64,7 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
                 }
 
                 Document doc = uiDoc.Document;
-                TigreCodeScanner scanner = new(doc, new TigreCatalogJsonLoader());
+                TigreCodeScanner scanner = new(doc, new TigreCatalogJsonLoader(), PrefilterIds);
                 ScanTigreCodesUseCase useCase = new(scanner);
                 TigreScanResult result = useCase.Execute();
 

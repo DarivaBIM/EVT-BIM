@@ -23,11 +23,27 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
     {
         private readonly Document _doc;
         private readonly ITigreCatalogProvider _catalogProvider;
+        // Slice 4.3.A F1 ampliado — set opcional de IDs pra filtrar o
+        // collector. Vem do "Corrigir agora" do Tigre Quantifica: scanner
+        // só processa esses elementos. Null quando varredura é completa
+        // (default). HashSet pra lookup O(1) no foreach.
+        private readonly HashSet<long>? _prefilterIds;
 
         public TigreCodeScanner(Document doc, ITigreCatalogProvider catalogProvider)
+            : this(doc, catalogProvider, prefilterIds: null)
+        {
+        }
+
+        public TigreCodeScanner(
+            Document doc,
+            ITigreCatalogProvider catalogProvider,
+            IReadOnlyCollection<long>? prefilterIds)
         {
             _doc = doc ?? throw new ArgumentNullException(nameof(doc));
             _catalogProvider = catalogProvider ?? throw new ArgumentNullException(nameof(catalogProvider));
+            _prefilterIds = prefilterIds == null || prefilterIds.Count == 0
+                ? null
+                : new HashSet<long>(prefilterIds);
         }
 
         public TigreScanResult Scan()
@@ -43,6 +59,21 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             }
 
             IList<Element> elements = TigreElementCollector.CollectTigreElements(_doc, catalog);
+            if (_prefilterIds != null)
+            {
+                // Filtra após collector pra preservar a heurística do detector
+                // (TigreManufacturerDetector dentro de CollectTigreElements).
+                // Caso edge: usuário corrigiu o catálogo entre o scan
+                // do Quantifica e o "Corrigir agora", e o detector agora
+                // recusa um ID antes elegível — silenciosamente sumido.
+                List<Element> filtered = new(elements.Count);
+                foreach (Element e in elements)
+                {
+                    if (_prefilterIds.Contains(e.Id.Value))
+                        filtered.Add(e);
+                }
+                elements = filtered;
+            }
 
             // Streaming via Dictionary — espelha QuantityScanner do Slice 2D
             // (NUNCA materializar duas vezes em projetos grandes).

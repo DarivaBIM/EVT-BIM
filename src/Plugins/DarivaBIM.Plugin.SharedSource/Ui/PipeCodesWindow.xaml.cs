@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Windows;
 using Autodesk.Revit.UI;
@@ -24,6 +25,11 @@ namespace DarivaBIM.Plugin.Ui
         private readonly PipeCodesApplyExternalEvent _applyEvent;
         private readonly PipeCodesClearExternalEvent _clearEvent;
         private readonly PipeCodesEnsureParameterExternalEvent _ensureEvent;
+
+        // Slice 4.3.A F1 ampliado — prefilter ativo na sessão atual da
+        // janela. Quando setado (via ShowSingleton(ids)), todo Raise do
+        // _scanEvent leva os IDs. Null = varredura completa.
+        private IReadOnlyCollection<long>? _prefilterIds;
 
         public PipeCodesViewModel ViewModel { get; }
 
@@ -53,16 +59,48 @@ namespace DarivaBIM.Plugin.Ui
 
         public static PipeCodesWindow ShowSingleton()
         {
+            return ShowSingleton(prefilterIds: null);
+        }
+
+        /// <summary>
+        /// Singleton com prefilter opcional de IDs — vindo do "Corrigir
+        /// agora" do Tigre Quantifica (Slice 4.3.A F1 ampliado).
+        /// <c>null</c> ou lista vazia = varredura completa (comportamento
+        /// histórico). Quando preenchido, dispara re-scan filtrado mesmo
+        /// se a janela já estava aberta.
+        /// </summary>
+        public static PipeCodesWindow ShowSingleton(IReadOnlyCollection<long>? prefilterIds)
+        {
+            bool isNew = _instance == null;
             if (_instance == null)
             {
                 _instance = new PipeCodesWindow();
                 _instance.Closed += (_, _) => _instance = null;
             }
 
+            // Snapshot defensivo + propaga pra próxima varredura.
+            _instance._prefilterIds = prefilterIds != null && prefilterIds.Count > 0
+                ? prefilterIds.ToArray()
+                : null;
+
+            int filteredCount = _instance._prefilterIds?.Count ?? 0;
+            _instance.ViewModel.SetFilterState(filteredCount);
+            if (filteredCount == 0)
+                _instance.ViewModel.ClearFilterState();
+
             if (!_instance.IsVisible)
                 _instance.Show();
 
             _instance.Activate();
+
+            // Se a janela já estava aberta, force re-scan com o prefilter
+            // novo (Loaded só dispara em janelas novas — singleton já
+            // existente não re-loadea).
+            if (!isNew)
+                _instance.RaiseScan(filteredCount > 0
+                    ? $"Filtrando {filteredCount} elemento(s) do finding..."
+                    : "Re-lendo elementos do projeto...");
+
             return _instance;
         }
 
@@ -122,6 +160,15 @@ namespace DarivaBIM.Plugin.Ui
             RaiseScan("Re-lendo tubos do projeto…");
         }
 
+        // Slice 4.3.A F1 ampliado — limpa o prefilter ativo e re-escaneia
+        // o projeto inteiro.
+        private void OnClearFilterClicked(object sender, RoutedEventArgs e)
+        {
+            _prefilterIds = null;
+            ViewModel.ClearFilterState();
+            RaiseScan("Removendo filtro e re-lendo o projeto…");
+        }
+
         private void OnEnsureParameterClicked(object sender, RoutedEventArgs e)
         {
             ViewModel.IsBusy = true;
@@ -168,7 +215,7 @@ namespace DarivaBIM.Plugin.Ui
         {
             ViewModel.IsBusy = true;
             ViewModel.StatusMessage = busyMessage;
-            _scanEvent.Raise(this);
+            _scanEvent.Raise(this, _prefilterIds);
         }
 
         private void RunOnUi(Action action)

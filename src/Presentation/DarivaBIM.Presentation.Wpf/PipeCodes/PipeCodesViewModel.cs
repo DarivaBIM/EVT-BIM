@@ -229,6 +229,56 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             set => SetField(ref _statusMessage, value);
         }
 
+        // ---------- Slice 4.3.A F1 ampliado — prefilter por IDs ----------
+
+        private bool _isFiltered;
+        /// <summary>
+        /// <c>true</c> quando o scanner foi chamado com prefilter de IDs
+        /// (vindo do "Corrigir agora" do Tigre Quantifica). Habilita o
+        /// banner no topo da janela com botão "Limpar filtro".
+        /// </summary>
+        public bool IsFiltered
+        {
+            get => _isFiltered;
+            private set
+            {
+                if (SetField(ref _isFiltered, value))
+                    OnPropertyChanged(nameof(FilteredCountText));
+            }
+        }
+
+        private int _filteredCount;
+        public int FilteredCount
+        {
+            get => _filteredCount;
+            private set
+            {
+                if (SetField(ref _filteredCount, value))
+                    OnPropertyChanged(nameof(FilteredCountText));
+            }
+        }
+
+        public string FilteredCountText =>
+            IsFiltered
+                ? $"Filtrado: {FilteredCount} elemento(s) do finding 'Tigre: Código ausente'"
+                : string.Empty;
+
+        /// <summary>
+        /// Marca o estado de filtro pra UI. Chamado pelo code-behind ao
+        /// passar prefilter pro ExternalEvent de scan.
+        /// </summary>
+        public void SetFilterState(int filteredCount)
+        {
+            FilteredCount = filteredCount;
+            IsFiltered = filteredCount > 0;
+        }
+
+        public void ClearFilterState()
+        {
+            FilteredCount = 0;
+            IsFiltered = false;
+        }
+
         // ---------- Operações ----------
 
         /// <summary>
