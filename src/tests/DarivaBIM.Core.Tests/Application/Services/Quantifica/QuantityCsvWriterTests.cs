@@ -13,8 +13,12 @@ namespace DarivaBIM.Core.Tests.Application.Services.Quantifica
 
             Assert.StartsWith("﻿", csv);
             string firstLine = csv.Substring(1).Split('\n')[0].TrimEnd('\r');
+            // Slice 4.5 — coluna "Sistema" removida. Sistema deixou de
+            // ser chave de agrupamento e nao aparece mais no relatorio
+            // tabular. Audit Yellow "Sistema ausente" continua via
+            // QuantityAuditFinding em paralelo.
             Assert.Equal(
-                "Categoria;Família;Tipo;Diâmetro;Cód. Tigre;Descrição;Tigre: Descrição;Fabricante;Sistema;Qtd;Quantidade;Un;Auditoria",
+                "Categoria;Família;Tipo;Diâmetro;Cód. Tigre;Descrição;Tigre: Descrição;Fabricante;Qtd;Quantidade;Un;Auditoria",
                 firstLine);
         }
 
@@ -49,8 +53,11 @@ namespace DarivaBIM.Core.Tests.Application.Services.Quantifica
 
             Assert.True(lines.Length >= 2);
             string dataLine = lines[1].TrimEnd('\r');
+            // Slice 4.5 — coluna Sistema removida do CSV. Linha vai direto
+            // de Fabricante pra Qtd; "Água Fria" continua sendo lido pelo
+            // scanner pra audit findings, mas nao aparece no relatorio.
             Assert.Equal(
-                "Tubulações;Tubo - Soldável;PVC 25mm;25 mm;47013;Tubo PVC Soldável;Tubo Sold. PVC 25mm;Tigre;Água Fria;3;12,50;m;",
+                "Tubulações;Tubo - Soldável;PVC 25mm;25 mm;47013;Tubo PVC Soldável;Tubo Sold. PVC 25mm;Tigre;3;12,50;m;",
                 dataLine);
         }
 
@@ -172,6 +179,38 @@ namespace DarivaBIM.Core.Tests.Application.Services.Quantifica
             // "Joelho Sold. 25mm Tigre" (Tigre: Descrição), depois ;
             // (Fabricante vazio).
             Assert.Contains(";Joelho 90°;Joelho Sold. 25mm Tigre;;", csv);
+        }
+
+        [Fact]
+        public void Write_does_not_emit_system_column_even_when_dto_has_system()
+        {
+            // Slice 4.5 — Sistema saiu do CSV. Mesmo que o scanner deixasse
+            // System preenchido no DTO (legado / instance fallback raro),
+            // o writer NAO inclui essa coluna. Este test protege contra
+            // regressao acidental que volte a serializar System.
+            QuantitySnapshot snapshot = new()
+            {
+                Groups = new[]
+                {
+                    new QuantityGroup
+                    {
+                        Category = "Tubulações",
+                        Family = "Tubo Sold",
+                        Type = "PVC 25",
+                        Description = "Tubo",
+                        Manufacturer = "Tigre",
+                        System = "Água Fria",
+                        MeasurementKind = MeasurementKind.LengthMeters,
+                        ElementCount = 1,
+                        Quantity = 4m,
+                    },
+                },
+            };
+
+            string csv = QuantityCsvWriter.Write(snapshot);
+
+            Assert.DoesNotContain(";Água Fria;", csv);
+            Assert.DoesNotContain("Sistema", csv);
         }
 
         [Fact]

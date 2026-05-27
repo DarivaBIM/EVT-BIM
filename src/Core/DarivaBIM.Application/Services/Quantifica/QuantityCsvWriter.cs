@@ -31,6 +31,13 @@ namespace DarivaBIM.Application.Services.Quantifica
         // próximas, depois metadados de identidade do fornecedor/sistema,
         // depois quantitativos). Ordem das colunas é parte de contrato com
         // Tigre — qualquer reordenação deve sair via memória do projeto.
+        //
+        // Slice 4.5 — coluna "Sistema" removida do CSV. Sistema deixou de
+        // ser chave de agrupamento (linhas com mesmo SKU em sistemas
+        // diferentes unificam), então não faz sentido manter a coluna no
+        // export. A auditoria Yellow "Sistema ausente em N elemento(s)"
+        // continua chegando via QuantityAuditFinding, mas o relatório
+        // tabular não exibe mais o valor por linha.
         private static readonly string[] HeaderColumns =
         {
             "Categoria",
@@ -41,7 +48,6 @@ namespace DarivaBIM.Application.Services.Quantifica
             "Descrição",
             "Tigre: Descrição",
             "Fabricante",
-            "Sistema",
             "Qtd",
             "Quantidade",
             "Un",
@@ -67,6 +73,10 @@ namespace DarivaBIM.Application.Services.Quantifica
 
         private static IReadOnlyList<string> BuildGroupRow(QuantityGroup group)
         {
+            // Slice 4.5 — Sistema removido. ElementCount continua na
+            // coluna "Qtd" (mesma semântica do scanner: contagem de
+            // instâncias agregadas), e "Quantidade" continua refletindo
+            // MeasurementKind (un/m/m²).
             return new[]
             {
                 group.Category ?? string.Empty,
@@ -77,7 +87,6 @@ namespace DarivaBIM.Application.Services.Quantifica
                 group.Description ?? string.Empty,
                 group.TigreDescription ?? string.Empty,
                 group.Manufacturer ?? string.Empty,
-                group.System ?? string.Empty,
                 group.ElementCount.ToString(PtBr),
                 FormatQuantity(group.Quantity, group.MeasurementKind),
                 group.MeasurementKind.ToUnitLabel(),
