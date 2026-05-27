@@ -155,7 +155,13 @@
             </Border>
         </DataTemplate>
 
-        <!-- DataTemplate de um card de categoria. -->
+        <!-- DataTemplate de um card de categoria.
+             Slice 4.2 F5 — Expander envolve a tabela, two-way binding em
+             QuantityCategoryViewModel.IsExpanded (default true). Header
+             vira ToggleButton custom: chevron rotaciona 0->90 conforme
+             estado expandido, click no header inteiro toggleia. Template
+             do Expander reescrito porque o chrome default (com box
+             expander) conflita visualmente com o card. -->
         <DataTemplate x:Key="CategoryCardTemplate">
             <Border Background="{StaticResource CardBg}"
                     BorderBrush="{StaticResource SoftBorder}"
@@ -163,60 +169,136 @@
                     CornerRadius="6"
                     Padding="16,12,14,12"
                     Margin="0,0,0,10">
-                <StackPanel>
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Category}" Style="{StaticResource PageTitleStyle}" />
-                            <TextBlock Text=" · " Style="{StaticResource PageHintStyle}" Margin="6,0" />
-                            <TextBlock Style="{StaticResource PageHintStyle}">
-                                <Run Text="{Binding GroupCount, Mode=OneWay}" />
-                                <Run Text=" grupos" />
-                            </TextBlock>
-                        </StackPanel>
-                        <TextBlock Grid.Column="1"
-                                   Style="{StaticResource EyebrowLabel}"
-                                   Text="{Binding Unit}"
-                                   VerticalAlignment="Center" />
-                    </Grid>
-                    <!-- Cabeçalho da tabela. 11 colunas, ratios iguais ao GroupRowTemplate.
-                         CSV continua com 12 colunas (Família e Tipo separados no export). -->
-                    <Border BorderBrush="{StaticResource SoftBorder}"
-                            BorderThickness="0,0,0,1"
-                            Padding="0,0,0,4">
+                <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          Padding="0">
+                    <Expander.Style>
+                        <Style TargetType="Expander">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Expander">
+                                        <StackPanel>
+                                            <ToggleButton x:Name="HeaderToggle"
+                                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                          Cursor="Hand"
+                                                          Background="Transparent"
+                                                          BorderThickness="0"
+                                                          HorizontalContentAlignment="Stretch"
+                                                          Focusable="False">
+                                                <ToggleButton.Template>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Border Background="Transparent" Padding="0">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <!-- Chevron 10x10, rotaciona 0->90 quando expandido.
+                                                                     Trigger seta RenderTransform inteira (TargetName
+                                                                     precisa apontar pro elemento nomeado no namescope,
+                                                                     não pro Transform interno). -->
+                                                                <Path x:Name="Chevron"
+                                                                      Grid.Column="0"
+                                                                      Width="10" Height="10"
+                                                                      Margin="0,0,8,0"
+                                                                      VerticalAlignment="Center"
+                                                                      Stretch="Uniform"
+                                                                      Fill="{StaticResource TextMuted}"
+                                                                      Data="M 0,0 L 8,4 L 0,8 Z"
+                                                                      RenderTransformOrigin="0.5,0.5">
+                                                                    <Path.RenderTransform>
+                                                                        <RotateTransform Angle="0" />
+                                                                    </Path.RenderTransform>
+                                                                </Path>
+                                                                <ContentPresenter Grid.Column="1" VerticalAlignment="Center" />
+                                                            </Grid>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="Chevron" Property="RenderTransform">
+                                                                    <Setter.Value>
+                                                                        <RotateTransform Angle="90" />
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </ToggleButton.Template>
+                                                <ContentPresenter ContentSource="Header" />
+                                            </ToggleButton>
+                                            <ContentPresenter x:Name="ExpandSite"
+                                                              ContentSource="Content"
+                                                              Visibility="Collapsed"
+                                                              Margin="0,8,0,0" />
+                                        </StackPanel>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsExpanded" Value="True">
+                                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Expander.Style>
+                    <Expander.Header>
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1.6*" />
-                                <ColumnDefinition Width="1.2*" />
-                                <ColumnDefinition Width="0.7*" />
-                                <ColumnDefinition Width="0.7*" />
-                                <ColumnDefinition Width="1.5*" />
-                                <ColumnDefinition Width="0.9*" />
-                                <ColumnDefinition Width="0.9*" />
-                                <ColumnDefinition Width="0.5*" />
-                                <ColumnDefinition Width="0.7*" />
-                                <ColumnDefinition Width="0.4*" />
-                                <ColumnDefinition Width="1.0*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"  Style="{StaticResource HeaderCell}" Text="FAMÍLIA" />
-                            <TextBlock Grid.Column="1"  Style="{StaticResource HeaderCell}" Text="TIPO" />
-                            <TextBlock Grid.Column="2"  Style="{StaticResource HeaderCell}" Text="DIÂM." />
-                            <TextBlock Grid.Column="3"  Style="{StaticResource HeaderCell}" Text="COD. TIGRE" />
-                            <TextBlock Grid.Column="4"  Style="{StaticResource HeaderCell}" Text="DESCRIÇÃO" />
-                            <TextBlock Grid.Column="5"  Style="{StaticResource HeaderCell}" Text="FABRICANTE" />
-                            <TextBlock Grid.Column="6"  Style="{StaticResource HeaderCell}" Text="SISTEMA" />
-                            <TextBlock Grid.Column="7"  Style="{StaticResource HeaderCell}" Text="QTD" />
-                            <TextBlock Grid.Column="8"  Style="{StaticResource HeaderCell}" Text="QUANTIDADE" />
-                            <TextBlock Grid.Column="9"  Style="{StaticResource HeaderCell}" Text="UN" />
-                            <TextBlock Grid.Column="10" Style="{StaticResource HeaderCell}" Text="AUDITORIA" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Category}" Style="{StaticResource PageTitleStyle}" />
+                                <TextBlock Text=" · " Style="{StaticResource PageHintStyle}" Margin="6,0" />
+                                <TextBlock Style="{StaticResource PageHintStyle}">
+                                    <Run Text="{Binding GroupCount, Mode=OneWay}" />
+                                    <Run Text=" grupos" />
+                                </TextBlock>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1"
+                                       Style="{StaticResource EyebrowLabel}"
+                                       Text="{Binding Unit}"
+                                       VerticalAlignment="Center" />
                         </Grid>
-                    </Border>
-                    <ItemsControl ItemsSource="{Binding Groups}"
-                                  ItemTemplate="{StaticResource GroupRowTemplate}" />
-                </StackPanel>
+                    </Expander.Header>
+                    <StackPanel>
+                        <!-- Cabeçalho da tabela. 11 colunas, ratios iguais ao GroupRowTemplate.
+                             CSV continua com 12 colunas (Família e Tipo separados no export). -->
+                        <Border BorderBrush="{StaticResource SoftBorder}"
+                                BorderThickness="0,0,0,1"
+                                Padding="0,0,0,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.6*" />
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="0.7*" />
+                                    <ColumnDefinition Width="0.7*" />
+                                    <ColumnDefinition Width="1.5*" />
+                                    <ColumnDefinition Width="0.9*" />
+                                    <ColumnDefinition Width="0.9*" />
+                                    <ColumnDefinition Width="0.5*" />
+                                    <ColumnDefinition Width="0.7*" />
+                                    <ColumnDefinition Width="0.4*" />
+                                    <ColumnDefinition Width="1.0*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"  Style="{StaticResource HeaderCell}" Text="FAMÍLIA" />
+                                <TextBlock Grid.Column="1"  Style="{StaticResource HeaderCell}" Text="TIPO" />
+                                <TextBlock Grid.Column="2"  Style="{StaticResource HeaderCell}" Text="DIÂM." />
+                                <TextBlock Grid.Column="3"  Style="{StaticResource HeaderCell}" Text="COD. TIGRE" />
+                                <TextBlock Grid.Column="4"  Style="{StaticResource HeaderCell}" Text="DESCRIÇÃO" />
+                                <TextBlock Grid.Column="5"  Style="{StaticResource HeaderCell}" Text="FABRICANTE" />
+                                <TextBlock Grid.Column="6"  Style="{StaticResource HeaderCell}" Text="SISTEMA" />
+                                <TextBlock Grid.Column="7"  Style="{StaticResource HeaderCell}" Text="QTD" />
+                                <TextBlock Grid.Column="8"  Style="{StaticResource HeaderCell}" Text="QUANTIDADE" />
+                                <TextBlock Grid.Column="9"  Style="{StaticResource HeaderCell}" Text="UN" />
+                                <TextBlock Grid.Column="10" Style="{StaticResource HeaderCell}" Text="AUDITORIA" />
+                            </Grid>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Groups}"
+                                      ItemTemplate="{StaticResource GroupRowTemplate}" />
+                    </StackPanel>
+                </Expander>
             </Border>
         </DataTemplate>
 
