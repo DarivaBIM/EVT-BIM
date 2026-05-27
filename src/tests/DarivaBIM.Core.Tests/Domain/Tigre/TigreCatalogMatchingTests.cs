@@ -269,6 +269,77 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
         }
 
         [Fact]
+        public void FindMatch_with_kindFilters_set_accepts_any_kind_in_set()
+        {
+            // 3.6 (Codex blocker fix) — uma BIC Revit (PipeFitting) cobre
+            // N kinds do catálogo (fitting/tee/elbow/reducer/cap). O filtro
+            // por CONJUNTO permite que a query case qualquer um deles, em
+            // vez do mismatch antigo onde só "fitting" passava (479 entries
+            // ficavam invisíveis).
+            // Catalog só com tê + joelho (sem tubo) — isola o filtro
+            // de kind. Se incluísse o tubo, a query "Tê Soldável" casaria
+            // o tubo pelo token "soldavel", mascarando o filtro.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tê Soldável 25mm",
+                    DiameterMm = 25, Code = 22200259, Kind = "tee",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Joelho 90 Soldável 25mm",
+                    DiameterMm = 25, Code = 22150251, Kind = "elbow",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            // kindFilters PipeFitting (5 kinds) casa o Tê (kind=tee)
+            string[] fittingKinds = { "fitting", "tee", "elbow", "reducer", "cap" };
+            TigreCatalogEntry? tee = cat.FindMatch(
+                "Tê Soldável", "", "", "Tê Soldável 25",
+                25, kindFilters: fittingKinds);
+            Assert.NotNull(tee);
+            Assert.Equal(22200259, tee!.Code);
+
+            // Mesmo conjunto casa o Joelho (kind=elbow)
+            TigreCatalogEntry? joelho = cat.FindMatch(
+                "Joelho 90 Soldável", "", "", "Joelho 90 Soldável 25",
+                25, kindFilters: fittingKinds);
+            Assert.NotNull(joelho);
+            Assert.Equal(22150251, joelho!.Code);
+
+            // kindFilters de PipeCurves (só "pipe") elimina tê+joelho →
+            // null sem matcher.
+            TigreCatalogEntry? teeFiltered = cat.FindMatch(
+                "Tê Soldável", "", "", "Tê Soldável 25",
+                25, kindFilters: new[] { "pipe" });
+            Assert.Null(teeFiltered);
+        }
+
+        [Fact]
+        public void FindMatch_with_empty_kindFilters_set_is_treated_as_no_filter()
+        {
+            // Edge case: collection vazia comporta-se como null (sem filtro).
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo Soldável 25mm - 6m",
+                    DiameterMm = 25, Code = 10120250, Kind = "pipe",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? entry = cat.FindMatch(
+                "Tubo Soldável", "", "", "Tubo Soldável 25",
+                25, kindFilters: System.Array.Empty<string>());
+
+            Assert.NotNull(entry);
+            Assert.Equal(10120250, entry!.Code);
+        }
+
+        [Fact]
         public void FindMatch_with_unknown_kindFilter_returns_null()
         {
             // 2B.3: kindFilter inexistente retorna null sem chamar matcher.

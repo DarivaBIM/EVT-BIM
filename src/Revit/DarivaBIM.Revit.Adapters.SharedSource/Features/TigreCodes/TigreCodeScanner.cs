@@ -57,13 +57,13 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 TigreElementData data = TigreElementDataReader.Read(_doc, element);
 
                 TigreCatalogEntry? match = null;
-                if (data.DiameterMm.HasValue && !string.IsNullOrEmpty(data.Kind))
+                if (data.DiameterMm.HasValue && data.Kinds.Count > 0)
                 {
                     string combined = TigreTextUtils.Normalize(
                         $"{data.Description} {data.Segment} {data.TypeName}");
                     match = catalog.FindMatch(
                         data.Description, data.Segment, data.TypeName, combined,
-                        data.DiameterMm.Value, kindFilter: data.Kind);
+                        data.DiameterMm.Value, kindFilters: data.Kinds);
                 }
 
                 // GetParameterIncludingType: instance para Pipes (binding

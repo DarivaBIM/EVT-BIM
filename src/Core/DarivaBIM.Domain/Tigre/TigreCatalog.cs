@@ -69,16 +69,15 @@ namespace DarivaBIM.Domain.Tigre
             int diameterMmRound)
             => FindMatch(
                 descriptionText, segmentText, typeNameText, combinedText,
-                diameterMmRound, kindFilter: null);
+                diameterMmRound, kindFilter: (string?)null);
 
         /// <summary>
         /// Overload com filtro de kind ("pipe", "fitting", etc.). Quando
         /// não-nulo, restringe candidates às entries onde
         /// <see cref="TigreCatalogEntry.Kind"/> == kindFilter (compare
-        /// ordinal case-insensitive). PipeCodes usa "pipe" pra evitar
-        /// que um joelho/tê do catálogo cole acidentalmente num Pipe do
-        /// Revit. kindFilter desconhecido (sem entries) retorna null sem
-        /// chamar o matcher.
+        /// ordinal case-insensitive). kindFilter desconhecido (sem entries)
+        /// retorna null sem chamar o matcher. Delega pro overload de
+        /// conjunto (Slice 3.6).
         /// </summary>
         public TigreCatalogEntry? FindMatch(
             string descriptionText,
@@ -87,6 +86,30 @@ namespace DarivaBIM.Domain.Tigre
             string combinedText,
             int diameterMmRound,
             string? kindFilter)
+            => FindMatch(
+                descriptionText, segmentText, typeNameText, combinedText,
+                diameterMmRound,
+                kindFilters: kindFilter != null ? new[] { kindFilter } : null);
+
+        /// <summary>
+        /// Overload com conjunto de kinds aceitáveis (Slice 3.6). Resolve
+        /// o gap onde uma BIC Revit cobre N kinds do catálogo: PipeFitting
+        /// engloba fitting/tee/elbow/reducer/cap. Sem isso, 55% do catálogo
+        /// (479 SKUs com kind ≠ "fitting") ficava inacessível ao Applier
+        /// quando data.Kind passava "fitting" puro.
+        ///
+        /// Match passa se <see cref="TigreCatalogEntry.Kind"/> ∈
+        /// <paramref name="kindFilters"/> (case-insensitive). Conjunto nulo
+        /// ou vazio = sem filtro. Filtro desconhecido (nenhuma entry casa
+        /// no diâmetro+kinds) retorna null sem matcher.
+        /// </summary>
+        public TigreCatalogEntry? FindMatch(
+            string descriptionText,
+            string segmentText,
+            string typeNameText,
+            string combinedText,
+            int diameterMmRound,
+            IReadOnlyCollection<string>? kindFilters)
         {
             if (!_entriesByDiameter.TryGetValue(diameterMmRound, out IReadOnlyList<TigreCatalogEntry>? sameDiameter))
                 return null;
@@ -110,11 +133,12 @@ namespace DarivaBIM.Domain.Tigre
                 sameDiameter = withPn;
             }
 
-            if (kindFilter != null)
+            if (kindFilters != null && kindFilters.Count > 0)
             {
+                HashSet<string> kindSet = new HashSet<string>(
+                    kindFilters, StringComparer.OrdinalIgnoreCase);
                 List<TigreCatalogEntry> filtered = sameDiameter
-                    .Where(e => e.Kind != null &&
-                                StringComparer.OrdinalIgnoreCase.Equals(e.Kind, kindFilter))
+                    .Where(e => e.Kind != null && kindSet.Contains(e.Kind))
                     .ToList();
                 if (filtered.Count == 0)
                     return null;

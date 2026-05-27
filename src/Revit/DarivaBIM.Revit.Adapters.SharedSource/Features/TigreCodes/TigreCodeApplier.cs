@@ -117,7 +117,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
         {
             TigreElementData data = TigreElementDataReader.Read(_doc, element);
 
-            if (!data.DiameterMm.HasValue || string.IsNullOrEmpty(data.Kind))
+            if (!data.DiameterMm.HasValue || data.Kinds.Count == 0)
             {
                 noMatch++;
                 return;
@@ -127,7 +127,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 $"{data.Description} {data.Segment} {data.TypeName}");
             TigreCatalogEntry? match = catalog.FindMatch(
                 data.Description, data.Segment, data.TypeName, combined,
-                data.DiameterMm.Value, kindFilter: data.Kind);
+                data.DiameterMm.Value, kindFilters: data.Kinds);
 
             if (match == null)
             {

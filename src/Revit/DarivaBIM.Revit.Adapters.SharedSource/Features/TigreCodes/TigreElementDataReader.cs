@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
 using DarivaBIM.Revit.Adapters.Common.Parameters;
@@ -21,7 +23,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             string familyName,
             int? diameterMm,
             string categoryName,
-            string kind,
+            IReadOnlyCollection<string> kinds,
             BuiltInCategory builtInCategory)
         {
             Description = description;
@@ -30,7 +32,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             FamilyName = familyName;
             DiameterMm = diameterMm;
             CategoryName = categoryName;
-            Kind = kind;
+            Kinds = kinds ?? Array.Empty<string>();
             BuiltInCategory = builtInCategory;
         }
 
@@ -40,7 +42,24 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
         public string FamilyName { get; }
         public int? DiameterMm { get; }
         public string CategoryName { get; }
-        public string Kind { get; }
+
+        /// <summary>
+        /// Conjunto de kinds aceitáveis pra esta BIC. Slice 3.6 (Codex
+        /// blocker) — uma BIC pode mapear N kinds do catálogo: PipeFitting
+        /// abriga fitting/tee/elbow/reducer/cap; PipeAccessory abriga
+        /// accessory/valve. Sem isso, 55% do catálogo ficava inacessível
+        /// pro Applier porque kindFilter era 1-pra-1.
+        /// </summary>
+        public IReadOnlyCollection<string> Kinds { get; }
+
+        /// <summary>
+        /// Primeiro kind do conjunto, pra display/agrupamento (GroupKey,
+        /// TigreScanGroup.Kind). Reflete o mapeamento "principal" da BIC
+        /// — PipeFitting → "fitting" (mesmo que catálogo classifique a
+        /// entry específica como "tee"/"elbow").
+        /// </summary>
+        public string Kind => Kinds.Count == 0 ? string.Empty : Kinds.First();
+
         public BuiltInCategory BuiltInCategory { get; }
     }
 
@@ -57,6 +76,21 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
     {
         private static readonly Regex FirstIntRegex = new(@"\d+", RegexOptions.Compiled);
 
+        // BIC → conjunto de kinds aceitáveis. PipeFitting abriga tê/joelho/
+        // redução/cap; PipeAccessory abriga válvulas/registros. Conservador:
+        // na dúvida o filtro é permissivo — a tokenização do matcher refina.
+        private static readonly IReadOnlyDictionary<BuiltInCategory, IReadOnlyCollection<string>> KindsByBic =
+            new Dictionary<BuiltInCategory, IReadOnlyCollection<string>>
+            {
+                [BuiltInCategory.OST_PipeCurves] = new[] { "pipe" },
+                [BuiltInCategory.OST_PipeFitting] = new[]
+                {
+                    "fitting", "tee", "elbow", "reducer", "cap",
+                },
+                [BuiltInCategory.OST_PipeAccessory] = new[] { "accessory", "valve" },
+                [BuiltInCategory.OST_PlumbingFixtures] = new[] { "fixture" },
+            };
+
         public static TigreElementData Read(Document doc, Element element)
         {
             string description = ElementDescriptionReader.Read(element) ?? string.Empty;
@@ -64,23 +98,19 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             string familyName = ReadFamilyName(doc, element);
             string categoryName = element.Category?.Name ?? string.Empty;
             BuiltInCategory bic = ResolveBuiltInCategory(element);
-            string kind = MapKind(bic);
+            IReadOnlyCollection<string> kinds = MapKinds(bic);
             int? diameterMm = ReadDiameterMm(element);
             string segment = ReadSegmentText(element);
 
             return new TigreElementData(
                 description, segment, typeName, familyName,
-                diameterMm, categoryName, kind, bic);
+                diameterMm, categoryName, kinds, bic);
         }
 
-        public static string MapKind(BuiltInCategory bic) => bic switch
-        {
-            BuiltInCategory.OST_PipeCurves => "pipe",
-            BuiltInCategory.OST_PipeFitting => "fitting",
-            BuiltInCategory.OST_PipeAccessory => "accessory",
-            BuiltInCategory.OST_PlumbingFixtures => "fixture",
-            _ => string.Empty,
-        };
+        public static IReadOnlyCollection<string> MapKinds(BuiltInCategory bic) =>
+            KindsByBic.TryGetValue(bic, out IReadOnlyCollection<string>? kinds)
+                ? kinds
+                : Array.Empty<string>();
 
         private static BuiltInCategory ResolveBuiltInCategory(Element element)
         {

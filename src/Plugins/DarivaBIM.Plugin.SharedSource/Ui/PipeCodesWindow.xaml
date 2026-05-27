@@ -658,6 +658,10 @@
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
                                          Visibility="{Binding NoMatchSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <ListBox.GroupStyle>
                                         <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
@@ -787,6 +791,10 @@
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
                                          Visibility="{Binding DivergentSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <ListBox.GroupStyle>
                                         <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
@@ -916,6 +924,10 @@
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
                                          Visibility="{Binding MissingSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <ListBox.GroupStyle>
                                         <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
@@ -1045,6 +1057,10 @@
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
                                          Visibility="{Binding OkSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <ListBox.GroupStyle>
                                         <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
