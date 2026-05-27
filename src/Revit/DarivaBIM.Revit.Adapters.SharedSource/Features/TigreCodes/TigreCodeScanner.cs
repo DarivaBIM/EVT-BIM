@@ -78,7 +78,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 TigrePipeStatus status = ComputeStatus(match, currentCode);
 
                 GroupKey key = new(
-                    data.CategoryName, data.Kind, data.TypeName, data.DiameterMm, status);
+                    data.CategoryName, data.Kind, data.FamilyName, data.TypeName, data.DiameterMm, status);
                 if (!map.TryGetValue(key, out GroupAccumulator? acc))
                 {
                     acc = new GroupAccumulator(match?.Code);
@@ -119,11 +119,13 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
 
             List<TigreScanGroup> groups = map
                 .OrderBy(kv => kv.Key.CategoryName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(kv => kv.Key.FamilyName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(kv => kv.Key.TypeName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(kv => kv.Key.DiameterMm ?? int.MaxValue)
                 .Select(kv => new TigreScanGroup(
                     kv.Key.CategoryName,
                     kv.Key.Kind,
+                    kv.Key.FamilyName,
                     kv.Key.TypeName,
                     kv.Key.DiameterMm,
                     kv.Key.Status,
@@ -197,12 +199,14 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             public GroupKey(
                 string categoryName,
                 string kind,
+                string familyName,
                 string typeName,
                 int? diameterMm,
                 TigrePipeStatus status)
             {
                 CategoryName = categoryName ?? string.Empty;
                 Kind = kind ?? string.Empty;
+                FamilyName = familyName ?? string.Empty;
                 TypeName = typeName ?? string.Empty;
                 DiameterMm = diameterMm;
                 Status = status;
@@ -210,6 +214,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
 
             public string CategoryName { get; }
             public string Kind { get; }
+            public string FamilyName { get; }
             public string TypeName { get; }
             public int? DiameterMm { get; }
             public TigrePipeStatus Status { get; }
@@ -217,6 +222,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
             public bool Equals(GroupKey other) =>
                 StringComparer.Ordinal.Equals(CategoryName, other.CategoryName) &&
                 StringComparer.Ordinal.Equals(Kind, other.Kind) &&
+                StringComparer.Ordinal.Equals(FamilyName, other.FamilyName) &&
                 StringComparer.Ordinal.Equals(TypeName, other.TypeName) &&
                 DiameterMm == other.DiameterMm &&
                 Status == other.Status;
@@ -229,6 +235,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 {
                     int h = StringComparer.Ordinal.GetHashCode(CategoryName);
                     h = (h * 397) ^ StringComparer.Ordinal.GetHashCode(Kind);
+                    h = (h * 397) ^ StringComparer.Ordinal.GetHashCode(FamilyName);
                     h = (h * 397) ^ StringComparer.Ordinal.GetHashCode(TypeName);
                     h = (h * 397) ^ (DiameterMm ?? -1);
                     h = (h * 397) ^ (int)Status;

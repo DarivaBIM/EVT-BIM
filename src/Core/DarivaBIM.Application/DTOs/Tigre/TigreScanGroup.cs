@@ -17,6 +17,7 @@ namespace DarivaBIM.Application.DTOs.Tigre
         public TigreScanGroup(
             string categoryName,
             string kind,
+            string familyName,
             string typeName,
             int? diameterMm,
             TigrePipeStatus status,
@@ -25,6 +26,7 @@ namespace DarivaBIM.Application.DTOs.Tigre
         {
             CategoryName = categoryName ?? string.Empty;
             Kind = kind ?? string.Empty;
+            FamilyName = familyName ?? string.Empty;
             TypeName = typeName ?? string.Empty;
             DiameterMm = diameterMm;
             Status = status;
@@ -44,6 +46,15 @@ namespace DarivaBIM.Application.DTOs.Tigre
         /// Mesmo valor passado no kindFilter do FindMatch.
         /// </summary>
         public string Kind { get; }
+
+        /// <summary>
+        /// Nome da Family Revit do elemento. Para Pipes (system family) é o
+        /// próprio TypeName; para FamilyInstance (fittings/accessories/
+        /// fixtures) é o nome da família carregada. Slice 4.1 — exibido pela
+        /// UI no formato "familia · tipo" pra dar contexto adicional ao
+        /// usuário no momento de revisar marcações.
+        /// </summary>
+        public string FamilyName { get; }
 
         public string TypeName { get; }
 
