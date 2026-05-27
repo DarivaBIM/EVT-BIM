@@ -59,12 +59,16 @@
             <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
         </Style>
 
+        <!-- Slice 4.2 F3 #3 — padding interno mais generoso (era 16,12)
+             pra dar respiro entre eyebrow "GRUPOS/ELEMENTOS/..." e o
+             numero grande do KpiValue. Mantem o card visualmente leve
+             sem inflar a altura demais. -->
         <Style x:Key="KpiCard" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource CardBg}" />
             <Setter Property="BorderBrush" Value="{StaticResource SoftBorder}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="16,12" />
+            <Setter Property="Padding" Value="18,14" />
             <Setter Property="Margin" Value="0,0,12,0" />
         </Style>
 
