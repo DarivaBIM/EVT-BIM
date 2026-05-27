@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Linq;
 using DarivaBIM.Application.DTOs.Quantifica;
 using DarivaBIM.Presentation.Wpf.TigreQuantifica;
@@ -87,6 +88,32 @@ namespace DarivaBIM.Core.Tests.Presentation.Wpf.TigreQuantifica
             vm.ApplyScan(snapshot);
 
             Assert.False(vm.PipesNeedCoding);
+        }
+
+        [Fact]
+        public void Categories_default_IsExpanded_true_after_ApplyScan()
+        {
+            TigreQuantificaViewModel vm = new();
+            vm.ApplyScan(BuildSnapshotWithPipesAndWalls(pipeWithCode: false));
+
+            Assert.NotEmpty(vm.Categories);
+            Assert.All(vm.Categories, cat => Assert.True(cat.IsExpanded));
+        }
+
+        [Fact]
+        public void QuantityCategory_IsExpanded_raises_PropertyChanged_on_toggle()
+        {
+            TigreQuantificaViewModel vm = new();
+            vm.ApplyScan(BuildSnapshotWithPipesAndWalls(pipeWithCode: false));
+            QuantityCategoryViewModel category = vm.Categories.First();
+
+            string? lastProperty = null;
+            ((INotifyPropertyChanged)category).PropertyChanged += (_, args) => lastProperty = args.PropertyName;
+
+            category.IsExpanded = false;
+
+            Assert.False(category.IsExpanded);
+            Assert.Equal(nameof(QuantityCategoryViewModel.IsExpanded), lastProperty);
         }
 
         [Fact]
