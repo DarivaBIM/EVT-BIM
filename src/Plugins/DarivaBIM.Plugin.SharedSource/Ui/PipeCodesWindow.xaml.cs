@@ -44,7 +44,17 @@ namespace DarivaBIM.Plugin.Ui
             _clearEvent = new PipeCodesClearExternalEvent();
             _ensureEvent = new PipeCodesEnsureParameterExternalEvent();
 
-            SourceInitialized += (_, _) => WindowChromeHelper.DisableMinimize(this);
+            // Hotfix 4.3.A.1 — P/Invoke best-effort. Se DisableMinimize
+            // falhar (mudança de versão Windows, hwnd inválido, etc), o
+            // botão de minimizar do chrome continua existindo, mas a
+            // janela abre normalmente. Antes, uma exception no
+            // SourceInitialized subia pro pump de mensagens do Revit e
+            // contribuía pra cascata de erros do crash do "Corrigir agora".
+            SourceInitialized += (_, _) =>
+            {
+                try { WindowChromeHelper.DisableMinimize(this); }
+                catch { /* best-effort; minimize-bug nao bloqueia janela */ }
+            };
             StateChanged += OnWindowStateChanged;
             Loaded += (_, _) => RaiseScan("Lendo tubos do projeto…");
         }
@@ -57,7 +67,7 @@ namespace DarivaBIM.Plugin.Ui
                 WindowState = WindowState.Normal;
         }
 
-        public static PipeCodesWindow ShowSingleton()
+        public static PipeCodesWindow? ShowSingleton()
         {
             return ShowSingleton(prefilterIds: null);
         }
@@ -68,40 +78,56 @@ namespace DarivaBIM.Plugin.Ui
         /// <c>null</c> ou lista vazia = varredura completa (comportamento
         /// histórico). Quando preenchido, dispara re-scan filtrado mesmo
         /// se a janela já estava aberta.
+        ///
+        /// Hotfix 4.3.A.1 — corpo inteiro em try/catch defensivo: a
+        /// criação da janela envolve 4 ExternalEvent.Create do Revit,
+        /// qualquer falha aqui não pode subir pro pump do Revit (o que
+        /// crashava o app na sessão do bug). O TaskDialog substitui o
+        /// "Ocorreu um erro irrecuperável" por mensagem amigável.
         /// </summary>
-        public static PipeCodesWindow ShowSingleton(IReadOnlyCollection<long>? prefilterIds)
+        public static PipeCodesWindow? ShowSingleton(IReadOnlyCollection<long>? prefilterIds)
         {
-            bool isNew = _instance == null;
-            if (_instance == null)
+            try
             {
-                _instance = new PipeCodesWindow();
-                _instance.Closed += (_, _) => _instance = null;
+                bool isNew = _instance == null;
+                if (_instance == null)
+                {
+                    _instance = new PipeCodesWindow();
+                    _instance.Closed += (_, _) => _instance = null;
+                }
+
+                // Snapshot defensivo + propaga pra próxima varredura.
+                _instance._prefilterIds = prefilterIds != null && prefilterIds.Count > 0
+                    ? prefilterIds.ToArray()
+                    : null;
+
+                int filteredCount = _instance._prefilterIds?.Count ?? 0;
+                _instance.ViewModel.SetFilterState(filteredCount);
+                if (filteredCount == 0)
+                    _instance.ViewModel.ClearFilterState();
+
+                if (!_instance.IsVisible)
+                    _instance.Show();
+
+                _instance.Activate();
+
+                // Se a janela já estava aberta, force re-scan com o prefilter
+                // novo (Loaded só dispara em janelas novas — singleton já
+                // existente não re-loadea).
+                if (!isNew)
+                    _instance.RaiseScan(filteredCount > 0
+                        ? $"Filtrando {filteredCount} elemento(s) do finding..."
+                        : "Re-lendo elementos do projeto...");
+
+                return _instance;
             }
-
-            // Snapshot defensivo + propaga pra próxima varredura.
-            _instance._prefilterIds = prefilterIds != null && prefilterIds.Count > 0
-                ? prefilterIds.ToArray()
-                : null;
-
-            int filteredCount = _instance._prefilterIds?.Count ?? 0;
-            _instance.ViewModel.SetFilterState(filteredCount);
-            if (filteredCount == 0)
-                _instance.ViewModel.ClearFilterState();
-
-            if (!_instance.IsVisible)
-                _instance.Show();
-
-            _instance.Activate();
-
-            // Se a janela já estava aberta, force re-scan com o prefilter
-            // novo (Loaded só dispara em janelas novas — singleton já
-            // existente não re-loadea).
-            if (!isNew)
-                _instance.RaiseScan(filteredCount > 0
-                    ? $"Filtrando {filteredCount} elemento(s) do finding..."
-                    : "Re-lendo elementos do projeto...");
-
-            return _instance;
+            catch (Exception ex)
+            {
+                TaskDialog.Show(
+                    "EVT-BIM — Codificar Tigre",
+                    $"Não foi possível abrir a janela Codificar Tigre.\n\n{ex.Message}");
+                return _instance;
+            }
         }
 
         // ---------------- Atualizações vindas dos ExternalEvents ----------------
