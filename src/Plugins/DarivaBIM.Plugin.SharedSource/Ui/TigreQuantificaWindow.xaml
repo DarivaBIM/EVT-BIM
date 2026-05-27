@@ -79,10 +79,17 @@
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
+        <!-- Slice 4.2 F3 #6 — TextTrimming default no BodyCell pra
+             truncar com reticencias quando coluna estreita. Wrap antes
+             quebrava linha em colunas curtas (DIAM., QTD, UN) e
+             deformava a altura da row. ToolTip por celula (definido
+             inline no GroupRowTemplate) mostra o texto completo no
+             hover. -->
         <Style x:Key="BodyCell" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
-            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -140,32 +147,49 @@
             <Border BorderBrush="{StaticResource SoftBorder}"
                     BorderThickness="0,0,0,1"
                     Padding="0,6">
+                <!-- Slice 4.2 F3 #6 — MinWidth nas colunas mais criticas
+                     pra evitar que truncamento agressivo apague campos
+                     essenciais (FAMILIA / TIPO / COD. TIGRE / DESCRICAO).
+                     ToolTip por celula via Setter no Style.Triggers nao
+                     funciona em TextBlock (sem ContextMenu nem Tag), entao
+                     ToolTip e setado inline. -->
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.6*" />
-                        <ColumnDefinition Width="1.2*" />
-                        <ColumnDefinition Width="0.7*" />
-                        <ColumnDefinition Width="0.7*" />
-                        <ColumnDefinition Width="1.5*" />
-                        <ColumnDefinition Width="0.9*" />
-                        <ColumnDefinition Width="0.9*" />
-                        <ColumnDefinition Width="0.5*" />
-                        <ColumnDefinition Width="0.7*" />
-                        <ColumnDefinition Width="0.4*" />
-                        <ColumnDefinition Width="1.0*" />
+                        <ColumnDefinition Width="1.6*" MinWidth="90" />
+                        <ColumnDefinition Width="1.2*" MinWidth="70" />
+                        <ColumnDefinition Width="0.7*" MinWidth="45" />
+                        <ColumnDefinition Width="0.7*" MinWidth="60" />
+                        <ColumnDefinition Width="1.5*" MinWidth="100" />
+                        <ColumnDefinition Width="0.9*" MinWidth="60" />
+                        <ColumnDefinition Width="0.9*" MinWidth="60" />
+                        <ColumnDefinition Width="0.5*" MinWidth="34" />
+                        <ColumnDefinition Width="0.7*" MinWidth="55" />
+                        <ColumnDefinition Width="0.4*" MinWidth="28" />
+                        <ColumnDefinition Width="1.0*" MinWidth="80" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"  Style="{StaticResource BodyCell}" Text="{Binding Family}" />
-                    <TextBlock Grid.Column="1"  Style="{StaticResource BodyCell}" Text="{Binding Type}" />
-                    <TextBlock Grid.Column="2"  Style="{StaticResource BodyCell}" Text="{Binding Diameter}" />
-                    <TextBlock Grid.Column="3"  Style="{StaticResource BodyCell}" Text="{Binding TigreCode}" />
-                    <TextBlock Grid.Column="4"  Style="{StaticResource BodyCell}" Text="{Binding Description}" />
-                    <TextBlock Grid.Column="5"  Style="{StaticResource BodyCell}" Text="{Binding Manufacturer}" />
-                    <TextBlock Grid.Column="6"  Style="{StaticResource BodyCell}" Text="{Binding System}" />
-                    <TextBlock Grid.Column="7"  Style="{StaticResource BodyCell}" Text="{Binding ElementCountText}" />
-                    <TextBlock Grid.Column="8"  Style="{StaticResource BodyCell}" Text="{Binding QuantityText}" />
-                    <TextBlock Grid.Column="9"  Style="{StaticResource BodyCell}" Text="{Binding Unit}" />
+                    <TextBlock Grid.Column="0"  Style="{StaticResource BodyCell}" Text="{Binding Family}"
+                               ToolTip="{Binding Family}" />
+                    <TextBlock Grid.Column="1"  Style="{StaticResource BodyCell}" Text="{Binding Type}"
+                               ToolTip="{Binding Type}" />
+                    <TextBlock Grid.Column="2"  Style="{StaticResource BodyCell}" Text="{Binding Diameter}"
+                               ToolTip="{Binding Diameter}" />
+                    <TextBlock Grid.Column="3"  Style="{StaticResource BodyCell}" Text="{Binding TigreCode}"
+                               ToolTip="{Binding TigreCode}" />
+                    <TextBlock Grid.Column="4"  Style="{StaticResource BodyCell}" Text="{Binding Description}"
+                               ToolTip="{Binding Description}" />
+                    <TextBlock Grid.Column="5"  Style="{StaticResource BodyCell}" Text="{Binding Manufacturer}"
+                               ToolTip="{Binding Manufacturer}" />
+                    <TextBlock Grid.Column="6"  Style="{StaticResource BodyCell}" Text="{Binding System}"
+                               ToolTip="{Binding System}" />
+                    <TextBlock Grid.Column="7"  Style="{StaticResource BodyCell}" Text="{Binding ElementCountText}"
+                               ToolTip="{Binding ElementCountText}" />
+                    <TextBlock Grid.Column="8"  Style="{StaticResource BodyCell}" Text="{Binding QuantityText}"
+                               ToolTip="{Binding QuantityText}" />
+                    <TextBlock Grid.Column="9"  Style="{StaticResource BodyCell}" Text="{Binding Unit}"
+                               ToolTip="{Binding Unit}" />
                     <TextBlock Grid.Column="10" Style="{StaticResource BodyCell}" Text="{Binding AuditNote}"
-                               Foreground="{StaticResource RedAccent}" />
+                               Foreground="{StaticResource RedAccent}"
+                               ToolTip="{Binding AuditNote}" />
                 </Grid>
             </Border>
         </DataTemplate>
@@ -278,24 +302,27 @@
                         </Grid>
                     </Expander.Header>
                     <StackPanel>
-                        <!-- Cabeçalho da tabela. 11 colunas, ratios iguais ao GroupRowTemplate.
-                             CSV continua com 12 colunas (Família e Tipo separados no export). -->
+                        <!-- Cabeçalho da tabela. 11 colunas, ratios + MinWidth
+                             iguais ao GroupRowTemplate (Slice 4.2 F3 #6) pra
+                             header e rows alinharem mesmo com truncamento.
+                             CSV continua com 12 colunas (Família e Tipo
+                             separados no export). -->
                         <Border BorderBrush="{StaticResource SoftBorder}"
                                 BorderThickness="0,0,0,1"
                                 Padding="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.6*" />
-                                    <ColumnDefinition Width="1.2*" />
-                                    <ColumnDefinition Width="0.7*" />
-                                    <ColumnDefinition Width="0.7*" />
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="0.9*" />
-                                    <ColumnDefinition Width="0.9*" />
-                                    <ColumnDefinition Width="0.5*" />
-                                    <ColumnDefinition Width="0.7*" />
-                                    <ColumnDefinition Width="0.4*" />
-                                    <ColumnDefinition Width="1.0*" />
+                                    <ColumnDefinition Width="1.6*" MinWidth="90" />
+                                    <ColumnDefinition Width="1.2*" MinWidth="70" />
+                                    <ColumnDefinition Width="0.7*" MinWidth="45" />
+                                    <ColumnDefinition Width="0.7*" MinWidth="60" />
+                                    <ColumnDefinition Width="1.5*" MinWidth="100" />
+                                    <ColumnDefinition Width="0.9*" MinWidth="60" />
+                                    <ColumnDefinition Width="0.9*" MinWidth="60" />
+                                    <ColumnDefinition Width="0.5*" MinWidth="34" />
+                                    <ColumnDefinition Width="0.7*" MinWidth="55" />
+                                    <ColumnDefinition Width="0.4*" MinWidth="28" />
+                                    <ColumnDefinition Width="1.0*" MinWidth="80" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"  Style="{StaticResource HeaderCell}" Text="FAMÍLIA" />
                                 <TextBlock Grid.Column="1"  Style="{StaticResource HeaderCell}" Text="TIPO" />
@@ -317,7 +344,10 @@
             </Border>
         </DataTemplate>
 
-        <!-- DataTemplate de uma finding (lista lateral). -->
+        <!-- DataTemplate de uma finding (lista lateral).
+             Slice 4.2 F3 #6 — ToolTip no FamilyType e MissingFieldsText
+             pra mostrar texto completo quando truncado pela sidebar
+             estreita. -->
         <DataTemplate x:Key="FindingRowTemplate">
             <Border BorderBrush="{StaticResource SoftBorder}"
                     BorderThickness="0,0,0,1"
@@ -325,8 +355,13 @@
                 <StackPanel Orientation="Horizontal">
                     <Ellipse Style="{StaticResource SeverityPill}" Margin="0,1,10,0" />
                     <StackPanel>
-                        <TextBlock Text="{Binding FamilyType}" Style="{StaticResource BodyCell}" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding MissingFieldsText}" Style="{StaticResource PageHintStyle}" />
+                        <TextBlock Text="{Binding FamilyType}"
+                                   Style="{StaticResource BodyCell}"
+                                   FontWeight="SemiBold"
+                                   ToolTip="{Binding FamilyType}" />
+                        <TextBlock Text="{Binding MissingFieldsText}"
+                                   Style="{StaticResource PageHintStyle}"
+                                   ToolTip="{Binding MissingFieldsText}" />
                     </StackPanel>
                 </StackPanel>
             </Border>
