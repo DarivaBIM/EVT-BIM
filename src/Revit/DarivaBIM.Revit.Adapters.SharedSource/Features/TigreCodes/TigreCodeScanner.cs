@@ -90,8 +90,19 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 TigreCatalogEntry? match = null;
                 if (data.DiameterMm.HasValue && data.Kinds.Count > 0)
                 {
+                    // Fix smoke pos-Codex 2026-05-27: inclui FamilyName no
+                    // combinedText. TypeName tipicamente e "Standard" e
+                    // data.Description (Tigre: Descricao instance/type)
+                    // FREQUENTEMENTE esta vazia em elementos ainda sem
+                    // codigo Tigre — que sao exatamente os que precisam
+                    // codificacao. Sem FamilyName, matcher recebia tokens
+                    // insuficientes ("Standard" so) e caia em "Sem
+                    // correspondencia" mesmo com SKU exata no catalogo
+                    // (CAP DN40 cod 27400000, REDUX DN50 cod 100002836...).
+                    // FamilyName carrega o vocabulario distintivo da peca
+                    // ("Cap - Serie Normal", "ESG_Redux_Joelho 45_90").
                     string combined = TigreTextUtils.Normalize(
-                        $"{data.Description} {data.Segment} {data.TypeName}");
+                        $"{data.Description} {data.Segment} {data.TypeName} {data.FamilyName}");
                     match = catalog.FindMatch(
                         data.Description, data.Segment, data.TypeName, combined,
                         data.DiameterMm.Value, kindFilters: data.Kinds);

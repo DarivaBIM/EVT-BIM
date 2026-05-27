@@ -123,8 +123,13 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 return;
             }
 
+            // Fix smoke pos-Codex 2026-05-27: inclui FamilyName no combined
+            // (vide TigreCodeScanner.cs pra rationale detalhado — sem isso,
+            // matcher recebia tokens insuficientes e fittings/caps com SKU
+            // exata caiam em "Sem correspondencia"). FamilyName carrega o
+            // vocabulario distintivo da peca, TypeName tipico = "Standard".
             string combined = TigreTextUtils.Normalize(
-                $"{data.Description} {data.Segment} {data.TypeName}");
+                $"{data.Description} {data.Segment} {data.TypeName} {data.FamilyName}");
             TigreCatalogEntry? match = catalog.FindMatch(
                 data.Description, data.Segment, data.TypeName, combined,
                 data.DiameterMm.Value, kindFilters: data.Kinds);
