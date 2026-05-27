@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows.Input;
 using DarivaBIM.Application.DTOs.Quantifica;
 using DarivaBIM.Presentation.Wpf.Common;
 
@@ -18,6 +19,18 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
     /// <see cref="CorrigirAgoraCallback"/> que o code-behind seta após
     /// criar o ExternalEvent. AuditFindingViewModel consome esses
     /// callbacks via construtor — VM não vê RevitAPI.
+    ///
+    /// Slice 4.3.B F3 — ganha <see cref="SearchText"/> + projeção
+    /// <see cref="FilteredCategories"/> de <see cref="Categories"/> com
+    /// busca substring case-insensitive sobre os campos textuais de cada
+    /// grupo. Categorias sem matches ficam com IsVisible=false (o XAML
+    /// colapsa o card via DataTrigger).
+    ///
+    /// Slice 4.3.B F4 — setters em <see cref="ProjectClient"/> e
+    /// <see cref="ProjectAuthor"/> + <see cref="SaveProjectInfoCommand"/>
+    /// pra editar Cliente/Autor inline no header. O VM não conhece
+    /// RevitAPI — quem dispara o ExternalEvent é o code-behind via
+    /// callback <see cref="SaveProjectInfoCallback"/>.
     /// </summary>
     public sealed class TigreQuantificaViewModel : ObservableObject
     {
@@ -36,6 +49,13 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
         /// </summary>
         public Action<IReadOnlyCollection<long>>? CorrigirAgoraCallback { get; set; }
 
+        /// <summary>
+        /// Callback injetado pelo code-behind pra disparar o
+        /// UpdateProjectInfoExternalEvent que escreve Cliente/Autor de
+        /// volta em <c>Document.ProjectInformation</c>. Slice 4.3.B F4.
+        /// </summary>
+        public Action<ProjectInfoDto>? SaveProjectInfoCallback { get; set; }
+
         private ProjectInfoDto _projectInfo = new ProjectInfoDto();
         private string? _errorMessage;
         private bool _isBusy;
@@ -44,6 +64,15 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
         private int _totalElementCount;
         private int _redFindingsCount;
         private int _yellowFindingsCount;
+        private string _searchText = string.Empty;
+        private bool _isProjectInfoDirty;
+        private string _projectClient = string.Empty;
+        private string _projectAuthor = string.Empty;
+
+        public TigreQuantificaViewModel()
+        {
+            SaveProjectInfoCommand = new RelayCommand(ExecuteSaveProjectInfo, () => IsProjectInfoDirty);
+        }
 
         public ProjectInfoDto ProjectInfo
         {
@@ -52,6 +81,12 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
             {
                 if (SetField(ref _projectInfo, value))
                 {
+                    // Slice 4.3.B F4 — sincroniza os campos editáveis com
+                    // o snapshot fresco; reset Dirty pra esconder o
+                    // indicador de "não salvo" depois do re-fetch.
+                    _projectClient = value.Client ?? string.Empty;
+                    _projectAuthor = value.Author ?? string.Empty;
+                    IsProjectInfoDirty = false;
                     OnPropertyChanged(nameof(ProjectName));
                     OnPropertyChanged(nameof(ProjectClient));
                     OnPropertyChanged(nameof(ProjectAuthor));
@@ -62,12 +97,74 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
         }
 
         public string ProjectName => _projectInfo.Name;
-        public string ProjectClient => _projectInfo.Client;
-        public string ProjectAuthor => _projectInfo.Author;
+
+        /// <summary>
+        /// Cliente do projeto — agora editável inline (Slice 4.3.B F4).
+        /// Setter marca <see cref="IsProjectInfoDirty"/> quando muda em
+        /// relação ao snapshot. Save é assíncrono (ExternalEvent), por
+        /// isso o setter NÃO escreve no Revit direto — só marca dirty.
+        /// </summary>
+        public string ProjectClient
+        {
+            get => _projectClient;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (SetField(ref _projectClient, normalized))
+                {
+                    RefreshDirty();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Autor do projeto — agora editável inline (Slice 4.3.B F4).
+        /// </summary>
+        public string ProjectAuthor
+        {
+            get => _projectAuthor;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (SetField(ref _projectAuthor, normalized))
+                {
+                    RefreshDirty();
+                }
+            }
+        }
+
         public string ProjectIssueDate => _projectInfo.IssueDate;
         public string ProjectVersion => _projectInfo.Version;
 
+        /// <summary>
+        /// True quando o usuário editou Cliente/Autor e o save ainda não
+        /// foi disparado (ou ainda não retornou). XAML mostra indicador
+        /// visual sutil enquanto true; CanExecute de
+        /// <see cref="SaveProjectInfoCommand"/> espelha esse flag.
+        /// </summary>
+        public bool IsProjectInfoDirty
+        {
+            get => _isProjectInfoDirty;
+            private set => SetField(ref _isProjectInfoDirty, value);
+        }
+
+        /// <summary>
+        /// Slice 4.3.B F4 — dispara o callback de save (code-behind
+        /// resolve via ExternalEvent). XAML chama via LostFocus / Enter
+        /// no TextBox editável.
+        /// </summary>
+        public ICommand SaveProjectInfoCommand { get; }
+
         public ObservableCollection<QuantityCategoryViewModel> Categories { get; } = new();
+
+        /// <summary>
+        /// Slice 4.3.B F3 — projeção filtrada de <see cref="Categories"/>
+        /// que o XAML bindea (em vez da coleção crua). Cada item carrega
+        /// os grupos sobreviventes do filtro; categorias zeradas pelo
+        /// filtro têm <c>IsVisible=false</c> e ficam Collapsed via
+        /// DataTrigger no <c>CategoryCardTemplate</c>.
+        /// </summary>
+        public ObservableCollection<CategoryDisplayViewModel> FilteredCategories { get; } = new();
 
         public ObservableCollection<AuditFindingViewModel> Findings { get; } = new();
 
@@ -94,6 +191,27 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
             get => _statusMessage;
             set => SetField(ref _statusMessage, value);
         }
+
+        /// <summary>
+        /// Slice 4.3.B F3 — texto de busca substring. Empty mostra
+        /// todas as categorias e todos os grupos. Setter sempre re-roda
+        /// o filtro (não otimiza por igualdade de string trim,
+        /// ObservableObject.SetField já cuida disso).
+        /// </summary>
+        public string SearchText
+        {
+            get => _searchText;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (SetField(ref _searchText, normalized))
+                {
+                    RebuildFilteredCategories();
+                }
+            }
+        }
+
+        public bool HasSearchText => !string.IsNullOrEmpty(_searchText);
 
         // ---------------- KPIs ----------------
 
@@ -145,6 +263,7 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
             if (!string.IsNullOrWhiteSpace(snapshot.ErrorMessage))
             {
                 Categories.Clear();
+                FilteredCategories.Clear();
                 Findings.Clear();
                 ProjectInfo = snapshot.ProjectInfo ?? new ProjectInfoDto();
                 ResetKpis();
@@ -162,6 +281,7 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
             foreach (QuantityAuditFinding f in snapshot.AuditFindings ?? new QuantityAuditFinding[0])
                 Findings.Add(new AuditFindingViewModel(f, SelectInRevitCallback, CorrigirAgoraCallback));
 
+            RebuildFilteredCategories();
             RecomputeKpis(snapshot);
             RefreshPipesNeedCoding();
         }
@@ -170,6 +290,7 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
         {
             ErrorMessage = message;
             Categories.Clear();
+            FilteredCategories.Clear();
             Findings.Clear();
             ResetKpis();
             RefreshPipesNeedCoding();
@@ -180,6 +301,7 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
             ErrorMessage = null;
             ProjectInfo = new ProjectInfoDto();
             Categories.Clear();
+            FilteredCategories.Clear();
             Findings.Clear();
             ResetKpis();
             StatusMessage = status;
@@ -269,6 +391,92 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
                 PipesNeedCoding = newValue;
                 OnPropertyChanged(nameof(PipesNeedCoding));
             }
+        }
+
+        // ---------------- Slice 4.3.B F3 — filter ----------------
+
+        /// <summary>
+        /// Reconstrói <see cref="FilteredCategories"/> a partir do
+        /// estado atual de <see cref="Categories"/> aplicando substring
+        /// case-insensitive de <see cref="SearchText"/> sobre os campos
+        /// textuais de cada grupo (Família, Tipo, Diâmetro, Código
+        /// Tigre, Descrição, Fabricante, Sistema).
+        /// </summary>
+        private void RebuildFilteredCategories()
+        {
+            FilteredCategories.Clear();
+            string needle = (_searchText ?? string.Empty).Trim();
+            bool hasFilter = needle.Length > 0;
+
+            foreach (QuantityCategoryViewModel cat in Categories)
+            {
+                IEnumerable<QuantityGroupViewModel> matched =
+                    hasFilter
+                        ? cat.Groups.Where(g => GroupMatches(g, needle))
+                        : cat.Groups;
+
+                CategoryDisplayViewModel display = new(cat, matched);
+                display.IsVisible = display.Groups.Count > 0;
+                FilteredCategories.Add(display);
+            }
+
+            OnPropertyChanged(nameof(HasSearchText));
+        }
+
+        private static bool GroupMatches(QuantityGroupViewModel group, string needle)
+        {
+            // Slice 4.5 manteve `System` exposto justamente pra esta busca
+            // (vide comentário no QuantityGroupViewModel.System). Varremos
+            // todos os campos textuais que o usuário possa estar buscando:
+            // Família, Tipo, Diâmetro, código Tigre, descrição base,
+            // descrição Tigre (consolidada), Fabricante, Sistema.
+            return Contains(group.Family, needle)
+                || Contains(group.Type, needle)
+                || Contains(group.Diameter, needle)
+                || Contains(group.TigreCode, needle)
+                || Contains(group.Description, needle)
+                || Contains(group.TigreDescription, needle)
+                || Contains(group.Manufacturer, needle)
+                || Contains(group.System, needle);
+        }
+
+        private static bool Contains(string? haystack, string needle)
+        {
+            if (string.IsNullOrEmpty(haystack)) return false;
+            return haystack.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // ---------------- Slice 4.3.B F4 — edit project info ----------------
+
+        private void RefreshDirty()
+        {
+            string baselineClient = _projectInfo.Client ?? string.Empty;
+            string baselineAuthor = _projectInfo.Author ?? string.Empty;
+            bool dirty =
+                !string.Equals(_projectClient, baselineClient, StringComparison.Ordinal)
+                || !string.Equals(_projectAuthor, baselineAuthor, StringComparison.Ordinal);
+            IsProjectInfoDirty = dirty;
+        }
+
+        private void ExecuteSaveProjectInfo()
+        {
+            if (!IsProjectInfoDirty) return;
+            Action<ProjectInfoDto>? cb = SaveProjectInfoCallback;
+            if (cb == null) return;
+
+            // Snapshot do estado atual — preserva os campos não-editáveis
+            // (Name/IssueDate/Version) pra escrita parcial não apagar
+            // valores que a UI não controla.
+            ProjectInfoDto dto = new ProjectInfoDto
+            {
+                Name = _projectInfo.Name,
+                Client = _projectClient,
+                Author = _projectAuthor,
+                IssueDate = _projectInfo.IssueDate,
+                Version = _projectInfo.Version,
+            };
+
+            cb(dto);
         }
     }
 }

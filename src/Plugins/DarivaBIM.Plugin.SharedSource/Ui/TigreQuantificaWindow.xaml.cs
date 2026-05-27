@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using DarivaBIM.Application.DTOs.Quantifica;
 using DarivaBIM.Application.Services.Quantifica;
@@ -17,6 +18,10 @@ namespace DarivaBIM.Plugin.Ui
     /// code-behind (export NÃO é transação Revit, então não passa por
     /// ExternalEvent). Singleton: ShowSingleton garante uma instância só
     /// por sessão do Revit.
+    ///
+    /// Slice 4.3.B F4 — ganha <see cref="UpdateProjectInfoExternalEvent"/>
+    /// pra escrever Cliente/Autor em <c>ProjectInformation</c>. Após save
+    /// bem-sucedido dispara um re-scan pra refresh do snapshot + audit.
     /// </summary>
     public partial class TigreQuantificaWindow : Window
     {
@@ -24,6 +29,7 @@ namespace DarivaBIM.Plugin.Ui
 
         private readonly QuantityScanExternalEvent _scanEvent;
         private readonly SelectElementsExternalEvent _selectEvent;
+        private readonly UpdateProjectInfoExternalEvent _updateProjectInfoEvent;
         private QuantitySnapshot? _lastSnapshot;
 
         public TigreQuantificaViewModel ViewModel { get; }
@@ -37,6 +43,14 @@ namespace DarivaBIM.Plugin.Ui
             _scanEvent = new QuantityScanExternalEvent();
             _selectEvent = new SelectElementsExternalEvent();
 
+            // Slice 4.3.B F4 — handler do save de Cliente/Autor. O callback
+            // de sucesso re-roda o scan pra refresh do snapshot (e do
+            // finding de auditoria); o de erro escreve no StatusMessage do
+            // VM (não TaskDialog) pra não bloquear a janela.
+            _updateProjectInfoEvent = new UpdateProjectInfoExternalEvent(
+                onError: msg => RunOnUi(() => ViewModel.StatusMessage = msg),
+                onSuccess: () => RunOnUi(() => RaiseScan("Atualizando após edição…")));
+
             // Slice 4.3.A F2 — callback de seleção setado ANTES do
             // primeiro ApplyScan; cada AuditFindingViewModel construído
             // no ApplyScan já recebe o callback via TigreQuantificaViewModel.
@@ -46,6 +60,10 @@ namespace DarivaBIM.Plugin.Ui
             // abre PipeCodesWindow pré-filtrado nos IDs do finding.
             // PipeCodesWindow.ShowSingleton aceita prefilterIds opcional.
             ViewModel.CorrigirAgoraCallback = ids => PipeCodesWindow.ShowSingleton(ids);
+
+            // Slice 4.3.B F4 — callback de save dispara o ExternalEvent
+            // que escreve em ProjectInformation.ClientName/Author.
+            ViewModel.SaveProjectInfoCallback = dto => _updateProjectInfoEvent.Raise(dto);
 
             Loaded += (_, _) => RaiseScan("Lendo elementos do projeto…");
         }
@@ -167,6 +185,73 @@ namespace DarivaBIM.Plugin.Ui
             if (!vm.CorrigirAgoraCommand.CanExecute(null)) return;
 
             vm.CorrigirAgoraCommand.Execute(null);
+        }
+
+        // ---------------- Slice 4.3.B F3 — busca ----------------
+
+        /// <summary>
+        /// Botão (X) limpa o campo de busca. Mantém foco no TextBox pra
+        /// usuário continuar digitando uma nova busca sem clicar de volta.
+        /// </summary>
+        private void OnClearSearchClicked(object sender, RoutedEventArgs e)
+        {
+            ViewModel.SearchText = string.Empty;
+            // Best-effort: localizar o TextBox de busca pelo nome e focar.
+            if (FindName("SearchBox") is TextBox tb)
+            {
+                tb.Focus();
+                tb.SelectAll();
+            }
+        }
+
+        // ---------------- Slice 4.3.B F4 — edição inline Cliente/Autor ----------------
+
+        /// <summary>
+        /// LostFocus do TextBox editável dispara o save (se dirty). Esse
+        /// é o comportamento padrão de TextBox.UpdateSourceTrigger no
+        /// binding TwoWay; aqui acionamos o command que faz o Raise no
+        /// ExternalEvent.
+        /// </summary>
+        private void OnProjectFieldLostFocus(object sender, RoutedEventArgs e)
+        {
+            TrySaveProjectInfo();
+        }
+
+        /// <summary>
+        /// Enter no TextBox força commit do binding + save imediato. Esc
+        /// reverte pro valor original do snapshot (descarta dirty).
+        /// </summary>
+        private void OnProjectFieldKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                if (sender is TextBox tb)
+                {
+                    // Força commit do binding antes do save (UpdateSourceTrigger
+                    // default em TextBox é LostFocus — Enter sem este
+                    // GetBindingExpression().UpdateSource() não chega no VM).
+                    tb.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+                }
+                TrySaveProjectInfo();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                // Restaura snapshot atual no TextBox sem disparar save.
+                // O setter do VM cuida do binding TwoWay; precisamos
+                // re-bater os valores via ProjectInfo (clearra IsDirty).
+                if (sender is TextBox tb)
+                {
+                    tb.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+                }
+                e.Handled = true;
+            }
+        }
+
+        private void TrySaveProjectInfo()
+        {
+            if (ViewModel.SaveProjectInfoCommand.CanExecute(null))
+                ViewModel.SaveProjectInfoCommand.Execute(null);
         }
 
         // ---------------- Helpers ----------------
