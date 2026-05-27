@@ -617,8 +617,9 @@
                                    FontSize="11.5"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap"
+                                   LineHeight="15"
                                    Margin="0,6,0,0"
-                                   MinHeight="32" />
+                                   MinHeight="44" />
                     </StackPanel>
 
                     <!-- Toolbar: Selecionar todos · contador · recolher -->
@@ -755,8 +756,9 @@
                                    FontSize="11.5"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap"
+                                   LineHeight="15"
                                    Margin="0,6,0,0"
-                                   MinHeight="32" />
+                                   MinHeight="44" />
                     </StackPanel>
 
                     <Grid Grid.Row="1" Margin="14,10,14,8">
@@ -890,8 +892,9 @@
                                    FontSize="11.5"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap"
+                                   LineHeight="15"
                                    Margin="0,6,0,0"
-                                   MinHeight="32" />
+                                   MinHeight="44" />
                     </StackPanel>
 
                     <Grid Grid.Row="1" Margin="14,10,14,8">
@@ -1025,8 +1028,9 @@
                                    FontSize="11.5"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap"
+                                   LineHeight="15"
                                    Margin="0,6,0,0"
-                                   MinHeight="32" />
+                                   MinHeight="44" />
                     </StackPanel>
 
                     <Grid Grid.Row="1" Margin="14,10,14,8">

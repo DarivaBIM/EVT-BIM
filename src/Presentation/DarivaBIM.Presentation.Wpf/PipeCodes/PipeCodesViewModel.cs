@@ -20,22 +20,22 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             NoMatchSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.NoMatch,
                 "Sem correspondência",
-                "Elementos Tigre sem item equivalente no catálogo. Útil para revisar legados.");
+                "Elementos Tigre que não foram localizados no catálogo (DN/linha/descrição inesperados). Inserir não tem efeito aqui — use Deletar para limpar códigos legados ou revise a família.");
 
             DivergentSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Divergent,
                 "Códigos divergentes",
-                "Elementos Tigre com código gravado diferente do previsto pelo catálogo.");
+                "O código gravado é diferente do que o catálogo sugere. Selecione e clique em Inserir/Atualizar para sobrescrever pelo código sugerido na coluna ao lado.");
 
             MissingSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Missing,
                 "Prontos para codificar",
-                "Elementos Tigre sem código, mas com correspondência no catálogo.");
+                "Elementos Tigre sem código ainda, mas com correspondência clara no catálogo. Selecione e clique em Inserir/Atualizar para aplicar o código sugerido.");
 
             OkSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Ok,
                 "Códigos corretos",
-                "Elementos Tigre já com o código correto. Marque só para regravar ou apagar.");
+                "Já estão com o código certo do catálogo. Marque só se quiser regravar (reforçar) ou apagar.");
 
             NoMatchSection.PropertyChanged += OnSectionPropertyChanged;
             DivergentSection.PropertyChanged += OnSectionPropertyChanged;
