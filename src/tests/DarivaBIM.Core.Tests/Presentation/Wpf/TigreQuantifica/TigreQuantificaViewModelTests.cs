@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using DarivaBIM.Application.DTOs.Quantifica;
@@ -114,6 +116,102 @@ namespace DarivaBIM.Core.Tests.Presentation.Wpf.TigreQuantifica
 
             Assert.False(category.IsExpanded);
             Assert.Equal(nameof(QuantityCategoryViewModel.IsExpanded), lastProperty);
+        }
+
+        [Fact]
+        public void AuditFindingViewModel_SelectInRevitCommand_can_execute_when_ElementIds_present_and_callback_injected()
+        {
+            QuantityAuditFinding finding = new()
+            {
+                FamilyType = "Tubulações",
+                MissingFields = new[] { "Tigre: Código" },
+                Severity = AuditSeverity.Red,
+                ElementIds = new long[] { 12345L, 67890L },
+                IsTigreCodigoMissing = true,
+            };
+
+            List<long>? captured = null;
+            Action<IReadOnlyCollection<long>> callback = ids => captured = new List<long>(ids);
+
+            AuditFindingViewModel vm = new(finding, callback, corrigirAgora: null);
+
+            Assert.True(vm.CanSelectInRevit);
+            Assert.True(vm.SelectInRevitCommand.CanExecute(null));
+
+            vm.SelectInRevitCommand.Execute(null);
+
+            Assert.NotNull(captured);
+            Assert.Equal(new long[] { 12345L, 67890L }, captured!.ToArray());
+        }
+
+        [Fact]
+        public void AuditFindingViewModel_SelectInRevitCommand_cannot_execute_when_ElementIds_empty()
+        {
+            // ProjectInfo finding — sem elemento Revit pra selecionar.
+            QuantityAuditFinding finding = new()
+            {
+                FamilyType = "Cliente não preenchido",
+                Severity = AuditSeverity.Yellow,
+                ElementIds = Array.Empty<long>(),
+            };
+            AuditFindingViewModel vm = new(finding, ids => { }, corrigirAgora: null);
+
+            Assert.False(vm.CanSelectInRevit);
+            Assert.False(vm.SelectInRevitCommand.CanExecute(null));
+        }
+
+        [Fact]
+        public void AuditFindingViewModel_SelectInRevitCommand_cannot_execute_when_callback_null()
+        {
+            // Headless construction (no Revit available) — CanSelectInRevit
+            // false mesmo com IDs preenchidos.
+            QuantityAuditFinding finding = new()
+            {
+                FamilyType = "Tubulações",
+                ElementIds = new long[] { 1L },
+            };
+            AuditFindingViewModel vm = new(finding);
+
+            Assert.False(vm.CanSelectInRevit);
+        }
+
+        [Fact]
+        public void AuditFindingViewModel_CorrigirAgoraCommand_only_active_for_TigreCodigoMissing_findings()
+        {
+            // Finding "Tigre: Código ausente" — habilita.
+            QuantityAuditFinding tigreCodeFinding = new()
+            {
+                FamilyType = "Tubulações",
+                IsTigreCodigoMissing = true,
+                ElementIds = new long[] { 1L },
+            };
+            AuditFindingViewModel tigreVm = new(tigreCodeFinding, ids => { }, ids => { });
+            Assert.True(tigreVm.CanCorrigirAgora);
+            Assert.True(tigreVm.IsTigreCodigoMissing);
+
+            // Finding "Fabricante ausente" — Yellow, mesma estrutura mas
+            // IsTigreCodigoMissing=false. NÃO deve habilitar CorrigirAgora.
+            QuantityAuditFinding fabricanteFinding = new()
+            {
+                FamilyType = "Conexões",
+                IsTigreCodigoMissing = false,
+                ElementIds = new long[] { 1L },
+            };
+            AuditFindingViewModel fabVm = new(fabricanteFinding, ids => { }, ids => { });
+            Assert.False(fabVm.CanCorrigirAgora);
+        }
+
+        [Fact]
+        public void AuditFindingViewModel_CorrigirAgoraCommand_cannot_execute_without_callback()
+        {
+            QuantityAuditFinding finding = new()
+            {
+                FamilyType = "Tubulações",
+                IsTigreCodigoMissing = true,
+                ElementIds = new long[] { 1L },
+            };
+            AuditFindingViewModel vm = new(finding);
+            Assert.False(vm.CanCorrigirAgora);
         }
 
         [Fact]

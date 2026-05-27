@@ -22,6 +22,7 @@ namespace DarivaBIM.Plugin.Ui
         private static TigreQuantificaWindow? _instance;
 
         private readonly QuantityScanExternalEvent _scanEvent;
+        private readonly SelectElementsExternalEvent _selectEvent;
         private QuantitySnapshot? _lastSnapshot;
 
         public TigreQuantificaViewModel ViewModel { get; }
@@ -33,6 +34,17 @@ namespace DarivaBIM.Plugin.Ui
             DataContext = ViewModel;
 
             _scanEvent = new QuantityScanExternalEvent();
+            _selectEvent = new SelectElementsExternalEvent();
+
+            // Slice 4.3.A F2 — callback de seleção setado ANTES do
+            // primeiro ApplyScan; cada AuditFindingViewModel construído
+            // no ApplyScan já recebe o callback via TigreQuantificaViewModel.
+            ViewModel.SelectInRevitCallback = ids => _selectEvent.Raise(ids);
+
+            // Slice 4.3.A F1 ampliado — callback de "Corrigir agora"
+            // abre PipeCodesWindow pré-filtrado nos IDs do finding.
+            // PipeCodesWindow.ShowSingleton aceita prefilterIds opcional.
+            ViewModel.CorrigirAgoraCallback = ids => PipeCodesWindow.ShowSingleton(ids);
 
             Loaded += (_, _) => RaiseScan("Lendo elementos do projeto…");
         }

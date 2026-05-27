@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -11,9 +12,30 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
     /// scanner: cabeçalho do projeto, lista de categorias com grupos
     /// internos, lista de findings, KPIs. ExternalEvents do Revit nunca
     /// chegam aqui — quem orquestra é o code-behind da janela.
+    ///
+    /// Slice 4.3.A F2 — recebe um callback opcional
+    /// <see cref="SelectInRevitCallback"/> + F1 ampliado
+    /// <see cref="CorrigirAgoraCallback"/> que o code-behind seta após
+    /// criar o ExternalEvent. AuditFindingViewModel consome esses
+    /// callbacks via construtor — VM não vê RevitAPI.
     /// </summary>
     public sealed class TigreQuantificaViewModel : ObservableObject
     {
+        /// <summary>
+        /// Callback injetado pelo code-behind pra disparar SetElementIds +
+        /// ShowElements via SelectElementsExternalEvent. Setado antes de
+        /// chamar ApplyScan — findings construídos após esse set já
+        /// herdarão o callback.
+        /// </summary>
+        public Action<IReadOnlyCollection<long>>? SelectInRevitCallback { get; set; }
+
+        /// <summary>
+        /// Callback injetado pelo code-behind pra abrir Codificar Tigre
+        /// pré-filtrado nos IDs do finding "Tigre: Código ausente".
+        /// Slice 4.3.A F1 ampliado.
+        /// </summary>
+        public Action<IReadOnlyCollection<long>>? CorrigirAgoraCallback { get; set; }
+
         private ProjectInfoDto _projectInfo = new ProjectInfoDto();
         private string? _errorMessage;
         private bool _isBusy;
@@ -138,7 +160,7 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
 
             Findings.Clear();
             foreach (QuantityAuditFinding f in snapshot.AuditFindings ?? new QuantityAuditFinding[0])
-                Findings.Add(new AuditFindingViewModel(f));
+                Findings.Add(new AuditFindingViewModel(f, SelectInRevitCallback, CorrigirAgoraCallback));
 
             RecomputeKpis(snapshot);
             RefreshPipesNeedCoding();
