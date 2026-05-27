@@ -35,6 +35,16 @@ namespace DarivaBIM.Application.DTOs.Quantifica
         /// <summary>Descrição genérica (cascade: instance → type → typeName).</summary>
         public string Description { get; init; } = string.Empty;
 
+        /// <summary>
+        /// Conteúdo do shared parameter "Tigre: Descrição" lido das famílias
+        /// do catálogo Tigre (instance → type fallback). <c>null</c> quando
+        /// o parâmetro não existe ou está vazio — desambigua dois casos:
+        /// "elemento não é Tigre / família não tem o param" vs "é Tigre mas
+        /// modelador não preencheu". O audit Yellow do scanner consome esse
+        /// segundo caso. Slice 4.3.A F6-LITE.
+        /// </summary>
+        public string? TigreDescription { get; init; }
+
         /// <summary>Fabricante (parâmetro Manufacturer), quando preenchido.</summary>
         public string? Manufacturer { get; init; }
 
