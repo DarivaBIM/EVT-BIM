@@ -291,28 +291,41 @@
             </Border>
         </DataTemplate>
 
-        <!-- Slice 3.5 — header colapsável por categoria (Tubulações,
-             Conexões de tubo, Acessórios, Aparelhos hidrossanitários) -->
+        <!-- Slice 3.5 — header colapsavel por categoria. Slice 4.1 deu uma
+             faixa de fundo sutil + tipografia mais nitida. O Expander mantem
+             o template default do WPF (toggle do chevron funciona) mas o
+             Header foi enriquecido com um Border de fundo + label SemiBold +
+             contador em tom muted. Margem do ItemsPresenter (14px) e do
+             Padding="24,..." dos headers de coluna ficam alinhados (lição
+             do H em 50e6d4d). -->
+        <SolidColorBrush x:Key="CategoryHeaderBgBrush" Color="#F5F7FB" />
+
         <Style x:Key="CategoryGroupHeaderStyle" TargetType="GroupItem">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="GroupItem">
                         <Expander IsExpanded="True"
-                                  Margin="0,4,0,2"
+                                  Margin="0,3,0,1"
                                   Background="Transparent"
                                   BorderThickness="0">
                             <Expander.Header>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Name}"
-                                               FontSize="12"
-                                               FontWeight="SemiBold"
-                                               Foreground="{StaticResource TextPrimaryBrush}" />
-                                    <TextBlock Text="{Binding ItemCount, StringFormat=' ({0})'}"
-                                               FontSize="11"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               VerticalAlignment="Center"
-                                               Margin="4,0,0,0" />
-                                </StackPanel>
+                                <Border Background="{StaticResource CategoryHeaderBgBrush}"
+                                        CornerRadius="3"
+                                        Padding="6,3,10,3"
+                                        Margin="0,1,0,1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="11.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding ItemCount, StringFormat=' · {0} tipo(s)'}"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0" />
+                                    </StackPanel>
+                                </Border>
                             </Expander.Header>
                             <ItemsPresenter Margin="14,0,0,4" />
                         </Expander>
