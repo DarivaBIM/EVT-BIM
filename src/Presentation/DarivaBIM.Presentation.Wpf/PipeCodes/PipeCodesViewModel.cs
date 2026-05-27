@@ -20,22 +20,22 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             NoMatchSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.NoMatch,
                 "Sem correspondência",
-                "Tubos sem item equivalente no catálogo Tigre. Útil para revisar legados.");
+                "Elementos Tigre que não foram localizados no catálogo (DN/linha/descrição inesperados). Inserir não tem efeito aqui — use Deletar para limpar códigos legados ou revise a família.");
 
             DivergentSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Divergent,
                 "Códigos divergentes",
-                "Tubos com código gravado diferente do código previsto pelo catálogo.");
+                "O código gravado é diferente do que o catálogo sugere. Selecione e clique em Inserir/Atualizar para sobrescrever pelo código sugerido na coluna ao lado.");
 
             MissingSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Missing,
                 "Prontos para codificar",
-                "Tubos sem código, mas com correspondência no catálogo Tigre.");
+                "Elementos Tigre sem código ainda, mas com correspondência clara no catálogo. Selecione e clique em Inserir/Atualizar para aplicar o código sugerido.");
 
             OkSection = new PipeCodesSectionViewModel(
                 TigrePipeStatus.Ok,
                 "Códigos corretos",
-                "Tubos já com o código correto. Marque só para regravar ou apagar.");
+                "Já estão com o código certo do catálogo. Marque só se quiser regravar (reforçar) ou apagar.");
 
             NoMatchSection.PropertyChanged += OnSectionPropertyChanged;
             DivergentSection.PropertyChanged += OnSectionPropertyChanged;
@@ -79,7 +79,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             }
         }
 
-        public string PipesTotalText => $"Tubos no projeto: {PipesTotal}";
+        public string PipesTotalText => $"Elementos Tigre no projeto: {PipesTotal}";
 
         private int _uniqueTypeCount;
         public int UniqueTypeCount
@@ -229,6 +229,56 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             set => SetField(ref _statusMessage, value);
         }
 
+        // ---------- Slice 4.3.A F1 ampliado — prefilter por IDs ----------
+
+        private bool _isFiltered;
+        /// <summary>
+        /// <c>true</c> quando o scanner foi chamado com prefilter de IDs
+        /// (vindo do "Corrigir agora" do Tigre Quantifica). Habilita o
+        /// banner no topo da janela com botão "Limpar filtro".
+        /// </summary>
+        public bool IsFiltered
+        {
+            get => _isFiltered;
+            private set
+            {
+                if (SetField(ref _isFiltered, value))
+                    OnPropertyChanged(nameof(FilteredCountText));
+            }
+        }
+
+        private int _filteredCount;
+        public int FilteredCount
+        {
+            get => _filteredCount;
+            private set
+            {
+                if (SetField(ref _filteredCount, value))
+                    OnPropertyChanged(nameof(FilteredCountText));
+            }
+        }
+
+        public string FilteredCountText =>
+            IsFiltered
+                ? $"Filtrado: {FilteredCount} elemento(s) do finding 'Tigre: Código ausente'"
+                : string.Empty;
+
+        /// <summary>
+        /// Marca o estado de filtro pra UI. Chamado pelo code-behind ao
+        /// passar prefilter pro ExternalEvent de scan.
+        /// </summary>
+        public void SetFilterState(int filteredCount)
+        {
+            FilteredCount = filteredCount;
+            IsFiltered = filteredCount > 0;
+        }
+
+        public void ClearFilterState()
+        {
+            FilteredCount = 0;
+            IsFiltered = false;
+        }
+
         // ---------- Operações ----------
 
         /// <summary>
@@ -284,7 +334,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
         {
             if (PipesTotal == 0)
             {
-                StatusMessage = "Nenhum tubo encontrado no projeto ativo.";
+                StatusMessage = "Nenhum elemento Tigre encontrado no projeto ativo.";
                 return;
             }
 
@@ -296,7 +346,7 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
 
             StatusMessage = HasAnySelection
                 ? "Revise os itens selecionados antes de inserir, regravar ou apagar códigos."
-                : "Marque os tubos que deseja atualizar e clique em Inserir/Atualizar Códigos.";
+                : "Marque os elementos que deseja atualizar e clique em Inserir/Atualizar Códigos.";
         }
 
         private void OnSectionPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -324,6 +374,8 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
                     continue;
 
                 section.Groups.Add(new PipeCodesGroupViewModel(
+                    g.CategoryName,
+                    g.FamilyName,
                     g.TypeName,
                     g.DiameterMm,
                     g.Count,

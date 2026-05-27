@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Windows;
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.DTOs.Tigre;
+using DarivaBIM.Infrastructure.Persistence.Settings;
 using DarivaBIM.Plugin.Features.PipeCodes;
 using DarivaBIM.Presentation.Wpf.PipeCodes;
 
@@ -25,6 +27,28 @@ namespace DarivaBIM.Plugin.Ui
         private readonly PipeCodesClearExternalEvent _clearEvent;
         private readonly PipeCodesEnsureParameterExternalEvent _ensureEvent;
 
+        // Slice 4.3.A F1 ampliado — prefilter ativo na sessão atual da
+        // janela. Quando setado (via ShowSingleton(ids)), todo Raise do
+        // _scanEvent leva os IDs. Null = varredura completa.
+        private IReadOnlyCollection<long>? _prefilterIds;
+
+        // Slice 4.3.B P2.7 — store persistente das larguras de coluna.
+        // Carregado no ctor; salvo no OnWindowClosed.
+        private readonly PipeCodesLayoutStore _layoutStore = new();
+
+        // Chaves dos GridLength resources no XAML (Window.Resources). Ordem
+        // tem que casar com a ordem dos ColumnDefinitions do GroupRowTemplate
+        // e dos 4 headers (mantida implicita - os 5 dynamics resources
+        // sao consultados por chave).
+        private static readonly string[] ResizableColumnResourceKeys =
+        {
+            "ColCheckBoxWidth",
+            "ColQtdWidth",
+            // ColElementoWidth e star (*) - nao persistimos.
+            "ColDiametroWidth",
+            "ColCodIconWidth",
+        };
+
         public PipeCodesViewModel ViewModel { get; }
 
         public PipeCodesWindow()
@@ -38,7 +62,21 @@ namespace DarivaBIM.Plugin.Ui
             _clearEvent = new PipeCodesClearExternalEvent();
             _ensureEvent = new PipeCodesEnsureParameterExternalEvent();
 
-            SourceInitialized += (_, _) => WindowChromeHelper.DisableMinimize(this);
+            // Slice 4.3.B P2.7 — aplica larguras salvas (se houver) antes de
+            // mostrar a janela. Falha silenciosa cai pra defaults do XAML.
+            ApplySavedColumnWidths();
+
+            // Hotfix 4.3.A.1 — P/Invoke best-effort. Se DisableMinimize
+            // falhar (mudança de versão Windows, hwnd inválido, etc), o
+            // botão de minimizar do chrome continua existindo, mas a
+            // janela abre normalmente. Antes, uma exception no
+            // SourceInitialized subia pro pump de mensagens do Revit e
+            // contribuía pra cascata de erros do crash do "Corrigir agora".
+            SourceInitialized += (_, _) =>
+            {
+                try { WindowChromeHelper.DisableMinimize(this); }
+                catch { /* best-effort; minimize-bug nao bloqueia janela */ }
+            };
             StateChanged += OnWindowStateChanged;
             Loaded += (_, _) => RaiseScan("Lendo tubos do projeto…");
         }
@@ -51,19 +89,67 @@ namespace DarivaBIM.Plugin.Ui
                 WindowState = WindowState.Normal;
         }
 
-        public static PipeCodesWindow ShowSingleton()
+        public static PipeCodesWindow? ShowSingleton()
         {
-            if (_instance == null)
+            return ShowSingleton(prefilterIds: null);
+        }
+
+        /// <summary>
+        /// Singleton com prefilter opcional de IDs — vindo do "Corrigir
+        /// agora" do Tigre Quantifica (Slice 4.3.A F1 ampliado).
+        /// <c>null</c> ou lista vazia = varredura completa (comportamento
+        /// histórico). Quando preenchido, dispara re-scan filtrado mesmo
+        /// se a janela já estava aberta.
+        ///
+        /// Hotfix 4.3.A.1 — corpo inteiro em try/catch defensivo: a
+        /// criação da janela envolve 4 ExternalEvent.Create do Revit,
+        /// qualquer falha aqui não pode subir pro pump do Revit (o que
+        /// crashava o app na sessão do bug). O TaskDialog substitui o
+        /// "Ocorreu um erro irrecuperável" por mensagem amigável.
+        /// </summary>
+        public static PipeCodesWindow? ShowSingleton(IReadOnlyCollection<long>? prefilterIds)
+        {
+            try
             {
-                _instance = new PipeCodesWindow();
-                _instance.Closed += (_, _) => _instance = null;
+                bool isNew = _instance == null;
+                if (_instance == null)
+                {
+                    _instance = new PipeCodesWindow();
+                    _instance.Closed += (_, _) => _instance = null;
+                }
+
+                // Snapshot defensivo + propaga pra próxima varredura.
+                _instance._prefilterIds = prefilterIds != null && prefilterIds.Count > 0
+                    ? prefilterIds.ToArray()
+                    : null;
+
+                int filteredCount = _instance._prefilterIds?.Count ?? 0;
+                _instance.ViewModel.SetFilterState(filteredCount);
+                if (filteredCount == 0)
+                    _instance.ViewModel.ClearFilterState();
+
+                if (!_instance.IsVisible)
+                    _instance.Show();
+
+                _instance.Activate();
+
+                // Se a janela já estava aberta, force re-scan com o prefilter
+                // novo (Loaded só dispara em janelas novas — singleton já
+                // existente não re-loadea).
+                if (!isNew)
+                    _instance.RaiseScan(filteredCount > 0
+                        ? $"Filtrando {filteredCount} elemento(s) do finding..."
+                        : "Re-lendo elementos do projeto...");
+
+                return _instance;
             }
-
-            if (!_instance.IsVisible)
-                _instance.Show();
-
-            _instance.Activate();
-            return _instance;
+            catch (Exception ex)
+            {
+                TaskDialog.Show(
+                    "EVT-BIM — Codificar Tigre",
+                    $"Não foi possível abrir a janela Codificar Tigre.\n\n{ex.Message}");
+                return _instance;
+            }
         }
 
         // ---------------- Atualizações vindas dos ExternalEvents ----------------
@@ -122,6 +208,15 @@ namespace DarivaBIM.Plugin.Ui
             RaiseScan("Re-lendo tubos do projeto…");
         }
 
+        // Slice 4.3.A F1 ampliado — limpa o prefilter ativo e re-escaneia
+        // o projeto inteiro.
+        private void OnClearFilterClicked(object sender, RoutedEventArgs e)
+        {
+            _prefilterIds = null;
+            ViewModel.ClearFilterState();
+            RaiseScan("Removendo filtro e re-lendo o projeto…");
+        }
+
         private void OnEnsureParameterClicked(object sender, RoutedEventArgs e)
         {
             ViewModel.IsBusy = true;
@@ -159,7 +254,54 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnWindowClosed(object? sender, EventArgs e)
         {
-            // Nada a persistir hoje — listas e seleção morrem com a janela.
+            // Slice 4.3.B P2.7 — persistencia das larguras de coluna atuais
+            // (cobre ajustes via futuros GridSplitter; hoje cai cedo se nada
+            // mudou em relacao aos defaults do XAML).
+            PersistColumnWidths();
+        }
+
+        // ---------------- Larguras de coluna (Slice 4.3.B P2.7) ----------------
+
+        private void ApplySavedColumnWidths()
+        {
+            try
+            {
+                PipeCodesLayoutSettings settings = _layoutStore.Load();
+                if (settings == null || settings.Columns == null || settings.Columns.Count == 0)
+                    return;
+
+                foreach (string key in ResizableColumnResourceKeys)
+                {
+                    if (!settings.Columns.TryGetValue(key, out double width))
+                        continue;
+                    if (width <= 0 || double.IsNaN(width) || double.IsInfinity(width))
+                        continue;
+                    // Resources.Add se chave nao existir; senao indexer atualiza.
+                    Resources[key] = new GridLength(width, GridUnitType.Pixel);
+                }
+            }
+            catch
+            {
+                // Defaults do XAML continuam ativos.
+            }
+        }
+
+        private void PersistColumnWidths()
+        {
+            try
+            {
+                PipeCodesLayoutSettings settings = new();
+                foreach (string key in ResizableColumnResourceKeys)
+                {
+                    if (Resources[key] is GridLength gl && gl.IsAbsolute)
+                        settings.Columns[key] = gl.Value;
+                }
+                _layoutStore.Save(settings);
+            }
+            catch
+            {
+                // Best-effort.
+            }
         }
 
         // ---------------- Helpers ----------------
@@ -168,7 +310,7 @@ namespace DarivaBIM.Plugin.Ui
         {
             ViewModel.IsBusy = true;
             ViewModel.StatusMessage = busyMessage;
-            _scanEvent.Raise(this);
+            _scanEvent.Raise(this, _prefilterIds);
         }
 
         private void RunOnUi(Action action)

@@ -31,6 +31,23 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
         }
 
         [Fact]
+        public void HasCode_returns_true_for_known_code()
+        {
+            // 2C.1: code 22150251 = Joelho 90 Soldável 25mm (existe).
+            var catalog = new TigreCatalog(TigreFallbackCatalogRows.All());
+            Assert.True(catalog.HasCode(22150251));
+        }
+
+        [Fact]
+        public void HasCode_returns_false_for_unknown_code()
+        {
+            var catalog = new TigreCatalog(TigreFallbackCatalogRows.All());
+            Assert.False(catalog.HasCode(99999999));
+            Assert.False(catalog.HasCode(0));
+            Assert.False(catalog.HasCode(-1));
+        }
+
+        [Fact]
         public void Entries_are_ordered_by_specificity()
         {
             var catalog = new TigreCatalog(TigreFallbackCatalogRows.All());

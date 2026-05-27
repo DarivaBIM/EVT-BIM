@@ -10,7 +10,7 @@ namespace DarivaBIM.Revit.Abstractions.Ribbon
         ImportFamilies,
         CalculatePressure,
         SizePump,
-        GenerateReport,
+        OpenTigreQuantifica,
         WritePipeCodes,
         OpenSupportMap,
         OpenSettings,

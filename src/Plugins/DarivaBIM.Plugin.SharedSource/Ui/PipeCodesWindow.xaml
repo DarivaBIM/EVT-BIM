@@ -2,9 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:common="clr-namespace:DarivaBIM.Presentation.Wpf.Common;assembly=DarivaBIM.Presentation.Wpf"
-        Title="Codificar Tubos — Tigre"
-        Width="1180"
-        Height="720"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="Codificar Tigre — EVT-BIM"
+        Width="1280"
+        Height="780"
         MinWidth="980"
         MinHeight="560"
         ResizeMode="CanResize"
@@ -21,6 +22,19 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <common:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+
+        <!-- Slice 4.3.B P2.7 — larguras de coluna como recursos dinamicos.
+             ColumnDefinition.Width usa GridLength (estrutura) e nao aceita
+             binding direto facilmente em DataTemplate; usar DynamicResource
+             em GridLength resources permite ao code-behind sobrescrever as
+             larguras em runtime (e o WPF re-aplica em todos os Grids - tanto
+             nos 4 headers quanto em cada item do GroupRowTemplate). Defaults
+             aqui = larguras XAML pos commits 3+5 (P2.1+P2.5+P2.8). -->
+        <GridLength x:Key="ColCheckBoxWidth">28</GridLength>
+        <GridLength x:Key="ColQtdWidth">34</GridLength>
+        <GridLength x:Key="ColElementoWidth">*</GridLength>
+        <GridLength x:Key="ColDiametroWidth">64</GridLength>
+        <GridLength x:Key="ColCodIconWidth">28</GridLength>
 
         <!-- ========================= Paleta base ========================= -->
         <SolidColorBrush x:Key="CardBackgroundBrush"  Color="#FFFFFF" />
@@ -137,6 +151,34 @@
             <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
         </Style>
 
+        <!-- Slice 4.1 — coluna COD. SUGERIDO. Tabular numbers + cinza um
+             tom mais firme que o diametro pra dar peso ao codigo sugerido
+             sem competir com o ELEMENTO.
+             Slice 4.3.B P2.1 — agora a coluna mostra um icone "i" sutil
+             em vez do numero, com ToolTip rico mostrando o codigo. Style
+             abaixo permanece pra uso historico (csv etc) mas o XAML da
+             celula usa RowCodeIconStyle. -->
+        <Style x:Key="RowCodeStyle" TargetType="TextBlock" BasedOn="{StaticResource RowTextStyle}">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!-- Slice 4.3.B P2.1 — icone "i" da coluna COD. SUGERIDO. Texto
+             "ⓘ" (Unicode CIRCLED LATIN SMALL LETTER I, U+24D8) renderiza
+             bem em Segoe UI Symbol. Tamanho 13px, cor accent muted, padding
+             zerado e cursor=Help pra sinalizar interatividade do hover.
+             ToolTipService.InitialShowDelay=200 abre rapido sem ser agressivo. -->
+        <Style x:Key="RowCodeIconStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI Symbol, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Help" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
+        </Style>
+
         <Style x:Key="StatusPillTextStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -240,18 +282,27 @@
             </Style.Triggers>
         </Style>
 
-        <!-- ========================= Linha (DataTemplate) ========================= -->
+        <!-- ========================= Linha (DataTemplate) =========================
+             Slice 4.1 — coluna TIPO virou ELEMENTO (familia · tipo via ElementText)
+             + nova coluna COD. SUGERIDO (MatchedCodeText). Layout balanceado pra
+             caber 5 colunas mantendo o checkbox e o fluxo de leitura
+             checkbox -> qtd -> elemento -> diametro -> codigo.
+             Slice 4.3.B P2 — refinamentos UX do smoke 2026-05-27:
+             - P2.1: COD. SUGERIDO de coluna texto 86px -> icone "ⓘ" 28px
+             - P2.5: QTD 38px -> 34px
+             - P2.8: respiro extra liberado pra coluna ELEMENTO. -->
         <DataTemplate x:Key="GroupRowTemplate">
             <Border BorderBrush="{StaticResource RowDividerBrush}"
                     BorderThickness="0,0,0,1"
-                    Padding="10,7"
+                    Padding="10,6"
                     Background="Transparent">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="28" />
-                        <ColumnDefinition Width="44" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                     </Grid.ColumnDefinitions>
 
                     <CheckBox Grid.Column="0"
@@ -262,16 +313,93 @@
                                Text="{Binding Count}"
                                Style="{StaticResource RowTextStyle}" />
                     <TextBlock Grid.Column="2"
-                               Text="{Binding TypeName}"
+                               Text="{Binding ElementText}"
                                Style="{StaticResource RowTextStyle}"
                                Margin="0,0,8,0"
-                               ToolTip="{Binding TypeName}" />
+                               ToolTip="{Binding ElementText}" />
                     <TextBlock Grid.Column="3"
                                Text="{Binding DiameterText}"
                                Style="{StaticResource RowDiameterStyle}" />
+                    <!-- Slice 4.3.B P2.1 — icone "ⓘ" com tooltip rico do codigo
+                         sugerido. Visibility=Collapsed quando o grupo nao tem
+                         match (NoMatchSection) - limpa o espaco visual. -->
+                    <TextBlock Grid.Column="4"
+                               Text="&#x24D8;"
+                               Style="{StaticResource RowCodeIconStyle}"
+                               ToolTip="{Binding MatchedCodeTooltip}"
+                               Visibility="{Binding HasMatchedCode, Converter={StaticResource BoolToVisibilityConverter}}" />
                 </Grid>
             </Border>
         </DataTemplate>
+
+        <!-- Slice 3.5 — header colapsavel por categoria. Slice 4.1 deu uma
+             faixa de fundo sutil + tipografia mais nitida.
+             Slice 4.3.B P2 — refinamentos UX:
+             - P2.2: faixa full-width (Border ocupa todo o GroupItem ao inves
+               de "ilha" curta) usando Stretch + Margin=0 nas extremidades.
+             - P2.3: chevron 22x22 -> 14x14 pra caber melhor na faixa fina.
+             - P2.4: ItemsPresenter Margin 14,0,0,4 -> 0,0,0,4 pra alinhar
+               o checkbox da row com o chevron da faixa de categoria. Antes
+               sobrava 14px de offset sem necessidade visual.
+
+             O Expander default do WPF traz seu proprio Toggle/chevron via
+             template. Mexemos so no Header (Border full-width) e no
+             ItemsPresenter (margin zerada). -->
+        <SolidColorBrush x:Key="CategoryHeaderBgBrush" Color="#F1F3F7" />
+
+        <Style x:Key="CategoryGroupHeaderStyle" TargetType="GroupItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupItem">
+                        <Expander IsExpanded="True"
+                                  Margin="0,3,0,1"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  HorizontalContentAlignment="Stretch"
+                                  HorizontalAlignment="Stretch">
+                            <Expander.Resources>
+                                <!-- P2.3 — chevron menor (estilo do
+                                     ToggleButton "ExpanderToggleButton"
+                                     interno do WPF nao e nomeado, mas
+                                     reduzir o FontSize/Margin do Expander
+                                     ja diminui o glifo padrao. Usamos
+                                     LayoutTransform leve pra encolher o
+                                     toggle sem reescrever o ControlTemplate
+                                     inteiro do Expander. -->
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="LayoutTransform">
+                                        <Setter.Value>
+                                            <ScaleTransform ScaleX="0.7" ScaleY="0.7" />
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Expander.Resources>
+                            <Expander.Header>
+                                <Border Background="{StaticResource CategoryHeaderBgBrush}"
+                                        CornerRadius="2"
+                                        Padding="6,4,10,4"
+                                        Margin="-4,1,0,1"
+                                        HorizontalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="11.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding ItemCount, StringFormat=' · {0} tipo(s)'}"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </Expander.Header>
+                            <ItemsPresenter Margin="0,0,0,4" />
+                        </Expander>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <Style x:Key="ListBoxItemFlatStyle" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -343,6 +471,7 @@
     <Grid Margin="20,16,20,14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />  <!-- Slice 4.3.A F1 ampliado: banner de filtro -->
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -351,7 +480,7 @@
         <!-- ========================= Cabeçalho da página ========================= -->
         <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,12">
             <TextBlock DockPanel.Dock="Left"
-                       Text="Codificar Tubos — Tigre"
+                       Text="Codificar Tigre — EVT-BIM"
                        Style="{StaticResource PageTitleStyle}"
                        VerticalAlignment="Center"
                        Margin="0,0,14,0" />
@@ -360,8 +489,35 @@
                        Text="Marque os Tipo + Diâmetro para inserir, regravar ou apagar o parâmetro Tigre: Código." />
         </DockPanel>
 
-        <!-- ========================= Faixa de resumo ========================= -->
+        <!-- ========================= Slice 4.3.A F1 ampliado — Banner de filtro =========================
+             Aparece quando ShowSingleton(prefilterIds) foi acionado pelo
+             "Corrigir agora" do Tigre Quantifica. Mostra contagem dos IDs
+             filtrados e botão pra remover o filtro (rescan completo). -->
         <Border Grid.Row="1"
+                Background="#FFFAEB"
+                BorderBrush="#F4DFA1"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="14,8"
+                Margin="0,0,0,12"
+                Visibility="{Binding IsFiltered, Converter={StaticResource BoolToVisibilityConverter}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Content="Limpar filtro"
+                        Padding="10,4"
+                        Margin="14,0,0,0"
+                        FontWeight="SemiBold"
+                        Cursor="Hand"
+                        Click="OnClearFilterClicked" />
+                <TextBlock Foreground="#92660B"
+                           VerticalAlignment="Center"
+                           Text="{Binding FilteredCountText}"
+                           FontWeight="SemiBold" />
+            </DockPanel>
+        </Border>
+
+        <!-- ========================= Faixa de resumo ========================= -->
+        <Border Grid.Row="2"
                 Background="{StaticResource CardBackgroundBrush}"
                 BorderBrush="{StaticResource SoftBorderBrush}"
                 BorderThickness="1"
@@ -493,7 +649,7 @@
                 <!-- Botão "Criar parâmetro nos tubos" -->
                 <Button Grid.Column="11"
                         Style="{StaticResource CreateParamButtonStyle}"
-                        Content="Criar parâmetro nos tubos"
+                        Content="Criar parâmetro Tigre: Código"
                         IsEnabled="{Binding CanCreateParameter}"
                         VerticalAlignment="Center"
                         Click="OnEnsureParameterClicked" />
@@ -501,7 +657,7 @@
         </Border>
 
         <!-- ========================= 4 cards lado a lado ========================= -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -556,8 +712,9 @@
                                    FontSize="11.5"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap"
+                                   LineHeight="15"
                                    Margin="0,6,0,0"
-                                   MinHeight="32" />
+                                   MinHeight="44" />
                     </StackPanel>
 
                     <!-- Toolbar: Selecionar todos · contador · recolher -->
@@ -606,29 +763,39 @@
                                     Background="{StaticResource RowHeaderBgBrush}"
                                     BorderBrush="{StaticResource SoftBorderBrush}"
                                     BorderThickness="0,0,0,1"
-                                    Padding="10,8">
+                                    Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="44" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="2" Text="TIPO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
-                                <ListBox ItemsSource="{Binding NoMatchSection.Groups}"
+                                <ListBox ItemsSource="{Binding NoMatchSection.GroupedGroups}"
                                          ItemTemplate="{StaticResource GroupRowTemplate}"
                                          ItemContainerStyle="{StaticResource ListBoxItemFlatStyle}"
                                          BorderThickness="0"
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         Visibility="{Binding NoMatchSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
+                                         Visibility="{Binding NoMatchSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
+                                    </ListBox.GroupStyle>
+                                </ListBox>
                                 <TextBlock Text="Nenhum item encontrado."
                                            Style="{StaticResource EmptyStateStyle}"
                                            Visibility="{Binding NoMatchSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -684,8 +851,9 @@
                                    FontSize="11.5"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap"
+                                   LineHeight="15"
                                    Margin="0,6,0,0"
-                                   MinHeight="32" />
+                                   MinHeight="44" />
                     </StackPanel>
 
                     <Grid Grid.Row="1" Margin="14,10,14,8">
@@ -731,29 +899,39 @@
                                     Background="{StaticResource RowHeaderBgBrush}"
                                     BorderBrush="{StaticResource SoftBorderBrush}"
                                     BorderThickness="0,0,0,1"
-                                    Padding="10,8">
+                                    Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="44" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="2" Text="TIPO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
-                                <ListBox ItemsSource="{Binding DivergentSection.Groups}"
+                                <ListBox ItemsSource="{Binding DivergentSection.GroupedGroups}"
                                          ItemTemplate="{StaticResource GroupRowTemplate}"
                                          ItemContainerStyle="{StaticResource ListBoxItemFlatStyle}"
                                          BorderThickness="0"
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         Visibility="{Binding DivergentSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
+                                         Visibility="{Binding DivergentSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
+                                    </ListBox.GroupStyle>
+                                </ListBox>
                                 <TextBlock Text="Nenhum item encontrado."
                                            Style="{StaticResource EmptyStateStyle}"
                                            Visibility="{Binding DivergentSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -809,8 +987,9 @@
                                    FontSize="11.5"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap"
+                                   LineHeight="15"
                                    Margin="0,6,0,0"
-                                   MinHeight="32" />
+                                   MinHeight="44" />
                     </StackPanel>
 
                     <Grid Grid.Row="1" Margin="14,10,14,8">
@@ -856,29 +1035,39 @@
                                     Background="{StaticResource RowHeaderBgBrush}"
                                     BorderBrush="{StaticResource SoftBorderBrush}"
                                     BorderThickness="0,0,0,1"
-                                    Padding="10,8">
+                                    Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="44" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="2" Text="TIPO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
-                                <ListBox ItemsSource="{Binding MissingSection.Groups}"
+                                <ListBox ItemsSource="{Binding MissingSection.GroupedGroups}"
                                          ItemTemplate="{StaticResource GroupRowTemplate}"
                                          ItemContainerStyle="{StaticResource ListBoxItemFlatStyle}"
                                          BorderThickness="0"
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         Visibility="{Binding MissingSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
+                                         Visibility="{Binding MissingSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
+                                    </ListBox.GroupStyle>
+                                </ListBox>
                                 <TextBlock Text="Nenhum item encontrado."
                                            Style="{StaticResource EmptyStateStyle}"
                                            Visibility="{Binding MissingSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -934,8 +1123,9 @@
                                    FontSize="11.5"
                                    Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap"
+                                   LineHeight="15"
                                    Margin="0,6,0,0"
-                                   MinHeight="32" />
+                                   MinHeight="44" />
                     </StackPanel>
 
                     <Grid Grid.Row="1" Margin="14,10,14,8">
@@ -981,29 +1171,39 @@
                                     Background="{StaticResource RowHeaderBgBrush}"
                                     BorderBrush="{StaticResource SoftBorderBrush}"
                                     BorderThickness="0,0,0,1"
-                                    Padding="10,8">
+                                    Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="44" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="2" Text="TIPO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
-                                <ListBox ItemsSource="{Binding OkSection.Groups}"
+                                <ListBox ItemsSource="{Binding OkSection.GroupedGroups}"
                                          ItemTemplate="{StaticResource GroupRowTemplate}"
                                          ItemContainerStyle="{StaticResource ListBoxItemFlatStyle}"
                                          BorderThickness="0"
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         Visibility="{Binding OkSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                         ScrollViewer.CanContentScroll="True"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
+                                         Visibility="{Binding OkSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
+                                    </ListBox.GroupStyle>
+                                </ListBox>
                                 <TextBlock Text="Nenhum item encontrado."
                                            Style="{StaticResource EmptyStateStyle}"
                                            Visibility="{Binding OkSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -1014,33 +1214,45 @@
             </Border>
         </Grid>
 
-        <!-- ========================= Rodapé ========================= -->
-        <Grid Grid.Row="3" Margin="0,12,0,0">
+        <!-- ========================= Rodape =========================
+             Slice 4.1 — footer responsivo: status em coluna proporcional com
+             text-wrap (libera espaco quando os botoes crescem com contador
+             "(999)") + WrapPanel pra que os botoes quebrem pra linha de
+             baixo em janelas estreitas (MinWidth=980). MinWidth no status
+             evita que o status seja zerado quando o ApplyButton expande. -->
+        <Grid Grid.Row="4" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="220" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0"
                        Text="{Binding StatusMessage}"
                        Style="{StaticResource PageHintStyle}"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Margin="0,0,12,0" />
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+            <WrapPanel Grid.Column="1"
+                       Orientation="Horizontal"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Center">
                 <Button Style="{StaticResource NeutralButtonStyle}"
                         Content="Atualizar lista"
-                        Margin="0,0,0,0"
+                        Margin="0,4,0,0"
                         ToolTip="Re-varre o projeto e atualiza as caixinhas."
                         Click="OnRescanClicked" />
                 <Button Style="{StaticResource GhostDangerButtonStyle}"
                         Content="{Binding ClearButtonLabel}"
+                        Margin="6,4,0,0"
                         IsEnabled="{Binding CanClear}"
                         Click="OnClearClicked" />
                 <Button Style="{StaticResource PrimaryButtonStyle}"
                         Content="{Binding ApplyButtonLabel}"
+                        Margin="6,4,0,0"
                         IsEnabled="{Binding CanApply}"
                         Click="OnApplyClicked" />
-            </StackPanel>
+            </WrapPanel>
         </Grid>
     </Grid>
 </Window>

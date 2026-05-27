@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace DarivaBIM.Domain.Tigre
 {
@@ -14,6 +15,110 @@ namespace DarivaBIM.Domain.Tigre
         };
 
         private static readonly char[] WordSplit = new[] { ' ' };
+
+        // Strip ordenado de marcadores dimensionais que poluem o token
+        // matching: a descrição "lean" preserva apenas o que identifica o
+        // PRODUTO (família, tipo, variação), nunca a especificação
+        // (diâmetro, pressão, comprimento). SR/SN/REDUX/Soldável/Roscável,
+        // Curta/Longa e acentos NÃO são strippados — diferenciam produtos.
+        private static readonly Regex StripDnRegex = new(
+            @"\b(?:DN|dn)\s*\d+(?:[xX]\d+)?(?:[xX]\d+)?(?:\s*mm)?\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex StripMmRegex = new(
+            @"\b\d+(?:[xX]\d+)?(?:[xX]\d+)?\s*mm\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        // 9 variantes de aspas/apóstrofes que aparecem em descrições de
+        // polegada — reta, apóstrofe, agudo, curvas (copy/paste de Word)
+        // e os primes Unicode usados pela ABNT.
+        //   U+0022 " quote reto          U+0027 ' apóstrofe reto
+        //   U+00B4 ´ agudo               U+2018 ‘ single curve esq
+        //   U+2019 ’ single curve dir    U+201C “ double curve esq
+        //   U+201D ” double curve dir    U+2032 ′ prime
+        //   U+2033 ″ double prime
+        private static readonly string InchQuoteChars =
+            "\u0022\u0027\u00B4\u2018\u2019\u201C\u201D\u2032\u2033";
+
+        // Pré-strip: "25x3/4\"", "75x2.1/2\"" — mm × polegada fracionária
+        // com aspas. Aplicado ANTES do StripInchRegex pra eliminar o par
+        // como unidade; senão o main strip consome só metade e deixa
+        // "25x3/" como lixo no lean.
+        private static readonly Regex StripFractionInchRegex = new(
+            @"\b\d+(?:\.\d+)?[xX]\d+(?:\.\d+)?/\d+\s*[" + InchQuoteChars + "]",
+            RegexOptions.Compiled);
+
+        // Pré-strip: "2.1/2'x2'", "1.1/4\"x3/4\"" — polegada × polegada
+        // com aspas no meio. Sem isso o main strip consome só metade
+        // e deixa "x2'" sobrando.
+        private static readonly Regex StripFractionInchPairRegex = new(
+            @"\b\d+(?:\.\d+)?(?:/\d+)?\s*[" + InchQuoteChars + @"]\s*[xX]\s*" +
+            @"\d+(?:\.\d+)?(?:/\d+)?\s*[" + InchQuoteChars + "]",
+            RegexOptions.Compiled);
+
+        private static readonly Regex StripInchRegex = new(
+            @"\b\d+(?:\.\d+)?(?:[xX]\d+(?:\.\d+)?)?(?:/\d+)?\s*[" + InchQuoteChars + "]",
+            RegexOptions.Compiled);
+
+        private static readonly Regex StripPnRegex = new(
+            @"\bPN\s*\d+(?:\.\d+)?\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex StripLengthRegex = new(
+            @"\s*-\s*\d+m\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex CollapseWhitespaceRegex = new(
+            @"\s+",
+            RegexOptions.Compiled);
+
+        // Captura classe de pressão PPR em qualquer texto da query/entry.
+        // "PN 20" / "PN20" / "PN 12.5" → "20" / "20" / "12.5".
+        private static readonly Regex ExtractPnRegex = new(
+            @"\bPN\s*(\d+(?:\.\d+)?)\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
+        /// Extrai a classe de pressão (PN) do texto se houver. Retorna
+        /// string pra preservar precisão decimal — "12.5" e não 12.5
+        /// (float arredondamento). Null se o texto não menciona PN.
+        /// </summary>
+        public static string? ExtractPn(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+            Match m = ExtractPnRegex.Match(text!);
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
+        /// <summary>
+        /// Remove marcadores dimensionais (DN, mm, polegadas, PN, "- 6m"
+        /// trailing) preservando a identificação do produto. Famílias Revit
+        /// raramente carregam diâmetro no segment/typeName, então a entry
+        /// do catálogo precisa estar "limpa" pra casar token-a-token.
+        ///
+        /// "Tubo Série Normal DN50 - 6m" → "Tubo Série Normal"
+        /// "Bucha de Redução AQUATHERM 73x35mm" → "Bucha de Redução AQUATHERM"
+        /// "Tubo PPR PN 20 50mm - 3m" → "Tubo PPR"
+        /// </summary>
+        public static string StripDimensions(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+
+            string s = text!;
+            s = StripDnRegex.Replace(s, " ");
+            s = StripMmRegex.Replace(s, " ");
+            // Pré-strips de polegada precisam vir antes do strip simples
+            // pra capturar pares como unidade (25x3/4", 2.1/2'x2').
+            s = StripFractionInchPairRegex.Replace(s, " ");
+            s = StripFractionInchRegex.Replace(s, " ");
+            s = StripInchRegex.Replace(s, " ");
+            s = StripPnRegex.Replace(s, " ");
+            s = StripLengthRegex.Replace(s, " ");
+            s = CollapseWhitespaceRegex.Replace(s, " ").Trim();
+            return s;
+        }
 
         public static string Normalize(string? text)
         {
