@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using DarivaBIM.Application.DTOs.Quantifica;
 
@@ -26,11 +27,47 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
         public string Diameter => _group.Diameter ?? string.Empty;
         public string TigreCode => _group.TigreCode ?? string.Empty;
         public string Description => _group.Description;
+        public string TigreDescription => _group.TigreDescription ?? string.Empty;
         public string Manufacturer => _group.Manufacturer ?? string.Empty;
+        // Slice 4.5 — System deixou de ser exibido na tabela e no CSV,
+        // mas continua exposto pra consumers que filtram/buscam (F3 do
+        // slice-43b usa em MatchesFilter). Sempre retorna string.Empty
+        // após o Slice 4.5 porque o scanner zera o campo no DTO
+        // agregado — a busca por sistema fica não-funcional até a próxima
+        // iteração que decida se Sistema entra de alguma outra forma.
         public string System => _group.System ?? string.Empty;
         public string Unit => _group.MeasurementKind.ToUnitLabel();
         public int ElementCount => _group.ElementCount;
-        public string ElementCountText => _group.ElementCount.ToString(PtBr);
+
+        /// <summary>
+        /// Slice 4.5 — texto da coluna unificada ELEMENTO da tabela.
+        /// Prefere <c>TigreDescription</c> (preenchido pelas familias do
+        /// catalogo Tigre via F6-LITE) e cai pra "Familia · Tipo" quando
+        /// ausente — coincide com a heuristica que o PipeCodes
+        /// (Codificar Tigre) ja usa pra exibir elementos no relatorio.
+        /// O tooltip XAML continua mostrando Familia/Tipo separados pra
+        /// inspecao, e o CSV mantem as colunas separadas no export.
+        /// </summary>
+        public string ElementText
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(_group.TigreDescription))
+                    return _group.TigreDescription!;
+
+                string family = _group.Family ?? string.Empty;
+                string type = _group.Type ?? string.Empty;
+                if (string.IsNullOrEmpty(family))
+                    return type;
+                // Usa global::System.StringComparison pra contornar a colisao
+                // com a propriedade publica "System" desta classe (o resolver
+                // do C# acha a propriedade antes do namespace System dentro
+                // do corpo do tipo).
+                if (string.Equals(family, type, global::System.StringComparison.Ordinal))
+                    return type;
+                return $"{family} · {type}";
+            }
+        }
 
         public string QuantityText
         {
