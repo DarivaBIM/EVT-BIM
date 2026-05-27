@@ -139,11 +139,30 @@
 
         <!-- Slice 4.1 — coluna COD. SUGERIDO. Tabular numbers + cinza um
              tom mais firme que o diametro pra dar peso ao codigo sugerido
-             sem competir com o ELEMENTO. -->
+             sem competir com o ELEMENTO.
+             Slice 4.3.B P2.1 — agora a coluna mostra um icone "i" sutil
+             em vez do numero, com ToolTip rico mostrando o codigo. Style
+             abaixo permanece pra uso historico (csv etc) mas o XAML da
+             celula usa RowCodeIconStyle. -->
         <Style x:Key="RowCodeStyle" TargetType="TextBlock" BasedOn="{StaticResource RowTextStyle}">
             <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
             <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
             <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!-- Slice 4.3.B P2.1 — icone "i" da coluna COD. SUGERIDO. Texto
+             "ⓘ" (Unicode CIRCLED LATIN SMALL LETTER I, U+24D8) renderiza
+             bem em Segoe UI Symbol. Tamanho 13px, cor accent muted, padding
+             zerado e cursor=Help pra sinalizar interatividade do hover.
+             ToolTipService.InitialShowDelay=200 abre rapido sem ser agressivo. -->
+        <Style x:Key="RowCodeIconStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI Symbol, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Help" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
         </Style>
 
         <Style x:Key="StatusPillTextStyle" TargetType="TextBlock">
@@ -253,7 +272,11 @@
              Slice 4.1 — coluna TIPO virou ELEMENTO (familia · tipo via ElementText)
              + nova coluna COD. SUGERIDO (MatchedCodeText). Layout balanceado pra
              caber 5 colunas mantendo o checkbox e o fluxo de leitura
-             checkbox -> qtd -> elemento -> diametro -> codigo. -->
+             checkbox -> qtd -> elemento -> diametro -> codigo.
+             Slice 4.3.B P2 — refinamentos UX do smoke 2026-05-27:
+             - P2.1: COD. SUGERIDO de coluna texto 86px -> icone "ⓘ" 28px
+             - P2.5: QTD 38px -> 34px
+             - P2.8: respiro extra liberado pra coluna ELEMENTO. -->
         <DataTemplate x:Key="GroupRowTemplate">
             <Border BorderBrush="{StaticResource RowDividerBrush}"
                     BorderThickness="0,0,0,1"
@@ -262,10 +285,10 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="28" />
-                        <ColumnDefinition Width="38" />
+                        <ColumnDefinition Width="34" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="64" />
-                        <ColumnDefinition Width="86" />
+                        <ColumnDefinition Width="28" />
                     </Grid.ColumnDefinitions>
 
                     <CheckBox Grid.Column="0"
@@ -283,10 +306,14 @@
                     <TextBlock Grid.Column="3"
                                Text="{Binding DiameterText}"
                                Style="{StaticResource RowDiameterStyle}" />
+                    <!-- Slice 4.3.B P2.1 — icone "ⓘ" com tooltip rico do codigo
+                         sugerido. Visibility=Collapsed quando o grupo nao tem
+                         match (NoMatchSection) - limpa o espaco visual. -->
                     <TextBlock Grid.Column="4"
-                               Text="{Binding MatchedCodeText}"
-                               Style="{StaticResource RowCodeStyle}"
-                               ToolTip="{Binding MatchedCodeText}" />
+                               Text="&#x24D8;"
+                               Style="{StaticResource RowCodeIconStyle}"
+                               ToolTip="{Binding MatchedCodeTooltip}"
+                               Visibility="{Binding HasMatchedCode, Converter={StaticResource BoolToVisibilityConverter}}" />
                 </Grid>
             </Border>
         </DataTemplate>
@@ -700,16 +727,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="38" />
+                                        <ColumnDefinition Width="34" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="86" />
+                                        <ColumnDefinition Width="28" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="4" Text="CÓD. SUGERIDO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
@@ -836,16 +863,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="38" />
+                                        <ColumnDefinition Width="34" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="86" />
+                                        <ColumnDefinition Width="28" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="4" Text="CÓD. SUGERIDO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
@@ -972,16 +999,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="38" />
+                                        <ColumnDefinition Width="34" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="86" />
+                                        <ColumnDefinition Width="28" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="4" Text="CÓD. SUGERIDO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
@@ -1108,16 +1135,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="38" />
+                                        <ColumnDefinition Width="34" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="86" />
+                                        <ColumnDefinition Width="28" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="4" Text="CÓD. SUGERIDO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">

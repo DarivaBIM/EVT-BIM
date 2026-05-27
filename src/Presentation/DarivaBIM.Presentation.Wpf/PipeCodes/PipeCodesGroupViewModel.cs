@@ -94,6 +94,23 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             ? MatchedCode.Value.ToString(CultureInfo.InvariantCulture)
             : "—";
 
+        /// <summary>
+        /// Slice 4.3.B P2.1 — true quando há código sugerido para mostrar
+        /// no ícone "i". Drive o Visibility do TextBlock; collapse limpa o
+        /// espaço da coluna nas linhas NoMatch sem alterar o layout.
+        /// </summary>
+        public bool HasMatchedCode => MatchedCode.HasValue;
+
+        /// <summary>
+        /// Slice 4.3.B P2.1 — tooltip rico do ícone "i" da coluna
+        /// CÓD. SUGERIDO. Coloca o código sugerido em destaque pro hover
+        /// do usuário ("Código sugerido pelo catálogo: 47013"), com
+        /// fallback amigável quando não há match.
+        /// </summary>
+        public string MatchedCodeTooltip => MatchedCode.HasValue
+            ? $"Código sugerido pelo catálogo: {MatchedCode.Value.ToString(CultureInfo.InvariantCulture)}"
+            : "Sem correspondência no catálogo Tigre.";
+
         private bool _isSelected;
         public bool IsSelected
         {
