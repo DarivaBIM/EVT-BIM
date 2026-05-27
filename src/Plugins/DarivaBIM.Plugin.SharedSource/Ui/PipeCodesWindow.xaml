@@ -137,6 +137,15 @@
             <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
         </Style>
 
+        <!-- Slice 4.1 — coluna COD. SUGERIDO. Tabular numbers + cinza um
+             tom mais firme que o diametro pra dar peso ao codigo sugerido
+             sem competir com o ELEMENTO. -->
+        <Style x:Key="RowCodeStyle" TargetType="TextBlock" BasedOn="{StaticResource RowTextStyle}">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
         <Style x:Key="StatusPillTextStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -240,7 +249,11 @@
             </Style.Triggers>
         </Style>
 
-        <!-- ========================= Linha (DataTemplate) ========================= -->
+        <!-- ========================= Linha (DataTemplate) =========================
+             Slice 4.1 — coluna TIPO virou ELEMENTO (familia · tipo via ElementText)
+             + nova coluna COD. SUGERIDO (MatchedCodeText). Layout balanceado pra
+             caber 5 colunas mantendo o checkbox e o fluxo de leitura
+             checkbox -> qtd -> elemento -> diametro -> codigo. -->
         <DataTemplate x:Key="GroupRowTemplate">
             <Border BorderBrush="{StaticResource RowDividerBrush}"
                     BorderThickness="0,0,0,1"
@@ -249,9 +262,10 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="28" />
-                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="38" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="64" />
+                        <ColumnDefinition Width="86" />
                     </Grid.ColumnDefinitions>
 
                     <CheckBox Grid.Column="0"
@@ -262,13 +276,17 @@
                                Text="{Binding Count}"
                                Style="{StaticResource RowTextStyle}" />
                     <TextBlock Grid.Column="2"
-                               Text="{Binding TypeName}"
+                               Text="{Binding ElementText}"
                                Style="{StaticResource RowTextStyle}"
                                Margin="0,0,8,0"
-                               ToolTip="{Binding TypeName}" />
+                               ToolTip="{Binding ElementText}" />
                     <TextBlock Grid.Column="3"
                                Text="{Binding DiameterText}"
                                Style="{StaticResource RowDiameterStyle}" />
+                    <TextBlock Grid.Column="4"
+                               Text="{Binding MatchedCodeText}"
+                               Style="{StaticResource RowCodeStyle}"
+                               ToolTip="{Binding MatchedCodeText}" />
                 </Grid>
             </Border>
         </DataTemplate>
@@ -640,14 +658,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="38" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="64" />
+                                        <ColumnDefinition Width="86" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="2" Text="TIPO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="CÓD. SUGERIDO" Style="{StaticResource ColumnHeaderStyle}" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
@@ -773,14 +793,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="38" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="64" />
+                                        <ColumnDefinition Width="86" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="2" Text="TIPO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="CÓD. SUGERIDO" Style="{StaticResource ColumnHeaderStyle}" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
@@ -906,14 +928,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="38" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="64" />
+                                        <ColumnDefinition Width="86" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="2" Text="TIPO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="CÓD. SUGERIDO" Style="{StaticResource ColumnHeaderStyle}" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
@@ -1039,14 +1063,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="38" />
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="64" />
+                                        <ColumnDefinition Width="86" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
-                                    <TextBlock Grid.Column="2" Text="TIPO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
                                     <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="4" Text="CÓD. SUGERIDO" Style="{StaticResource ColumnHeaderStyle}" />
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
