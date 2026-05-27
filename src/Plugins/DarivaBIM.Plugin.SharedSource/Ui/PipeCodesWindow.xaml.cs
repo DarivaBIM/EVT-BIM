@@ -5,6 +5,7 @@ using System.Text;
 using System.Windows;
 using Autodesk.Revit.UI;
 using DarivaBIM.Application.DTOs.Tigre;
+using DarivaBIM.Infrastructure.Persistence.Settings;
 using DarivaBIM.Plugin.Features.PipeCodes;
 using DarivaBIM.Presentation.Wpf.PipeCodes;
 
@@ -31,6 +32,23 @@ namespace DarivaBIM.Plugin.Ui
         // _scanEvent leva os IDs. Null = varredura completa.
         private IReadOnlyCollection<long>? _prefilterIds;
 
+        // Slice 4.3.B P2.7 — store persistente das larguras de coluna.
+        // Carregado no ctor; salvo no OnWindowClosed.
+        private readonly PipeCodesLayoutStore _layoutStore = new();
+
+        // Chaves dos GridLength resources no XAML (Window.Resources). Ordem
+        // tem que casar com a ordem dos ColumnDefinitions do GroupRowTemplate
+        // e dos 4 headers (mantida implicita - os 5 dynamics resources
+        // sao consultados por chave).
+        private static readonly string[] ResizableColumnResourceKeys =
+        {
+            "ColCheckBoxWidth",
+            "ColQtdWidth",
+            // ColElementoWidth e star (*) - nao persistimos.
+            "ColDiametroWidth",
+            "ColCodIconWidth",
+        };
+
         public PipeCodesViewModel ViewModel { get; }
 
         public PipeCodesWindow()
@@ -43,6 +61,10 @@ namespace DarivaBIM.Plugin.Ui
             _applyEvent = new PipeCodesApplyExternalEvent();
             _clearEvent = new PipeCodesClearExternalEvent();
             _ensureEvent = new PipeCodesEnsureParameterExternalEvent();
+
+            // Slice 4.3.B P2.7 — aplica larguras salvas (se houver) antes de
+            // mostrar a janela. Falha silenciosa cai pra defaults do XAML.
+            ApplySavedColumnWidths();
 
             // Hotfix 4.3.A.1 — P/Invoke best-effort. Se DisableMinimize
             // falhar (mudança de versão Windows, hwnd inválido, etc), o
@@ -232,7 +254,54 @@ namespace DarivaBIM.Plugin.Ui
 
         private void OnWindowClosed(object? sender, EventArgs e)
         {
-            // Nada a persistir hoje — listas e seleção morrem com a janela.
+            // Slice 4.3.B P2.7 — persistencia das larguras de coluna atuais
+            // (cobre ajustes via futuros GridSplitter; hoje cai cedo se nada
+            // mudou em relacao aos defaults do XAML).
+            PersistColumnWidths();
+        }
+
+        // ---------------- Larguras de coluna (Slice 4.3.B P2.7) ----------------
+
+        private void ApplySavedColumnWidths()
+        {
+            try
+            {
+                PipeCodesLayoutSettings settings = _layoutStore.Load();
+                if (settings == null || settings.Columns == null || settings.Columns.Count == 0)
+                    return;
+
+                foreach (string key in ResizableColumnResourceKeys)
+                {
+                    if (!settings.Columns.TryGetValue(key, out double width))
+                        continue;
+                    if (width <= 0 || double.IsNaN(width) || double.IsInfinity(width))
+                        continue;
+                    // Resources.Add se chave nao existir; senao indexer atualiza.
+                    Resources[key] = new GridLength(width, GridUnitType.Pixel);
+                }
+            }
+            catch
+            {
+                // Defaults do XAML continuam ativos.
+            }
+        }
+
+        private void PersistColumnWidths()
+        {
+            try
+            {
+                PipeCodesLayoutSettings settings = new();
+                foreach (string key in ResizableColumnResourceKeys)
+                {
+                    if (Resources[key] is GridLength gl && gl.IsAbsolute)
+                        settings.Columns[key] = gl.Value;
+                }
+                _layoutStore.Save(settings);
+            }
+            catch
+            {
+                // Best-effort.
+            }
         }
 
         // ---------------- Helpers ----------------

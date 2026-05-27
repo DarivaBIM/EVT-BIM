@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:common="clr-namespace:DarivaBIM.Presentation.Wpf.Common;assembly=DarivaBIM.Presentation.Wpf"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
         Title="Codificar Tigre — EVT-BIM"
         Width="1280"
         Height="780"
@@ -21,6 +22,19 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <common:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+
+        <!-- Slice 4.3.B P2.7 — larguras de coluna como recursos dinamicos.
+             ColumnDefinition.Width usa GridLength (estrutura) e nao aceita
+             binding direto facilmente em DataTemplate; usar DynamicResource
+             em GridLength resources permite ao code-behind sobrescrever as
+             larguras em runtime (e o WPF re-aplica em todos os Grids - tanto
+             nos 4 headers quanto em cada item do GroupRowTemplate). Defaults
+             aqui = larguras XAML pos commits 3+5 (P2.1+P2.5+P2.8). -->
+        <GridLength x:Key="ColCheckBoxWidth">28</GridLength>
+        <GridLength x:Key="ColQtdWidth">34</GridLength>
+        <GridLength x:Key="ColElementoWidth">*</GridLength>
+        <GridLength x:Key="ColDiametroWidth">64</GridLength>
+        <GridLength x:Key="ColCodIconWidth">28</GridLength>
 
         <!-- ========================= Paleta base ========================= -->
         <SolidColorBrush x:Key="CardBackgroundBrush"  Color="#FFFFFF" />
@@ -284,11 +298,11 @@
                     Background="Transparent">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="28" />
-                        <ColumnDefinition Width="34" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="64" />
-                        <ColumnDefinition Width="28" />
+                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                     </Grid.ColumnDefinitions>
 
                     <CheckBox Grid.Column="0"
@@ -752,11 +766,11 @@
                                     Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="34" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
@@ -888,11 +902,11 @@
                                     Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="34" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
@@ -1024,11 +1038,11 @@
                                     Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="34" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
@@ -1160,11 +1174,11 @@
                                     Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="28" />
-                                        <ColumnDefinition Width="34" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="64" />
-                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="{DynamicResource ColCheckBoxWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColQtdWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColElementoWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColDiametroWidth}" />
+                                        <ColumnDefinition Width="{DynamicResource ColCodIconWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
