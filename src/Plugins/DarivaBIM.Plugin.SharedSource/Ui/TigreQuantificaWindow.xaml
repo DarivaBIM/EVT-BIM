@@ -328,7 +328,12 @@
             <RowDefinition Height="Auto" />  <!-- footer         -->
         </Grid.RowDefinitions>
 
-        <!-- ============== Cabeçalho do projeto ============== -->
+        <!-- ============== Cabeçalho do projeto ==============
+             Slice 4.2 F3+F4 — layout duas colunas com separador vertical
+             entre IDENTIFICAÇÃO (nome do empreendimento multi-linha,
+             coluna larga) e ESCOPO (Cliente/Autor/Data/Versão em grid
+             2x2). Antes era WrapPanel 4 campos inline que comprimia o
+             nome longo do projeto em uma linha so. -->
         <Border Grid.Row="0"
                 Background="{StaticResource CardBg}"
                 BorderBrush="{StaticResource SoftBorder}"
@@ -338,66 +343,102 @@
                 Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="1.4*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowLabel}" Text="EMPREENDIMENTO" />
-                    <TextBlock Text="{Binding ProjectName}" Style="{StaticResource PageTitleStyle}" Margin="0,2,0,8" />
-                    <WrapPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,18,0">
-                            <TextBlock Text="Cliente: " Style="{StaticResource PageHintStyle}" />
-                            <TextBlock Text="{Binding ProjectClient}" Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,18,0">
-                            <TextBlock Text="Autor: " Style="{StaticResource PageHintStyle}" />
-                            <TextBlock Text="{Binding ProjectAuthor}" Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,18,0">
-                            <TextBlock Text="Data: " Style="{StaticResource PageHintStyle}" />
-                            <TextBlock Text="{Binding ProjectIssueDate}" Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Versão: " Style="{StaticResource PageHintStyle}" />
-                            <TextBlock Text="{Binding ProjectVersion}" Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </WrapPanel>
+
+                <!-- Coluna 1: IDENTIFICAÇÃO (multi-linha) -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource EyebrowLabel}" Text="IDENTIFICAÇÃO" />
+                    <TextBlock Text="{Binding ProjectName}"
+                               Style="{StaticResource PageTitleStyle}"
+                               TextWrapping="Wrap"
+                               Margin="0,2,12,0" />
                 </StackPanel>
-                <TextBlock Grid.Column="1"
+
+                <!-- Separador vertical entre IDENTIFICAÇÃO e ESCOPO -->
+                <Border Grid.Column="1"
+                        Width="1"
+                        Background="{StaticResource SoftBorder}"
+                        VerticalAlignment="Stretch"
+                        Margin="6,2,16,2" />
+
+                <!-- Coluna 2: ESCOPO em grid 2x2 (4 pares label+valor distribuidos em
+                     duas colunas e duas linhas) — aproveita melhor a largura disponivel. -->
+                <Grid Grid.Column="2" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Cliente: " Style="{StaticResource PageHintStyle}" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ProjectClient}"
+                               Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" Margin="0,0,18,4" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Autor: " Style="{StaticResource PageHintStyle}" />
+                    <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding ProjectAuthor}"
+                               Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Data: " Style="{StaticResource PageHintStyle}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ProjectIssueDate}"
+                               Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" Margin="0,0,18,0" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Versão: " Style="{StaticResource PageHintStyle}" />
+                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding ProjectVersion}"
+                               Style="{StaticResource PageHintStyle}" FontWeight="SemiBold" />
+                </Grid>
+
+                <!-- Coluna 4: badge "Tigre Quantifica" -->
+                <TextBlock Grid.Column="3"
                            Style="{StaticResource EyebrowLabel}"
-                           Text="Tigre Quantifica" />
+                           Text="Tigre Quantifica"
+                           VerticalAlignment="Top"
+                           Margin="16,0,0,0" />
             </Grid>
         </Border>
 
-        <!-- ============== KPIs ============== -->
-        <UniformGrid Grid.Row="1" Rows="1" Columns="4" Margin="0,0,0,12">
-            <Border Style="{StaticResource KpiCard}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowLabel}" Text="GRUPOS" />
-                    <TextBlock Style="{StaticResource KpiValue}"     Text="{Binding TotalGroups}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource KpiCard}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowLabel}" Text="ELEMENTOS" />
-                    <TextBlock Style="{StaticResource KpiValue}"     Text="{Binding TotalElementCount}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource KpiCard}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowLabel}" Text="CRÍTICOS" />
-                    <TextBlock Style="{StaticResource KpiValue}"     Text="{Binding RedFindingsCount}"
-                               Foreground="{StaticResource RedAccent}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource KpiCard}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource EyebrowLabel}" Text="ATENÇÃO" />
-                    <TextBlock Style="{StaticResource KpiValue}"     Text="{Binding YellowFindingsCount}"
-                               Foreground="{StaticResource YellowAccent}" />
-                </StackPanel>
-            </Border>
-        </UniformGrid>
+        <!-- ============== KPIs ==============
+             Slice 4.2 F3 — legenda KPI logo abaixo dos 4 cards pra
+             explicar o que cada indicador significa em uma linha. -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,12">
+            <UniformGrid Rows="1" Columns="4">
+                <Border Style="{StaticResource KpiCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowLabel}" Text="GRUPOS" />
+                        <TextBlock Style="{StaticResource KpiValue}"     Text="{Binding TotalGroups}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource KpiCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowLabel}" Text="ELEMENTOS" />
+                        <TextBlock Style="{StaticResource KpiValue}"     Text="{Binding TotalElementCount}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource KpiCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowLabel}" Text="CRÍTICOS" />
+                        <TextBlock Style="{StaticResource KpiValue}"     Text="{Binding RedFindingsCount}"
+                                   Foreground="{StaticResource RedAccent}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource KpiCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EyebrowLabel}" Text="ATENÇÃO" />
+                        <TextBlock Style="{StaticResource KpiValue}"     Text="{Binding YellowFindingsCount}"
+                                   Foreground="{StaticResource YellowAccent}" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+            <TextBlock Style="{StaticResource PageHintStyle}"
+                       Margin="4,6,0,0"
+                       Foreground="{StaticResource TextSoft}"
+                       FontSize="11"
+                       Text="GRUPOS: linhas agregadas · ELEMENTOS: total no projeto · CRÍTICOS: códigos Tigre faltando · ATENÇÃO: campos secundários incompletos" />
+        </StackPanel>
 
         <!-- ============== Banner amarelo: PipesNeedCoding (slice 1.6 F1) ============== -->
         <Border Grid.Row="2"
