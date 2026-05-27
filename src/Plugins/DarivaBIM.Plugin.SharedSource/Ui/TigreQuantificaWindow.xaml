@@ -352,38 +352,34 @@
             </Border>
         </DataTemplate>
 
-        <!-- Slice 4.3.A F2 — Style do Button que envolve o finding row.
-             Mantem o look-and-feel do Border (background, borda inferior,
-             padding) mas habilita Command binding e hover sutil. Em
-             findings sem ElementIds (ProjectInfo), CanExecute=false
-             desabilita o command - hover ainda aparece (decisao consciente
-             pra dar feedback visual em tudo, e a sidebar fica consistente). -->
-        <Style x:Key="FindingRowButton" TargetType="Button">
+        <!-- Slice 4.3.A F2 / hotfix 4.3.A.1 — Style do Border que envolve o
+             finding row. Antes era Button, mas Button-dentro-de-Button (o
+             "Corrigir agora" interno) fazia o evento Click bubble para o
+             ancestral, disparando os DOIS commands no mesmo click. Resultado:
+             SelectElementsExternalEvent + 4 ExternalEvent.Create do
+             PipeCodesWindow em paralelo = crash fatal do Revit.
+
+             Solução: root vira Border + handler MouseLeftButtonUp no
+             code-behind que checa CanSelectInRevit antes de disparar.
+             O botão interno "Corrigir agora" continua Button normal e seu
+             próprio handler seta e.Handled=true pra cortar o bubble. -->
+        <Style x:Key="FindingRowBorder" TargetType="Border">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="OuterBorder"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{StaticResource SoftBorder}"
-                                BorderThickness="0,0,0,1"
-                                Padding="6,8">
-                            <ContentPresenter HorizontalAlignment="Stretch"
-                                              VerticalAlignment="Stretch" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="OuterBorder" Property="Background" Value="#F0F4FA" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="BorderBrush" Value="{StaticResource SoftBorder}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="6,8" />
+            <Setter Property="Cursor" Value="Arrow" />
+            <Style.Triggers>
+                <!-- Cursor=Hand só quando o finding tem elementos selecionáveis;
+                     findings ProjectInfo (Cliente/Autor/etc) ficam com cursor
+                     normal pra não prometer interação que não existe. -->
+                <DataTrigger Binding="{Binding CanSelectInRevit}" Value="True">
+                    <Setter Property="Cursor" Value="Hand" />
+                </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F0F4FA" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <!-- Slice 4.3.A F1 ampliado — Style do mini-botao "Corrigir agora"
@@ -406,15 +402,15 @@
              Slice 4.2 F3 #6 — ToolTip no FamilyType e MissingFieldsText
              pra mostrar texto completo quando truncado pela sidebar
              estreita.
-             Slice 4.3.A F2 — root vira Button (FindingRowButton) que
-             dispara SelectInRevitCommand. IsEnabled=CanSelectInRevit
-             (false em findings ProjectInfo).
+             Slice 4.3.A F2 / hotfix 4.3.A.1 — root vira Border (não Button)
+             pra eliminar Button-dentro-de-Button. MouseLeftButtonUp
+             dispara seleção via code-behind; bubble do botão filho é
+             cortado por e.Handled=true no handler do "Corrigir agora".
              Slice 4.3.A F1 ampliado — mini-botao "Corrigir agora" inline
              no rodape do finding, visivel apenas quando CanCorrigirAgora. -->
         <DataTemplate x:Key="FindingRowTemplate">
-            <Button Style="{StaticResource FindingRowButton}"
-                    Command="{Binding SelectInRevitCommand}"
-                    IsEnabled="{Binding CanSelectInRevit}">
+            <Border Style="{StaticResource FindingRowBorder}"
+                    MouseLeftButtonUp="OnFindingRowMouseUp">
                 <StackPanel Orientation="Horizontal">
                     <Ellipse Style="{StaticResource SeverityPill}" Margin="0,1,10,0" />
                     <StackPanel>
@@ -427,11 +423,11 @@
                                    ToolTip="{Binding MissingFieldsText}" />
                         <Button Style="{StaticResource CorrigirAgoraButton}"
                                 Content="Corrigir agora"
-                                Command="{Binding CorrigirAgoraCommand}"
+                                Click="OnCorrigirAgoraClick"
                                 Visibility="{Binding CanCorrigirAgora, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
                 </StackPanel>
-            </Button>
+            </Border>
         </DataTemplate>
     </Window.Resources>
 

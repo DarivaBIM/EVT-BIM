@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Windows;
+using System.Windows.Input;
 using DarivaBIM.Application.DTOs.Quantifica;
 using DarivaBIM.Application.Services.Quantifica;
 using DarivaBIM.Plugin.Features.TigreQuantifica;
@@ -128,6 +129,44 @@ namespace DarivaBIM.Plugin.Ui
         private void OnWindowClosed(object? sender, EventArgs e)
         {
             // Nada a persistir hoje — snapshot some com a janela.
+        }
+
+        // ---------------- Handlers do FindingRowTemplate (hotfix 4.3.A.1) ----------------
+
+        /// <summary>
+        /// Clique na linha do finding (qualquer área que NÃO seja o botão
+        /// "Corrigir agora" filho) dispara seleção dos elementos no Revit.
+        /// Substitui o command binding antigo que sofria com bubble do
+        /// botão interno → crash fatal.
+        /// </summary>
+        private void OnFindingRowMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton != MouseButton.Left) return;
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not AuditFindingViewModel vm) return;
+            if (!vm.CanSelectInRevit) return;
+            if (!vm.SelectInRevitCommand.CanExecute(null)) return;
+
+            vm.SelectInRevitCommand.Execute(null);
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// Click do mini-botão "Corrigir agora". Disparamos via code-behind
+        /// (não via Command no XAML) pra garantir que e.Handled=true CORTE
+        /// o bubble do MouseLeftButtonUp pro Border pai — caso contrário,
+        /// o click ativaria tanto SelectInRevit quanto CorrigirAgora no
+        /// mesmo instante (race de ExternalEvents → crash fatal Revit).
+        /// </summary>
+        private void OnCorrigirAgoraClick(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not AuditFindingViewModel vm) return;
+            if (!vm.CanCorrigirAgora) return;
+            if (!vm.CorrigirAgoraCommand.CanExecute(null)) return;
+
+            vm.CorrigirAgoraCommand.Execute(null);
         }
 
         // ---------------- Helpers ----------------

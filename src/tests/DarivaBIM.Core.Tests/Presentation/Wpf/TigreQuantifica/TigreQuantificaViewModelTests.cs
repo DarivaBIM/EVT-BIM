@@ -215,6 +215,39 @@ namespace DarivaBIM.Core.Tests.Presentation.Wpf.TigreQuantifica
         }
 
         [Fact]
+        public void AuditFindingViewModel_SelectInRevitCommand_and_CorrigirAgoraCommand_are_independent_callbacks()
+        {
+            // Guard pro hotfix 4.3.A.1 — antes do fix, XAML tinha
+            // Button-dentro-de-Button: clicar em CorrigirAgora bubble-ava
+            // pro Button raiz e disparava SelectInRevit no mesmo evento
+            // (race de 2 ExternalEvents + 4 ExternalEvent.Create). O
+            // ViewModel sempre teve callbacks independentes — esse teste
+            // formaliza o invariant: executar um command NÃO dispara o
+            // outro callback.
+            QuantityAuditFinding finding = new()
+            {
+                FamilyType = "Tubulações",
+                IsTigreCodigoMissing = true,
+                ElementIds = new long[] { 1L, 2L },
+            };
+
+            int selectCalls = 0;
+            int corrigirCalls = 0;
+            Action<IReadOnlyCollection<long>> selectCb = _ => selectCalls++;
+            Action<IReadOnlyCollection<long>> corrigirCb = _ => corrigirCalls++;
+
+            AuditFindingViewModel vm = new(finding, selectCb, corrigirCb);
+
+            vm.CorrigirAgoraCommand.Execute(null);
+            Assert.Equal(0, selectCalls);
+            Assert.Equal(1, corrigirCalls);
+
+            vm.SelectInRevitCommand.Execute(null);
+            Assert.Equal(1, selectCalls);
+            Assert.Equal(1, corrigirCalls);
+        }
+
+        [Fact]
         public void ApplyScan_aggregates_red_and_yellow_finding_counts()
         {
             QuantitySnapshot snapshot = new()
