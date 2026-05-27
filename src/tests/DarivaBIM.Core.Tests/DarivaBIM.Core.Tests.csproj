@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\Core\DarivaBIM.Application\DarivaBIM.Application.csproj" />
     <ProjectReference Include="..\..\Revit\DarivaBIM.Revit.Abstractions\DarivaBIM.Revit.Abstractions.csproj" />
     <ProjectReference Include="..\..\Presentation\DarivaBIM.Presentation.Wpf\DarivaBIM.Presentation.Wpf.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\DarivaBIM.Infrastructure\DarivaBIM.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
