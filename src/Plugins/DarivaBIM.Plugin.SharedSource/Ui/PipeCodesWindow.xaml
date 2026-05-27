@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:common="clr-namespace:DarivaBIM.Presentation.Wpf.Common;assembly=DarivaBIM.Presentation.Wpf"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
-        Title="Codificar Tigre — EVT-BIM"
+        Title="Códigos Tigre — EVT-BIM"
         Width="1280"
         Height="780"
         MinWidth="980"
@@ -483,7 +483,7 @@
         <!-- ========================= Cabeçalho da página ========================= -->
         <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,12">
             <TextBlock DockPanel.Dock="Left"
-                       Text="Codificar Tigre — EVT-BIM"
+                       Text="Códigos Tigre — EVT-BIM"
                        Style="{StaticResource PageTitleStyle}"
                        VerticalAlignment="Center"
                        Margin="0,0,14,0" />
