@@ -319,13 +319,19 @@
         </DataTemplate>
 
         <!-- Slice 3.5 — header colapsavel por categoria. Slice 4.1 deu uma
-             faixa de fundo sutil + tipografia mais nitida. O Expander mantem
-             o template default do WPF (toggle do chevron funciona) mas o
-             Header foi enriquecido com um Border de fundo + label SemiBold +
-             contador em tom muted. Margem do ItemsPresenter (14px) e do
-             Padding="24,..." dos headers de coluna ficam alinhados (lição
-             do H em 50e6d4d). -->
-        <SolidColorBrush x:Key="CategoryHeaderBgBrush" Color="#F5F7FB" />
+             faixa de fundo sutil + tipografia mais nitida.
+             Slice 4.3.B P2 — refinamentos UX:
+             - P2.2: faixa full-width (Border ocupa todo o GroupItem ao inves
+               de "ilha" curta) usando Stretch + Margin=0 nas extremidades.
+             - P2.3: chevron 22x22 -> 14x14 pra caber melhor na faixa fina.
+             - P2.4: ItemsPresenter Margin 14,0,0,4 -> 0,0,0,4 pra alinhar
+               o checkbox da row com o chevron da faixa de categoria. Antes
+               sobrava 14px de offset sem necessidade visual.
+
+             O Expander default do WPF traz seu proprio Toggle/chevron via
+             template. Mexemos so no Header (Border full-width) e no
+             ItemsPresenter (margin zerada). -->
+        <SolidColorBrush x:Key="CategoryHeaderBgBrush" Color="#F1F3F7" />
 
         <Style x:Key="CategoryGroupHeaderStyle" TargetType="GroupItem">
             <Setter Property="Template">
@@ -334,12 +340,32 @@
                         <Expander IsExpanded="True"
                                   Margin="0,3,0,1"
                                   Background="Transparent"
-                                  BorderThickness="0">
+                                  BorderThickness="0"
+                                  HorizontalContentAlignment="Stretch"
+                                  HorizontalAlignment="Stretch">
+                            <Expander.Resources>
+                                <!-- P2.3 — chevron menor (estilo do
+                                     ToggleButton "ExpanderToggleButton"
+                                     interno do WPF nao e nomeado, mas
+                                     reduzir o FontSize/Margin do Expander
+                                     ja diminui o glifo padrao. Usamos
+                                     LayoutTransform leve pra encolher o
+                                     toggle sem reescrever o ControlTemplate
+                                     inteiro do Expander. -->
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="LayoutTransform">
+                                        <Setter.Value>
+                                            <ScaleTransform ScaleX="0.7" ScaleY="0.7" />
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Expander.Resources>
                             <Expander.Header>
                                 <Border Background="{StaticResource CategoryHeaderBgBrush}"
-                                        CornerRadius="3"
-                                        Padding="6,3,10,3"
-                                        Margin="0,1,0,1">
+                                        CornerRadius="2"
+                                        Padding="6,4,10,4"
+                                        Margin="-4,1,0,1"
+                                        HorizontalAlignment="Stretch">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding Name}"
                                                    FontSize="11.5"
@@ -354,7 +380,7 @@
                                     </StackPanel>
                                 </Border>
                             </Expander.Header>
-                            <ItemsPresenter Margin="14,0,0,4" />
+                            <ItemsPresenter Margin="0,0,0,4" />
                         </Expander>
                     </ControlTemplate>
                 </Setter.Value>
