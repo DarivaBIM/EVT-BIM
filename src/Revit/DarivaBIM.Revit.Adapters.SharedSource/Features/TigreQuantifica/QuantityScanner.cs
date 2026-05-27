@@ -88,6 +88,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                     data.Description,
                     data.Manufacturer,
                     data.System,
+                    data.TigreDescription,
                     kind);
 
                 if (!groups.TryGetValue(key, out GroupAccumulator? acc))
@@ -98,6 +99,8 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 acc.Add(data.Quantity);
                 if (isTigre)
                     acc.MarkTigre();
+                if (isTigre && string.IsNullOrWhiteSpace(data.TigreDescription))
+                    acc.MarkTigreDescriptionMissing();
 
                 // Audit por categoria — só rastreia BICs nas quais algum
                 // dos 3 campos é esperado. Se a categoria não espera nada,
@@ -128,9 +131,24 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 }
             }
 
+            // F6-LITE — Agrega "Tigre: Descrição" ausente por categoria a
+            // partir dos acumuladores (apenas grupos IsTigre). Categoria é
+            // a chave (não BIC) pra alinhar com os outros findings que já
+            // saem por CategoryName.
+            Dictionary<string, int> tigreDescriptionMissingByCategory =
+                new(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<GroupKey, GroupAccumulator> kv in groups)
+            {
+                if (kv.Value.TigreDescriptionMissingCount <= 0) continue;
+                string catName = kv.Key.Category;
+                tigreDescriptionMissingByCategory.TryGetValue(catName, out int prev);
+                tigreDescriptionMissingByCategory[catName] = prev + kv.Value.TigreDescriptionMissingCount;
+            }
+
             List<QuantityGroup> groupDtos = BuildGroupDtos(groups);
             List<QuantityAuditFinding> findings = new(projectInfoResult.Findings);
             findings.AddRange(BuildCategoryFindings(categoryCounters));
+            findings.AddRange(BuildTigreDescriptionFindings(tigreDescriptionMissingByCategory));
 
             return new QuantitySnapshot
             {
@@ -138,6 +156,21 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 Groups = groupDtos,
                 AuditFindings = findings,
             };
+        }
+
+        private static IEnumerable<QuantityAuditFinding> BuildTigreDescriptionFindings(
+            Dictionary<string, int> missingByCategory)
+        {
+            foreach (KeyValuePair<string, int> kv in missingByCategory)
+            {
+                if (kv.Value <= 0) continue;
+                yield return new QuantityAuditFinding
+                {
+                    FamilyType = kv.Key,
+                    MissingFields = new[] { $"Tigre: Descrição ausente em {kv.Value} elemento(s)" },
+                    Severity = AuditSeverity.Yellow,
+                };
+            }
         }
 
         private bool IsTigreCached(Element element, Dictionary<ElementId, bool> cache)
@@ -178,6 +211,10 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             string description = ReadDescription(element);
             string? manufacturer = ReadManufacturer(element);
             string? system = ReadSystem(element);
+            // F6-LITE: "Tigre: Descrição" via PipeMetadataReader (instance →
+            // type fallback por LookupParameter por nome — não cria GUID
+            // novo, família catálogo já traz o param embutido).
+            string? tigreDescription = PipeMetadataReader.GetTigreDescriptionOrNull(_doc, element);
 
             decimal quantity = kind switch
             {
@@ -196,6 +233,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 description,
                 manufacturer,
                 system,
+                tigreDescription,
                 quantity,
                 bic == BuiltInCategory.OST_PipeCurves);
         }
@@ -479,6 +517,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                         Description = kv.Key.Description,
                         Manufacturer = kv.Key.Manufacturer,
                         System = kv.Key.System,
+                        TigreDescription = kv.Key.TigreDescription,
                         MeasurementKind = kv.Key.MeasurementKind,
                         ElementCount = kv.Value.ElementCount,
                         Quantity = kv.Value.Quantity,
@@ -553,6 +592,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 string description,
                 string? manufacturer,
                 string? system,
+                string? tigreDescription,
                 MeasurementKind measurementKind)
             {
                 Category = category ?? string.Empty;
@@ -563,6 +603,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 Description = description ?? string.Empty;
                 Manufacturer = manufacturer;
                 System = system;
+                TigreDescription = tigreDescription;
                 MeasurementKind = measurementKind;
             }
 
@@ -574,6 +615,12 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             public string Description { get; }
             public string? Manufacturer { get; }
             public string? System { get; }
+            // F6-LITE — entra na chave: se duas instâncias do mesmo type
+            // tiverem "Tigre: Descrição" diferentes (raro mas possível em
+            // famílias custom com instance override), viram grupos
+            // separados. Comportamento explícito conversado com Matheus
+            // — preserva a fidelidade do dado lido.
+            public string? TigreDescription { get; }
             public MeasurementKind MeasurementKind { get; }
 
             public bool Equals(GroupKey other) =>
@@ -585,6 +632,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 StringComparer.Ordinal.Equals(Description, other.Description) &&
                 StringComparer.Ordinal.Equals(Manufacturer, other.Manufacturer) &&
                 StringComparer.Ordinal.Equals(System, other.System) &&
+                StringComparer.Ordinal.Equals(TigreDescription, other.TigreDescription) &&
                 MeasurementKind == other.MeasurementKind;
 
             public override bool Equals(object? obj) => obj is GroupKey k && Equals(k);
@@ -601,6 +649,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                     h = (h * 397) ^ StringComparer.Ordinal.GetHashCode(Description);
                     h = (h * 397) ^ (Manufacturer == null ? 0 : StringComparer.Ordinal.GetHashCode(Manufacturer));
                     h = (h * 397) ^ (System == null ? 0 : StringComparer.Ordinal.GetHashCode(System));
+                    h = (h * 397) ^ (TigreDescription == null ? 0 : StringComparer.Ordinal.GetHashCode(TigreDescription));
                     h = (h * 397) ^ (int)MeasurementKind;
                     return h;
                 }
@@ -627,6 +676,13 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             /// </summary>
             public bool IsTigre { get; private set; }
 
+            /// <summary>
+            /// Contagem de elementos Tigre do grupo com "Tigre: Descrição"
+            /// ausente/vazio. F6-LITE — alimenta o audit Yellow por
+            /// categoria em BuildCategoryFindings.
+            /// </summary>
+            public int TigreDescriptionMissingCount { get; private set; }
+
             public void Add(decimal q)
             {
                 ElementCount++;
@@ -634,6 +690,8 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             }
 
             public void MarkTigre() => IsTigre = true;
+
+            public void MarkTigreDescriptionMissing() => TigreDescriptionMissingCount++;
         }
 
         private sealed class CategoryAuditCounters
@@ -674,6 +732,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 string description,
                 string? manufacturer,
                 string? system,
+                string? tigreDescription,
                 decimal quantity,
                 bool isPipeCurvesCategory)
             {
@@ -685,6 +744,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 Description = description;
                 Manufacturer = manufacturer;
                 System = system;
+                TigreDescription = tigreDescription;
                 Quantity = quantity;
                 IsPipeCurvesCategory = isPipeCurvesCategory;
             }
@@ -697,6 +757,7 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             public string Description { get; }
             public string? Manufacturer { get; }
             public string? System { get; }
+            public string? TigreDescription { get; }
             public decimal Quantity { get; }
             public bool IsPipeCurvesCategory { get; }
         }

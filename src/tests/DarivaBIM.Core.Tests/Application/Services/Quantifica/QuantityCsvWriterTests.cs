@@ -14,7 +14,7 @@ namespace DarivaBIM.Core.Tests.Application.Services.Quantifica
             Assert.StartsWith("﻿", csv);
             string firstLine = csv.Substring(1).Split('\n')[0].TrimEnd('\r');
             Assert.Equal(
-                "Categoria;Família;Tipo;Diâmetro;Cód. Tigre;Descrição;Fabricante;Sistema;Qtd;Quantidade;Un;Auditoria",
+                "Categoria;Família;Tipo;Diâmetro;Cód. Tigre;Descrição;Tigre: Descrição;Fabricante;Sistema;Qtd;Quantidade;Un;Auditoria",
                 firstLine);
         }
 
@@ -33,6 +33,7 @@ namespace DarivaBIM.Core.Tests.Application.Services.Quantifica
                         Diameter = "25 mm",
                         TigreCode = "47013",
                         Description = "Tubo PVC Soldável",
+                        TigreDescription = "Tubo Sold. PVC 25mm",
                         Manufacturer = "Tigre",
                         System = "Água Fria",
                         MeasurementKind = MeasurementKind.LengthMeters,
@@ -49,7 +50,7 @@ namespace DarivaBIM.Core.Tests.Application.Services.Quantifica
             Assert.True(lines.Length >= 2);
             string dataLine = lines[1].TrimEnd('\r');
             Assert.Equal(
-                "Tubulações;Tubo - Soldável;PVC 25mm;25 mm;47013;Tubo PVC Soldável;Tigre;Água Fria;3;12,50;m;",
+                "Tubulações;Tubo - Soldável;PVC 25mm;25 mm;47013;Tubo PVC Soldável;Tubo Sold. PVC 25mm;Tigre;Água Fria;3;12,50;m;",
                 dataLine);
         }
 
@@ -141,6 +142,65 @@ namespace DarivaBIM.Core.Tests.Application.Services.Quantifica
             string[] lines = csv.Substring(1).Split(new[] { "\r\n" }, System.StringSplitOptions.None);
             Assert.Equal(2, lines.Length);          // header + linha vazia final (split do "\r\n" final)
             Assert.Equal(string.Empty, lines[1]);
+        }
+
+        [Fact]
+        public void Write_emits_tigre_description_after_description_column()
+        {
+            QuantitySnapshot snapshot = new()
+            {
+                Groups = new[]
+                {
+                    new QuantityGroup
+                    {
+                        Category = "Conexões de tubulação",
+                        Family = "Joelho Soldável",
+                        Type = "PVC 25mm",
+                        Description = "Joelho 90°",
+                        TigreCode = "12345",
+                        TigreDescription = "Joelho Sold. 25mm Tigre",
+                        MeasurementKind = MeasurementKind.Count,
+                        ElementCount = 4,
+                        Quantity = 4m,
+                    },
+                },
+            };
+
+            string csv = QuantityCsvWriter.Write(snapshot);
+
+            // Posicionamento: após "Joelho 90°" (Descrição) vem
+            // "Joelho Sold. 25mm Tigre" (Tigre: Descrição), depois ;
+            // (Fabricante vazio).
+            Assert.Contains(";Joelho 90°;Joelho Sold. 25mm Tigre;;", csv);
+        }
+
+        [Fact]
+        public void Write_renders_empty_tigre_description_when_null()
+        {
+            // Grupo sem Tigre: Descrição (família não-Tigre ou param vazio).
+            // F6-LITE — coluna existe mas valor fica vazio; não quebra layout.
+            QuantitySnapshot snapshot = new()
+            {
+                Groups = new[]
+                {
+                    new QuantityGroup
+                    {
+                        Category = "Tubulações",
+                        Family = "Generic",
+                        Type = "X",
+                        Description = "qualquer",
+                        TigreDescription = null,
+                        MeasurementKind = MeasurementKind.LengthMeters,
+                        ElementCount = 1,
+                        Quantity = 5m,
+                    },
+                },
+            };
+
+            string csv = QuantityCsvWriter.Write(snapshot);
+
+            // Entre "qualquer" e Fabricante vazio fica ";;"
+            Assert.Contains(";qualquer;;", csv);
         }
     }
 }

@@ -26,6 +26,11 @@ namespace DarivaBIM.Application.Services.Quantifica
 
         private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
+        // F6-LITE — Coluna "Tigre: Descrição" entra entre "Descrição" e
+        // "Fabricante". Posicionamento mantém agrupamento lógico (descrições
+        // próximas, depois metadados de identidade do fornecedor/sistema,
+        // depois quantitativos). Ordem das colunas é parte de contrato com
+        // Tigre — qualquer reordenação deve sair via memória do projeto.
         private static readonly string[] HeaderColumns =
         {
             "Categoria",
@@ -34,6 +39,7 @@ namespace DarivaBIM.Application.Services.Quantifica
             "Diâmetro",
             "Cód. Tigre",
             "Descrição",
+            "Tigre: Descrição",
             "Fabricante",
             "Sistema",
             "Qtd",
@@ -69,6 +75,7 @@ namespace DarivaBIM.Application.Services.Quantifica
                 group.Diameter ?? string.Empty,
                 group.TigreCode ?? string.Empty,
                 group.Description ?? string.Empty,
+                group.TigreDescription ?? string.Empty,
                 group.Manufacturer ?? string.Empty,
                 group.System ?? string.Empty,
                 group.ElementCount.ToString(PtBr),
