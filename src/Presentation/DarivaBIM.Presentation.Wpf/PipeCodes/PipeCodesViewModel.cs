@@ -176,9 +176,21 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
 
         public bool CanCreateParameter => !IsBusy && ParameterIsNotBound && PipesTotal > 0;
 
-        public bool CanApply => !IsBusy && ParameterIsBound && HasAnySelection;
+        // Codex HIGH#1 fix: Apply/Clear NÃO exigem mais ParameterIsBound.
+        // `Ensure` cria o shared parameter SOMENTE em `OST_PipeCurves`
+        // (decisão consciente do Slice 3 — não cria param Type novo
+        // programaticamente em famílias custom). Logo se algum fitting/
+        // accessory custom não tem `Tigre: Código` no instance nem no type,
+        // ParameterIsBound retornava false e travava Apply pra TODA a janela
+        // — usuário não conseguia codificar nem os tubos.
+        // Solução: deixa o applier dual-path (instance → type → skip +
+        // TigreApplyIssue audit) reportar issue POR ELEMENTO. Tubos com
+        // param OK codificam; fittings sem param viram audit issue no
+        // resumo final. StatusMessage contextual ainda avisa "Crie o
+        // parâmetro" quando faz sentido (ver RefreshContextualStatus).
+        public bool CanApply => !IsBusy && HasAnySelection;
 
-        public bool CanClear => !IsBusy && ParameterIsBound && HasAnySelection;
+        public bool CanClear => !IsBusy && HasAnySelection;
 
         private bool _hasAnySelection;
         public bool HasAnySelection

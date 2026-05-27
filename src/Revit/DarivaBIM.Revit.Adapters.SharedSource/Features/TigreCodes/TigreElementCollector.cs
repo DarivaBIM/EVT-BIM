@@ -46,36 +46,30 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreCodes
                 .WhereElementIsNotElementType()
                 .WherePasses(filter);
 
-            // Cache do veredito do detector por TypeId — todos elementos
-            // do mesmo type herdam Family.Name/Manufacturer/Tigre:Código
-            // type-level, então o veredito é o mesmo. Em projetos típicos
-            // (3000 elementos / ~50 types únicos) reduz ~60× o overhead
-            // do detector. Trade-off (instance Manufacturer override): se
-            // virar bug em smoke, ajusta — vide backlog do Slice 2D.
-            Dictionary<ElementId, bool> isTigreCache = new();
+            // Codex HIGH#4 fix: cache por TypeId REMOVIDO. O detector
+            // (TigreManufacturerDetector / TigreDetectionRules) lê sinais
+            // INSTANCE-LEVEL: ExistingCodeMatch (Tigre: Código instance),
+            // ManufacturerTigre/Veto (Manufacturer instance, antes do type).
+            // Cachear veredito por TypeId fazia o PRIMEIRO elemento do type
+            // determinar todos os outros — dois pipes do mesmo PipeType, A
+            // com `Tigre: Código=22150251` instance, B vazio: se B vinha
+            // primeiro no foreach, cache=false contaminava A. Resultado
+            // não-determinístico, dependente da ordem da iteração.
+            //
+            // Perf antes: ~3000 elementos / 50 types únicos → 50 chamadas
+            // ao detector. Agora: 3000 chamadas, cada uma lê ~5 parâmetros
+            // (~µs cada) → ~15-50ms total. Aceitável.
+            //
+            // Se perf cliff aparecer em modelos 10k+ elementos, reintroduzir
+            // cache parcial: só cacheia quando elemento NÃO tem sinal
+            // instance-level (Tigre: Código instance vazio E Manufacturer
+            // instance vazio → type signals predominam → cache OK).
             List<Element> result = new();
             foreach (Element element in collector)
             {
-                if (IsTigreCached(element, catalog, isTigreCache))
+                if (TigreManufacturerDetector.IsTigreElement(element, catalog))
                     result.Add(element);
             }
-            return result;
-        }
-
-        private static bool IsTigreCached(
-            Element element,
-            TigreCatalog catalog,
-            Dictionary<ElementId, bool> cache)
-        {
-            ElementId typeId = element.GetTypeId();
-            if (typeId == ElementId.InvalidElementId)
-                return TigreManufacturerDetector.IsTigreElement(element, catalog);
-
-            if (cache.TryGetValue(typeId, out bool cached))
-                return cached;
-
-            bool result = TigreManufacturerDetector.IsTigreElement(element, catalog);
-            cache[typeId] = result;
             return result;
         }
     }
