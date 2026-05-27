@@ -30,11 +30,14 @@
              larguras em runtime (e o WPF re-aplica em todos os Grids - tanto
              nos 4 headers quanto em cada item do GroupRowTemplate). Defaults
              aqui = larguras XAML pos commits 3+5 (P2.1+P2.5+P2.8). -->
+        <!-- Fix smoke 2026-05-27 — UX: DIÂMETRO -> "DN" header (texto curto)
+             permite reduzir largura 64 -> 50; COD. icone "i" 12px cabe em
+             22 (menos espaço gasto). Resto vai pra ELEMENTO via Width="*". -->
         <GridLength x:Key="ColCheckBoxWidth">28</GridLength>
         <GridLength x:Key="ColQtdWidth">34</GridLength>
         <GridLength x:Key="ColElementoWidth">*</GridLength>
-        <GridLength x:Key="ColDiametroWidth">64</GridLength>
-        <GridLength x:Key="ColCodIconWidth">28</GridLength>
+        <GridLength x:Key="ColDiametroWidth">50</GridLength>
+        <GridLength x:Key="ColCodIconWidth">22</GridLength>
 
         <!-- ========================= Paleta base ========================= -->
         <SolidColorBrush x:Key="CardBackgroundBrush"  Color="#FFFFFF" />
@@ -775,7 +778,7 @@
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
-                                    <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="3" Text="DN" Style="{StaticResource ColumnHeaderStyle}" ToolTip="Diâmetro nominal (mm)" />
                                     <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
@@ -911,7 +914,7 @@
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
-                                    <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="3" Text="DN" Style="{StaticResource ColumnHeaderStyle}" ToolTip="Diâmetro nominal (mm)" />
                                     <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
@@ -1047,7 +1050,7 @@
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
-                                    <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="3" Text="DN" Style="{StaticResource ColumnHeaderStyle}" ToolTip="Diâmetro nominal (mm)" />
                                     <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>
@@ -1183,7 +1186,7 @@
                                     <TextBlock Grid.Column="0" Text="" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="QTD" Style="{StaticResource ColumnHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="ELEMENTO" Style="{StaticResource ColumnHeaderStyle}" Margin="0,0,8,0" />
-                                    <TextBlock Grid.Column="3" Text="DIÂMETRO" Style="{StaticResource ColumnHeaderStyle}" />
+                                    <TextBlock Grid.Column="3" Text="DN" Style="{StaticResource ColumnHeaderStyle}" ToolTip="Diâmetro nominal (mm)" />
                                     <TextBlock Grid.Column="4" Text="COD." Style="{StaticResource ColumnHeaderStyle}" HorizontalAlignment="Center" ToolTip="Código sugerido pelo catálogo Tigre" />
                                 </Grid>
                             </Border>

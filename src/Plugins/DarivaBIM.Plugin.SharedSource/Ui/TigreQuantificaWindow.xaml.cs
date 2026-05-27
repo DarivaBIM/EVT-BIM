@@ -30,6 +30,7 @@ namespace DarivaBIM.Plugin.Ui
         private readonly QuantityScanExternalEvent _scanEvent;
         private readonly SelectElementsExternalEvent _selectEvent;
         private readonly UpdateProjectInfoExternalEvent _updateProjectInfoEvent;
+        private readonly OpenPipeCodesWindowExternalEvent _openPipeCodesEvent;
         private QuantitySnapshot? _lastSnapshot;
 
         public TigreQuantificaViewModel ViewModel { get; }
@@ -58,8 +59,17 @@ namespace DarivaBIM.Plugin.Ui
 
             // Slice 4.3.A F1 ampliado — callback de "Corrigir agora"
             // abre PipeCodesWindow pré-filtrado nos IDs do finding.
-            // PipeCodesWindow.ShowSingleton aceita prefilterIds opcional.
-            ViewModel.CorrigirAgoraCallback = ids => PipeCodesWindow.ShowSingleton(ids);
+            //
+            // Fix smoke pós-Codex 2026-05-27: precisa passar por
+            // OpenPipeCodesWindowExternalEvent porque PipeCodesWindow ctor
+            // chama ExternalEvent.Create x4, que exige contexto Revit API
+            // válido (não disponivel via click direto de WPF modeless).
+            // Antes era `PipeCodesWindow.ShowSingleton(ids)` direto, gerando
+            // "Attempting to create an ExternalEvent outside of a standard
+            // API execution" no primeiro click (quando _instance ainda
+            // era null e o ctor precisava criar os ExternalEvents).
+            _openPipeCodesEvent = new OpenPipeCodesWindowExternalEvent();
+            ViewModel.CorrigirAgoraCallback = ids => _openPipeCodesEvent.Raise(ids);
 
             // Slice 4.3.B F4 — callback de save dispara o ExternalEvent
             // que escreve em ProjectInformation.ClientName/Author.
