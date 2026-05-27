@@ -244,7 +244,7 @@
         <DataTemplate x:Key="GroupRowTemplate">
             <Border BorderBrush="{StaticResource RowDividerBrush}"
                     BorderThickness="0,0,0,1"
-                    Padding="10,7"
+                    Padding="10,8"
                     Background="Transparent">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -636,7 +636,7 @@
                                     Background="{StaticResource RowHeaderBgBrush}"
                                     BorderBrush="{StaticResource SoftBorderBrush}"
                                     BorderThickness="0,0,0,1"
-                                    Padding="10,8">
+                                    Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
@@ -769,7 +769,7 @@
                                     Background="{StaticResource RowHeaderBgBrush}"
                                     BorderBrush="{StaticResource SoftBorderBrush}"
                                     BorderThickness="0,0,0,1"
-                                    Padding="10,8">
+                                    Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
@@ -902,7 +902,7 @@
                                     Background="{StaticResource RowHeaderBgBrush}"
                                     BorderBrush="{StaticResource SoftBorderBrush}"
                                     BorderThickness="0,0,0,1"
-                                    Padding="10,8">
+                                    Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />
@@ -1035,7 +1035,7 @@
                                     Background="{StaticResource RowHeaderBgBrush}"
                                     BorderBrush="{StaticResource SoftBorderBrush}"
                                     BorderThickness="0,0,0,1"
-                                    Padding="10,8">
+                                    Padding="24,8,10,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="28" />

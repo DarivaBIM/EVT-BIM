@@ -329,7 +329,7 @@
             <TextBlock Foreground="{StaticResource YellowAccent}"
                        FontWeight="SemiBold"
                        TextWrapping="Wrap"
-                       Text="Nenhum tubo deste projeto tem código Tigre preenchido. Rode 'Codificar Tubos' antes de exportar o relatório de compras." />
+                       Text="Nenhum tubo deste projeto tem código Tigre preenchido. Rode 'Codificar Tigre' antes de exportar o relatório de compras." />
         </Border>
 
         <!-- ============== Conteúdo: categorias + findings ============== -->
