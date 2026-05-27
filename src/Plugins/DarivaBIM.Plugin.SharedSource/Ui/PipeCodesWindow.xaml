@@ -273,6 +273,36 @@
             </Border>
         </DataTemplate>
 
+        <!-- Slice 3.5 — header colapsável por categoria (Tubulações,
+             Conexões de tubo, Acessórios, Aparelhos hidrossanitários) -->
+        <Style x:Key="CategoryGroupHeaderStyle" TargetType="GroupItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupItem">
+                        <Expander IsExpanded="True"
+                                  Margin="0,4,0,2"
+                                  Background="Transparent"
+                                  BorderThickness="0">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding ItemCount, StringFormat=' ({0})'}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="4,0,0,0" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <ItemsPresenter Margin="14,0,0,4" />
+                        </Expander>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ListBoxItemFlatStyle" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
@@ -621,14 +651,18 @@
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
-                                <ListBox ItemsSource="{Binding NoMatchSection.Groups}"
+                                <ListBox ItemsSource="{Binding NoMatchSection.GroupedGroups}"
                                          ItemTemplate="{StaticResource GroupRowTemplate}"
                                          ItemContainerStyle="{StaticResource ListBoxItemFlatStyle}"
                                          BorderThickness="0"
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         Visibility="{Binding NoMatchSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                         Visibility="{Binding NoMatchSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
+                                    </ListBox.GroupStyle>
+                                </ListBox>
                                 <TextBlock Text="Nenhum item encontrado."
                                            Style="{StaticResource EmptyStateStyle}"
                                            Visibility="{Binding NoMatchSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -746,14 +780,18 @@
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
-                                <ListBox ItemsSource="{Binding DivergentSection.Groups}"
+                                <ListBox ItemsSource="{Binding DivergentSection.GroupedGroups}"
                                          ItemTemplate="{StaticResource GroupRowTemplate}"
                                          ItemContainerStyle="{StaticResource ListBoxItemFlatStyle}"
                                          BorderThickness="0"
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         Visibility="{Binding DivergentSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                         Visibility="{Binding DivergentSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
+                                    </ListBox.GroupStyle>
+                                </ListBox>
                                 <TextBlock Text="Nenhum item encontrado."
                                            Style="{StaticResource EmptyStateStyle}"
                                            Visibility="{Binding DivergentSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -871,14 +909,18 @@
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
-                                <ListBox ItemsSource="{Binding MissingSection.Groups}"
+                                <ListBox ItemsSource="{Binding MissingSection.GroupedGroups}"
                                          ItemTemplate="{StaticResource GroupRowTemplate}"
                                          ItemContainerStyle="{StaticResource ListBoxItemFlatStyle}"
                                          BorderThickness="0"
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         Visibility="{Binding MissingSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                         Visibility="{Binding MissingSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
+                                    </ListBox.GroupStyle>
+                                </ListBox>
                                 <TextBlock Text="Nenhum item encontrado."
                                            Style="{StaticResource EmptyStateStyle}"
                                            Visibility="{Binding MissingSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
@@ -996,14 +1038,18 @@
                                 </Grid>
                             </Border>
                             <Grid Grid.Row="1">
-                                <ListBox ItemsSource="{Binding OkSection.Groups}"
+                                <ListBox ItemsSource="{Binding OkSection.GroupedGroups}"
                                          ItemTemplate="{StaticResource GroupRowTemplate}"
                                          ItemContainerStyle="{StaticResource ListBoxItemFlatStyle}"
                                          BorderThickness="0"
                                          Background="Transparent"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         Visibility="{Binding OkSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                         Visibility="{Binding OkSection.HasGroups, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle ContainerStyle="{StaticResource CategoryGroupHeaderStyle}" />
+                                    </ListBox.GroupStyle>
+                                </ListBox>
                                 <TextBlock Text="Nenhum item encontrado."
                                            Style="{StaticResource EmptyStateStyle}"
                                            Visibility="{Binding OkSection.IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}" />
