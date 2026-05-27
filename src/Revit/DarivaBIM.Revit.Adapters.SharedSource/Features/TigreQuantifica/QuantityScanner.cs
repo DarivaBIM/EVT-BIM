@@ -79,6 +79,13 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 ElementData data = ReadElementData(element, bic, kind);
                 bool isTigre = IsTigreCached(element, isTigreCache);
 
+                // Slice 4.5 — Sistema sai da GroupKey: o relatório passa a
+                // agrupar por (Categoria, Família, Tipo, Diâmetro, Código,
+                // Descrição, Fabricante, TigreDescription, MeasurementKind).
+                // Sistema continua sendo lido (data.System) e alimenta o
+                // audit Yellow "Sistema ausente em N elemento(s)" — só não
+                // é mais chave de agrupamento. Sistema fica null na chave
+                // (consistente com os outros campos opcionais).
                 GroupKey key = new GroupKey(
                     data.Category,
                     data.Family,
@@ -87,7 +94,6 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                     data.TigreCode,
                     data.Description,
                     data.Manufacturer,
-                    data.System,
                     data.TigreDescription,
                     kind);
 
@@ -528,7 +534,14 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                         TigreCode = kv.Key.TigreCode,
                         Description = kv.Key.Description,
                         Manufacturer = kv.Key.Manufacturer,
-                        System = kv.Key.System,
+                        // Slice 4.5 — System saiu da GroupKey (não unifica
+                        // mais linhas) e da UI/CSV. Continua existindo no
+                        // DTO porque o audit Yellow "Sistema ausente" usa
+                        // a leitura individual via scanner. Como a chave
+                        // não tem mais Sistema, esta propriedade fica null
+                        // no DTO agregado — somente os contadores de
+                        // CategoryAuditCounters carregam a visão por gap.
+                        System = null,
                         TigreDescription = kv.Key.TigreDescription,
                         MeasurementKind = kv.Key.MeasurementKind,
                         ElementCount = kv.Value.ElementCount,
@@ -599,6 +612,13 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
 
         private readonly struct GroupKey : IEquatable<GroupKey>
         {
+            // Slice 4.5 — Sistema saiu da chave. Linhas com o mesmo
+            // (categoria, família, tipo, diâmetro, código, descrição,
+            // fabricante, tigreDescription, kind) agora unificam mesmo
+            // estando em Águas Pluviais vs Água Fria. O audit Yellow
+            // "Sistema ausente em N elemento(s)" continua disparando via
+            // CategoryAuditCounters (lê data.System diretamente do elemento)
+            // — só perdemos a coluna no relatório, não a checagem.
             public GroupKey(
                 string category,
                 string family,
@@ -607,7 +627,6 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 string? tigreCode,
                 string description,
                 string? manufacturer,
-                string? system,
                 string? tigreDescription,
                 MeasurementKind measurementKind)
             {
@@ -618,7 +637,6 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 TigreCode = tigreCode;
                 Description = description ?? string.Empty;
                 Manufacturer = manufacturer;
-                System = system;
                 TigreDescription = tigreDescription;
                 MeasurementKind = measurementKind;
             }
@@ -630,7 +648,6 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
             public string? TigreCode { get; }
             public string Description { get; }
             public string? Manufacturer { get; }
-            public string? System { get; }
             // F6-LITE — entra na chave: se duas instâncias do mesmo type
             // tiverem "Tigre: Descrição" diferentes (raro mas possível em
             // famílias custom com instance override), viram grupos
@@ -647,7 +664,6 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 StringComparer.Ordinal.Equals(TigreCode, other.TigreCode) &&
                 StringComparer.Ordinal.Equals(Description, other.Description) &&
                 StringComparer.Ordinal.Equals(Manufacturer, other.Manufacturer) &&
-                StringComparer.Ordinal.Equals(System, other.System) &&
                 StringComparer.Ordinal.Equals(TigreDescription, other.TigreDescription) &&
                 MeasurementKind == other.MeasurementKind;
 
@@ -664,7 +680,6 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                     h = (h * 397) ^ (TigreCode == null ? 0 : StringComparer.Ordinal.GetHashCode(TigreCode));
                     h = (h * 397) ^ StringComparer.Ordinal.GetHashCode(Description);
                     h = (h * 397) ^ (Manufacturer == null ? 0 : StringComparer.Ordinal.GetHashCode(Manufacturer));
-                    h = (h * 397) ^ (System == null ? 0 : StringComparer.Ordinal.GetHashCode(System));
                     h = (h * 397) ^ (TigreDescription == null ? 0 : StringComparer.Ordinal.GetHashCode(TigreDescription));
                     h = (h * 397) ^ (int)MeasurementKind;
                     return h;
