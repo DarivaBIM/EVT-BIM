@@ -116,13 +116,20 @@ namespace DarivaBIM.Domain.Tigre
 
             // PN extraction: se a query menciona "PN 20"/"PN12.5"/etc, só
             // entries com mesma classe podem casar — desambigua PPR
-            // PN12.5/PN20/PN25 que colapsariam pro mesmo lean. Primeira
-            // ocorrência no combined > description > typeName > segment.
+            // PN12.5/PN20/PN25 que colapsariam pro mesmo lean.
+            //
+            // Codex HIGH#2 fix: campos RAW PRIMEIRO, combinedText LAST.
+            // O scanner passa combinedText = TigreTextUtils.Normalize(...)
+            // que substitui "." por espaço → "PN 12.5" vira "pn 12 5",
+            // e o regex captura só "12" (não-null), evitando o fallback
+            // pros campos raw onde "12.5" ainda está intacto. Invertendo
+            // a ordem, raw fields preservam o decimal e só caímos no
+            // combined (normalizado) se nenhum raw mencionar PN.
             string? queryPn =
-                TigreTextUtils.ExtractPn(combinedText) ??
                 TigreTextUtils.ExtractPn(descriptionText) ??
                 TigreTextUtils.ExtractPn(typeNameText) ??
-                TigreTextUtils.ExtractPn(segmentText);
+                TigreTextUtils.ExtractPn(segmentText) ??
+                TigreTextUtils.ExtractPn(combinedText);
             if (queryPn != null)
             {
                 List<TigreCatalogEntry> withPn = sameDiameter

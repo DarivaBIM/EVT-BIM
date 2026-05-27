@@ -561,11 +561,15 @@ namespace DarivaBIM.Revit.Adapters.Features.TigreQuantifica
                 CategoryAuditCounters c = kv.Value;
                 if (c.Total <= 0) continue;
 
-                // Vermelho — categoria tem elementos Tigre, mas NENHUM
-                // tem código. Só dispara quando c.TigreTotal > 0 (impede
-                // finding em categoria 100% não-Tigre — Knauf/Amanco
-                // puros não viram falso positivo).
-                if (c.TigreTotal > 0 && c.TigreWithCode == 0)
+                // Vermelho — categoria tem elementos Tigre SEM código.
+                // Codex HIGH#3 fix: dispara em QUALQUER gap parcial, não só
+                // quando categoria está 100% sem código. Antes
+                // `c.TigreWithCode == 0` deixava 5 conexões sem código
+                // entre 100 codificadas invisíveis no audit/F1 "Corrigir
+                // agora". Agora MissingTigreCodeIds.Count > 0 dispara.
+                // Guard `c.TigreTotal > 0` ainda evita falso positivo em
+                // categoria 100% não-Tigre (Knauf/Amanco puros).
+                if (c.TigreTotal > 0 && c.MissingTigreCodeIds.Count > 0)
                 {
                     yield return new QuantityAuditFinding
                     {

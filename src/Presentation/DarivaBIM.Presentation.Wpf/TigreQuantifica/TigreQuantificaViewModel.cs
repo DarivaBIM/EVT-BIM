@@ -452,7 +452,16 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
         private static bool Contains(string? haystack, string needle)
         {
             if (string.IsNullOrEmpty(haystack)) return false;
-            return haystack.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+            // Codex MED#7 fix: busca insensível a acentos. Usuario digita
+            // "soldavel"/"agua"/"descricao" sem acento e espera achar
+            // "Soldável"/"Água Fria"/"Descrição". TigreTextUtils.NormalizeForSearch
+            // lowercase + remove combining marks (FormD), preservando
+            // significantes — chamada duplicada em ambos os lados pra
+            // garantir simetria sem cross-feature impacto.
+            string h = DarivaBIM.Domain.Tigre.TigreTextUtils.NormalizeForSearch(haystack);
+            string n = DarivaBIM.Domain.Tigre.TigreTextUtils.NormalizeForSearch(needle);
+            if (n.Length == 0) return false;
+            return h.IndexOf(n, StringComparison.Ordinal) >= 0;
         }
 
         // ---------------- Slice 4.3.B F4 — edit project info ----------------

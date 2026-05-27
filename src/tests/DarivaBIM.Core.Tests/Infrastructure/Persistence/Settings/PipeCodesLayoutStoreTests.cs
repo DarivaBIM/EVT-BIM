@@ -27,15 +27,25 @@ namespace DarivaBIM.Core.Tests.Infrastructure.Persistence.Settings
         [Fact]
         public void Load_returns_empty_settings_when_file_does_not_exist()
         {
-            // Garante ausencia do arquivo antes do test.
-            SafeDelete(SettingsPath);
+            // Codex LOW#9 fix: backup/restore como nos outros tests
+            // (antes deletava arquivo real do dev sem preservar).
+            string path = SettingsPath;
+            string? backup = TryBackup(path);
+            try
+            {
+                SafeDelete(path);
 
-            PipeCodesLayoutStore store = new();
-            PipeCodesLayoutSettings settings = store.Load();
+                PipeCodesLayoutStore store = new();
+                PipeCodesLayoutSettings settings = store.Load();
 
-            Assert.NotNull(settings);
-            Assert.NotNull(settings.Columns);
-            Assert.Empty(settings.Columns);
+                Assert.NotNull(settings);
+                Assert.NotNull(settings.Columns);
+                Assert.Empty(settings.Columns);
+            }
+            finally
+            {
+                Restore(path, backup);
+            }
         }
 
         [Fact]

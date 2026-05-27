@@ -69,21 +69,27 @@ namespace DarivaBIM.Domain.Tigre
     public static class TigreDetectionRules
     {
         /// <summary>
-        /// Tokens que identificam linha/marca exclusiva Tigre. Aparecer
+        /// Tokens que identificam linha/marca EXCLUSIVA Tigre. Aparecer
         /// em family+description é evidência forte de família Tigre.
         /// Comparação após TigreTextUtils.Normalize (lowercase + sem
-        /// acentos): "Soldável" → "soldavel".
+        /// acentos): "AQUATHERM" → "aquatherm".
         ///
         /// O token "tigre" propriamente NÃO entra aqui — Sinal 5
         /// (DescriptionMentionsTigre) cobre esse caso especificamente
         /// pra que o veredito do detector reporte a razão certa.
+        ///
+        /// Codex HIGH#5 fix: removidos "soldavel", "roscavel", "sr", "sn"
+        /// — esses são termos hidráulicos brasileiros GENÉRICOS (não
+        /// exclusivos Tigre). Falso positivo concreto:
+        /// `Astra_Registro_Soldavel` com Manufacturer vazio era
+        /// classificado como Tigre via Sinal 4. Os 5 tokens restantes
+        /// (aquatherm/clicpex/ppr/redux/tigrefire) são linhas de produto
+        /// que Tigre identifica comercialmente.
         /// </summary>
         public static readonly ISet<string> DistinctiveBrandTokens =
             new HashSet<string>(StringComparer.Ordinal)
             {
-                "aquatherm", "clicpex", "ppr", "redux",
-                "tigrefire", "soldavel", "roscavel",
-                "sr", "sn",
+                "aquatherm", "clicpex", "ppr", "redux", "tigrefire",
             };
 
         /// <summary>

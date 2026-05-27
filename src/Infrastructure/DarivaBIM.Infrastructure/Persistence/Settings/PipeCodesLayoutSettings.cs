@@ -86,7 +86,22 @@ namespace DarivaBIM.Infrastructure.Persistence.Settings
                 }
 
                 string json = JsonSerializer.Serialize(settings, JsonOptions);
-                File.WriteAllText(path, json);
+                // Codex LOW#8 fix: atomic write via tmp + File.Replace.
+                // File.WriteAllText trunca e grava direto — duas instancias
+                // do Revit fechando Codificar Tigre quase juntas podiam
+                // produzir JSON parcial/corrompido. Tmp + Replace garante
+                // que o leitor sempre ve arquivo completo (Replace e atomic
+                // em NTFS quando target existe).
+                string tmpPath = path + ".tmp";
+                File.WriteAllText(tmpPath, json);
+                if (File.Exists(path))
+                {
+                    File.Replace(tmpPath, path, destinationBackupFileName: null);
+                }
+                else
+                {
+                    File.Move(tmpPath, path);
+                }
             }
             catch
             {

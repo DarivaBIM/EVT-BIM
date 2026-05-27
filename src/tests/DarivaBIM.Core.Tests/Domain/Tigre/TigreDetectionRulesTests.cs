@@ -26,9 +26,17 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
             });
 
         [Theory]
-        // Sinal 4 — DistinctiveBrandToken via family (Soldável)
-        [InlineData("AF_Soldavel_Joelho90", null, null, null,
+        // Sinal 4 — DistinctiveBrandToken via family (AQUATHERM, linha exclusiva Tigre)
+        [InlineData("AQUATHERM_Joelho90", null, null, null,
             true, TigreDetectionSignal.DistinctiveBrandToken)]
+        // Codex HIGH#5 fix — "Soldável" no nome NÃO é mais token suficiente
+        // (termo genérico hidráulico brasileiro, usado por Astra/Amanco/etc).
+        // Sem Manufacturer e sem outro sinal exclusivo Tigre, vira None.
+        [InlineData("Astra_Registro_Soldavel", null, null, null,
+            false, TigreDetectionSignal.None)]
+        // Codex HIGH#5 fix — "SR"/"SN"/"Roscável" idem (genéricos esgoto/rosca).
+        [InlineData("Pipe_SR_Esgoto", null, null, null,
+            false, TigreDetectionSignal.None)]
         // Sinal 3 — FamilyNameContainsTigre
         [InlineData("Pipe_Tigre_PPR_DN25", null, null, null,
             true, TigreDetectionSignal.FamilyNameContainsTigre)]
@@ -55,9 +63,13 @@ namespace DarivaBIM.Core.Tests.Domain.Tigre
         // Sinal 2 — Tigre MAIÚSCULO
         [InlineData("Pipe_Generic", "TIGRE", null, null,
             true, TigreDetectionSignal.ManufacturerTigre)]
-        // Sinal 4 — DistinctiveBrandToken via description (Soldável)
-        [InlineData("Pipe_Generic", null, "Joelho Soldável", null,
+        // Sinal 4 — DistinctiveBrandToken via description (AQUATHERM exclusivo Tigre)
+        [InlineData("Pipe_Generic", null, "Tubo AQUATHERM CPVC", null,
             true, TigreDetectionSignal.DistinctiveBrandToken)]
+        // Codex HIGH#5 fix — "Joelho Soldável" na description, sem outro sinal
+        // exclusivo, NÃO vira Tigre (termo genérico usado por toda fabricante PVC).
+        [InlineData("Pipe_Generic", null, "Joelho Soldável", null,
+            false, TigreDetectionSignal.None)]
         // Sinal 5 — Description menciona "tigre" sem outro token distintivo
         [InlineData("Pipe_Generic", null, "Joelho TIGRE marrom", null,
             true, TigreDetectionSignal.DescriptionMentionsTigre)]
