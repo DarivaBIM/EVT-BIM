@@ -81,12 +81,21 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
             {
                 if (SetField(ref _projectInfo, value))
                 {
-                    // Slice 4.3.B F4 — sincroniza os campos editáveis com
-                    // o snapshot fresco; reset Dirty pra esconder o
-                    // indicador de "não salvo" depois do re-fetch.
-                    _projectClient = value.Client ?? string.Empty;
-                    _projectAuthor = value.Author ?? string.Empty;
-                    IsProjectInfoDirty = false;
+                    // Slice 4.3.B F4 + Codex HIGH#2 fix — sincroniza
+                    // _projectClient/_projectAuthor com o snapshot fresco
+                    // APENAS quando não há edição em curso. Se
+                    // IsProjectInfoDirty=true, user está digitando e
+                    // sobrescrever os campos locais apagaria a entrada dele
+                    // (race entre re-scan automático e foco do TextBox).
+                    // Após save bem-sucedido o snapshot já vem com os
+                    // valores normalizados; RefreshDirty detecta igualdade
+                    // e zera o flag naturalmente.
+                    if (!IsProjectInfoDirty)
+                    {
+                        _projectClient = value.Client ?? string.Empty;
+                        _projectAuthor = value.Author ?? string.Empty;
+                    }
+                    RefreshDirty();
                     OnPropertyChanged(nameof(ProjectName));
                     OnPropertyChanged(nameof(ProjectClient));
                     OnPropertyChanged(nameof(ProjectAuthor));
@@ -425,19 +434,19 @@ namespace DarivaBIM.Presentation.Wpf.TigreQuantifica
 
         private static bool GroupMatches(QuantityGroupViewModel group, string needle)
         {
-            // Slice 4.5 manteve `System` exposto justamente pra esta busca
-            // (vide comentário no QuantityGroupViewModel.System). Varremos
-            // todos os campos textuais que o usuário possa estar buscando:
-            // Família, Tipo, Diâmetro, código Tigre, descrição base,
-            // descrição Tigre (consolidada), Fabricante, Sistema.
+            // Codex HIGH#1 fix — Sistema NÃO entra no match. O Slice 4.5
+            // tirou Sistema da GroupKey do scanner; o DTO agregado sempre
+            // tem System=null/empty. Manter Sistema no filtro criava silent
+            // no-op (busca por "Água Fria" nunca achava nada, sem feedback
+            // ao usuário). Quando Sistema voltar de outra forma (ex: lista
+            // dos sistemas distintos por grupo), reincluir no match.
             return Contains(group.Family, needle)
                 || Contains(group.Type, needle)
                 || Contains(group.Diameter, needle)
                 || Contains(group.TigreCode, needle)
                 || Contains(group.Description, needle)
                 || Contains(group.TigreDescription, needle)
-                || Contains(group.Manufacturer, needle)
-                || Contains(group.System, needle);
+                || Contains(group.Manufacturer, needle);
         }
 
         private static bool Contains(string? haystack, string needle)
