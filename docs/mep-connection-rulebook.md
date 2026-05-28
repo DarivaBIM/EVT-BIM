@@ -336,42 +336,175 @@ Arquivo proposto: `src/Core/DarivaBIM.Domain/Mep/Connections/Resources/connectio
 
 ---
 
-## 4. O que são `lexicalHints` e `lexicalDisambiguators`
+## 4. lexicalHints — estratégia híbrida (decidida 2026-05-28)
 
-Esses dois blocos no JSON **não são** sobre fontes do elemento — são sobre **quais tokens caracterizam cada subtipo**. Ficam no JSON por subtype, não por elemento.
+**Princípio:** preencher manualmente todos os hints possíveis é frágil (esquece aliases, manutenção alta, quebra com cada novo fabricante). Estratégia escolhida: **10% manual + 90% derivado automaticamente do catálogo.**
 
-### `lexicalHints` — tokens **típicos** que descrevem o subtype
+### 4.1 Manual (~55 entries fixas, raramente mudam)
 
-Lista de palavras que normalmente aparecem em FamilyName/TypeName/Description quando o elemento é desse subtipo. Usados pra:
+#### `baseKindTokens` — universais do português hidráulico
 
-- **Validar / aumentar confiança** do match topológico (topologia é Elbow+90°, e "joelho" aparece no nome → confiança alta).
-- **Tiebreak** entre múltiplos candidatos topologicamente compatíveis (`joelho-90` e `curva-90` têm mesma topologia; quem tem mais hints no texto vence).
+Palavras-chave que mapeiam pra cada BaseKind. ~25 tokens totais. Definidos uma vez no JSON do rulebook.
 
-Exemplo:
 ```json
-"joelho-90": { "lexicalHints": ["joelho", "curva", "90"] }
-"te":        { "lexicalHints": ["te"] }
-"juncao-simples": { "lexicalHints": ["juncao"] }
+"baseKindTokens": {
+  "elbow":      ["joelho", "curva"],
+  "tee":        ["te", "tê"],
+  "wye":        ["juncao", "wye"],
+  "union":      ["luva", "uniao"],
+  "reducer":    ["reducao", "bucha", "redutor"],
+  "cap":        ["cap", "tampao", "plug"],
+  "valve":      ["registro", "valvula", "esfera", "gaveta", "retencao"],
+  "cross":      ["cruzeta", "cross"],
+  "multiport":  ["manifold", "barrilete", "distribuidor", "coletor"]
+}
 ```
 
-### `lexicalDisambiguators` — palavra-chave promove pra subtipo-filho
+#### `tokenAliases` — sinônimos / variações regionais
 
-Mapa `palavra → subtype-id` que **reclassifica** o match pra uma variante específica quando o token aparece no texto.
+Dicionário declarativo (~20 entries) que normaliza sinônimos entre fabricantes/idiomas/grafias.
+
+```json
+"tokenAliases": {
+  "te":       ["tê", "tee"],
+  "juncao":   ["junção", "wye", "lateral"],
+  "reducao":  ["redução", "redutor"],
+  "curva":    ["bend", "curve"],
+  "uniao":    ["união", "coupling"],
+  "joelho":   ["elbow", "cotovelo"]
+}
+```
+
+Crítico pra cobertura cross-fabricante (Tigre "Curva" = Krona "Joelho" = manufacturer gringo "Elbow").
+
+#### `negativeTokens` — anti-falsos-positivos
+
+Lista de tokens que **NÃO** devem ativar a regra, mesmo aparecendo no texto. Adicionar sob demanda quando smoke detectar falso positivo.
+
+```json
+"negativeTokens": {
+  "te":   ["terminal", "tempo", "teflon"],
+  "sn":   ["snake"],
+  "sr":   ["sra", "sranho"]
+}
+```
+
+~10 entries iniciais; cresce com smoke real.
+
+### 4.2 Auto-derivado (centenas/milhares de hints, manutenção zero)
+
+Script Python `tools/derive_lexical_hints.py` roda como parte da geração do `tigre_codes.json v2`. Para cada SKU:
+
+```python
+def derive_hints(entry: dict, base_kind_tokens: dict, aliases: dict) -> dict:
+    """
+    entry = {
+      "description": "Joelho 45 REDUX DN50",
+      "code": 100002822,
+      "subtype": "elbow",          # já populado por sugestão automática
+      "productLine": "REDUX",
+      "dn1": 50, "dn2": None, ...
+    }
+
+    Pipeline:
+    1. Tokenize description (boundary-aware, accent-stripped, lowercase)
+       → tokens = ["joelho", "45", "redux", "dn50"]
+    2. Remove números DN/dimensões via regex (\\d+|dn\\d+|pn\\d+)
+       → tokens = ["joelho", "redux"]
+    3. Remove tokens já cobertos pelo baseKindTokens[subtype]
+       (esses são genéricos, não diferenciam SKU específica)
+       → tokens = ["redux"]
+    4. Expand aliases (cada token + seus sinônimos do dicionário)
+       → tokens = ["redux"]
+    5. Cross-reference productLine field do JSON catalog (linha autoritativa)
+       → confirma "redux" via productLine="REDUX"
+    6. Resultado: entry.autoDerivedHints = ["redux"]
+    """
+```
+
+Cada entry do catálogo final tem `autoDerivedHints` populado **automaticamente**. Quando catálogo Amanco/Astra/Krona for adicionado, hints deles vêm grátis do mesmo script.
+
+### 4.3 lexicalLines auto-derivada
+
+Dicionário `lexicalLines` (`Redux`/`SerieNormal`/`Soldavel`/etc) também extraído automaticamente do field `productLine` do catálogo:
+
+```python
+def derive_lexical_lines(catalog: list[dict]) -> dict:
+    """
+    catalog tem entries com productLine field.
+
+    Agrupa por productLine único, gera tokens canônicos:
+      Tigre: ["REDUX", "SN", "SR", "Aquatherm", "ClicPEX", "PPR", "TigreFire"]
+      → "Redux":       ["redux"]
+        "SerieNormal": ["sn", "serie normal", "esg sn"]
+        "Aquatherm":   ["aquatherm"]
+        ...
+    """
+```
+
+Novo fabricante adiciona seus `productLine` → dicionário cresce sem editar regras.
+
+### 4.4 Como o classifier usa os 2 conjuntos (manual + derivado)
+
+No score lexical (passo 3 do exemplo anterior):
+
+```
+candidate "elbow"  (BaseKind=Elbow)
+  hints_efetivos =
+    baseKindTokens["elbow"]            // ["joelho", "curva"] — universal
+    UNION
+    entry.autoDerivedHints              // ["redux"] — específica do SKU "Joelho 45 REDUX DN50"
+  hints_efetivos = expand(aliases, hints_efetivos)   // ["joelho", "curva", "elbow", "cotovelo", "redux"]
+  hints_efetivos = remove(negative_in_context, hints_efetivos)  // sem mudança nesse exemplo
+
+  pra cada hint:
+    if hint in FamilyName:   score += 3
+    if hint in TypeName:     score += 2
+    if hint in Description:  score += 1
+```
+
+A regra do JSON só precisa declarar **BaseKind** (`elbow`, `tee`, etc). Os hints específicos vêm de:
+1. `baseKindTokens` (universais, manuais)
+2. `autoDerivedHints` por entry do catálogo (automáticas)
+3. `aliases` expansão (manuais, declarativos)
+
+### 4.5 lexicalDisambiguators — palavra-chave promove pra subtipo-filho
+
+Mapa `palavra → subtype-id` que **reclassifica** o match pra uma variante específica.
 
 Exemplo:
 ```json
-"joelho-90": {
-  "lexicalHints": ["joelho", "curva", "90"],
+"elbow-90": {
   "lexicalDisambiguators": {
-    "curva":        "curva-90",
-    "transposicao": "curva-transposicao",
-    "rosca":        "joelho-90-rosca",
-    "bucha":        "joelho-90-bucha-latao"
+    "rosca":        "elbow-90-threaded",
+    "bucha":        "elbow-90-brass-bushing",
+    "transposicao": "transposition-curve"
   }
 }
 ```
 
-Lógica: o classifier acha `joelho-90` topologicamente. Procura disambiguators no texto. Se nenhum bate, mantém `joelho-90`. Se "rosca" aparece, promove pra `joelho-90-rosca` (subtype-filho).
+**Validação obrigatória (Codex HIGH#10):** disambiguator só promove se o subtipo-filho é **topologicamente compatível** com a topology atual + tem `mandatoryLexical` tokens presentes (se declarados). Evita promoção indevida (`"curva"` reclassificando joelho que tecnicamente não é curva).
+
+Lógica:
+```
+para cada (palavra → filho) em disambiguators:
+  se palavra ∈ texto:
+    se filho.topology.matches(currentTopology):   // validação topológica
+      se all mandatoryLexical do filho ∈ texto:    // validação léxica
+        winner = filho
+        break
+```
+
+### 4.6 Custo manutenção comparado
+
+| Cenário | Manual original | Híbrido |
+|---|---|---|
+| Setup inicial | ~3h preenchendo JSON | ~1h (manual) + ~1h (script Python) |
+| Adicionar Amanco (200 SKUs) | ~2h preenchendo hints novos | **zero** (catálogo carrega via script) |
+| Adicionar Krona (150 SKUs) | ~2h | **zero** |
+| Adicionar novo subtype | ~10min editando JSON | ~5min se baseKind novo, **zero** se reusa |
+| Falso positivo em smoke | 5min adicionando exclusão | 5min adicionando `negativeTokens` |
+| Aliases gringo→pt-BR | propenso a esquecer | dicionário declarativo, audit fácil |
 
 ---
 
@@ -397,8 +530,16 @@ ConnectionIdentity Classify(topology, familyName, typeName, description):
   }
 
   pra cada candidate em candidates:
+    // hints híbridos: BaseKind universal + auto-derivado do catálogo + aliases expand
+    candidate.effectiveHints =
+      rulebook.baseKindTokens[candidate.baseKind]    // ["joelho", "curva"] etc
+      UNION
+      candidate.autoDerivedHints                      // ["redux"] da entry do catálogo
+    candidate.effectiveHints = expandAliases(candidate.effectiveHints)
+    candidate.effectiveHints = stripNegatives(candidate.effectiveHints, allText)
+
     candidate.score = 0
-    pra cada hint em candidate.lexicalHints:
+    pra cada hint em candidate.effectiveHints:
       se hint in scoredText.familyName:   candidate.score += 3
       se hint in scoredText.typeName:     candidate.score += 2
       se hint in scoredText.description:  candidate.score += 1
@@ -467,7 +608,7 @@ Vantagem: `Mep.Connections` permanece agnóstico de fabricante; `TigreCatalogV2`
 
 ---
 
-## 6. Subtipos que faltam mapear (pra você checar se considera importantes)
+## 7. Subtipos que faltam mapear (pra você checar se considera importantes)
 
 - Adaptador para Bico (TIGREFire) — Transition + lexical "bico"
 - Joelho com Bucha de Latão / com Rosca — Elbow + lexical
@@ -482,7 +623,7 @@ Vantagem: `Mep.Connections` permanece agnóstico de fabricante; `TigreCatalogV2`
 
 ---
 
-## 7. Perguntas pra você antes da implementação
+## 8. Perguntas pra você antes da implementação
 
 1. **Aceita o schema acima?** Quer adicionar/remover algum subtipo?
 2. ~~`lexicalDisambiguators` simples ou score elaborado?~~ ✅ Decidido (2026-05-28):
@@ -497,7 +638,7 @@ Vantagem: `Mep.Connections` permanece agnóstico de fabricante; `TigreCatalogV2`
 
 ---
 
-## 8. Estimativa de implementação após sua aprovação do schema
+## 9. Estimativa de implementação após sua aprovação do schema
 
 | Fase | Escopo | Tempo |
 |---|---|---|
