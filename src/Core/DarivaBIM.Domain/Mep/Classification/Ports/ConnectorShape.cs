@@ -7,8 +7,9 @@ namespace DarivaBIM.Domain.Mep.Classification.Ports
     /// </summary>
     public enum ConnectorShape
     {
-        Round,
-        Rectangular,
-        Oval,
+        Unknown = 0,
+        Round = 1,
+        Rectangular = 2,
+        Oval = 3,
     }
 }
