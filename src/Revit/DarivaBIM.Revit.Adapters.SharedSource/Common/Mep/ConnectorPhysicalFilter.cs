@@ -5,11 +5,20 @@ using DarivaBIM.Domain.Mep.Classification.Connections;
 namespace DarivaBIM.Revit.Adapters.Common.Mep
 {
     /// <summary>
-    /// Filtra os conectores FISICOS validos de um <see cref="ConnectorManager"/>
-    /// (secao 9 passo 1 do rulebook): so extremidades (End) com secao Round, raio
-    /// real e Origin/BasisZ coerentes participam da inferencia de topologia. Cada
-    /// descarte vira um <see cref="TopologyDiagnostic"/> rastreavel. Revit-bound;
-    /// a logica geometrica e do motor Domain (1.B-1) e nao mora aqui.
+    /// Filtra as BOCAS FISICAS validas de um <see cref="ConnectorManager"/>
+    /// (secao 9 passo 1 do rulebook). Boca fisica = porta geometrica valida da
+    /// peca (End + dominio Piping + secao Round + raio real + Origin/BasisZ
+    /// coerentes), INDEPENDENTEMENTE do estado de conexao na rede: uma boca LIVRE
+    /// (saida aberta de um te) e tao fisica quanto uma conectada — filtrar por
+    /// conexao classificaria o te como Elbow/Union e casaria codigo errado no
+    /// catalogo Tigre (validado pelo Codex). Cada descarte vira um
+    /// <see cref="TopologyDiagnostic"/> rastreavel. Revit-bound; a logica
+    /// geometrica e do motor Domain (1.B-1) e nao mora aqui.
+    ///
+    /// Follow-ups previstos para o smoke da Fase 4 (NAO implementados aqui; so se
+    /// aparecer conector espurio em familia mal feita): dedup geometrica de bocas
+    /// coincidentes (Origin+Eixo+Raio com tolerancia) e descartar Utility==true
+    /// (tap/spud auxiliares).
     /// </summary>
     internal static class ConnectorPhysicalFilter
     {
@@ -64,22 +73,21 @@ namespace DarivaBIM.Revit.Adapters.Common.Mep
                 return false;
             }
 
-            // 2. Participa de uma conexao real (conectado ou com refs). Conforme
-            // secao 9; NOTA: pode descartar pontas livres legitimas — vide relatorio.
+            // 2. Dominio hidraulico (Piping). Higiene: se a leitura LANCAR, NAO
+            // descarta — nao vale perder uma boca legitima por erro de leitura
+            // (diferente dos demais criterios, que descartam em falha de leitura).
             try
             {
-                if (!connector.IsConnected && SafeAllRefsSize(connector) == 0)
+                if (connector.Domain != Autodesk.Revit.DB.Domain.DomainPiping)
                 {
-                    Skip(diagnostics, TopologyDiagnosticCode.NonPhysicalConnectorSkipped, DiagnosticSeverity.Info,
-                        $"Conector {id} sem conexao nem refs.");
+                    Skip(diagnostics, TopologyDiagnosticCode.DomainMismatch, DiagnosticSeverity.Info,
+                        $"Conector {id} nao e Piping ({connector.Domain}).");
                     return false;
                 }
             }
             catch
             {
-                Skip(diagnostics, TopologyDiagnosticCode.NonPhysicalConnectorSkipped, DiagnosticSeverity.Info,
-                    $"Conector {id}: falha lendo IsConnected/AllRefs.");
-                return false;
+                // Leitura de Domain falhou: deixa passar (higiene, nao descarta).
             }
 
             // 3. Hidraulica: so secao Round (a inferencia angular assume eixo redondo).
@@ -157,19 +165,6 @@ namespace DarivaBIM.Revit.Adapters.Common.Mep
             catch
             {
                 return -1;
-            }
-        }
-
-        private static int SafeAllRefsSize(Connector connector)
-        {
-            try
-            {
-                ConnectorSet? refs = connector.AllRefs;
-                return refs?.Size ?? 0;
-            }
-            catch
-            {
-                return 0;
             }
         }
     }
