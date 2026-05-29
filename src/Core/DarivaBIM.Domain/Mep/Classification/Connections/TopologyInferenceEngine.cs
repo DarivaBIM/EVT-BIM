@@ -15,6 +15,10 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
     /// matriz de angulos e RAW (Acos(clamp(dot,-1,1)) em 0..180, sem abs) para que
     /// peca reta (anti-paralela, ~180) nao colapse com peca a 0 grau; o abs entra
     /// SO na medicao do ramal contra o eixo (que e uma reta nao-orientada).
+    /// A AngleMatrix carrega o angulo RAW entre OutwardNormals (0..180); para
+    /// JOELHOS a deflexao (o angulo do catalogo "Joelho 45/90") = 180 - raw, e o
+    /// motor NAO converte (joelho 90 -> raw 90; joelho 45 -> raw 135) — a derivacao
+    /// e da fase 2.B (errata rulebook secao 9, 2026-05-28).
     /// NominalAngleDeg/GeometryKind NAO sao saida deste motor: ConnectionTopology
     /// nao os carrega (vivem em ConnectionIdentity, derivados na fase 2.B a partir
     /// da matriz raw aqui produzida).

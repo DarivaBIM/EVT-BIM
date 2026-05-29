@@ -101,7 +101,9 @@ public class TopologyInferenceEngineTests
     public void Count2_not_inline_is_Elbow_with_raw_90_in_matrix()
     {
         // Normais a 90 graus -> nao-inline -> Elbow. A AngleMatrix carrega o angulo
-        // RAW (90) de onde a fase 2.B deriva NominalAngleDeg/GeometryKind.
+        // RAW (90). NOTA: 90 e o caso em que raw e deflexao COINCIDEM (180-90=90),
+        // por isso este caso nao denunciava a inversao raw-vs-deflexao (vide o teste
+        // do joelho de deflexao 45, cujo raw e 135).
         var readings = new[]
         {
             Conn(0, new Vector3(1, 0, 0), new Vector3(50, 0, 0), 50),
@@ -113,19 +115,20 @@ public class TopologyInferenceEngineTests
         var t = result.Topology!;
         Assert.Equal(BaseKind.Elbow, t.InferredBaseKind);
         Assert.False(t.IsInlinePairDetected);
-        Assert.InRange(t.AngleMatrix[0][1], 89.0, 91.0);
+        Assert.InRange(t.AngleMatrix[0][1], 89.0, 91.0);         // raw ~ 90
+        Assert.InRange(180.0 - t.AngleMatrix[0][1], 89.0, 91.0); // contrato: deflexao = 180 - raw = 90 (coincide)
     }
 
     [Fact]
-    public void Count2_not_inline_is_Elbow_with_raw_45_in_matrix()
+    public void Count2_not_inline_physical_45deg_elbow_has_raw_135_in_matrix()
     {
-        // Normais a 45 graus entre si. Convencao do rulebook secao 9 (edge): o
-        // angulo RAW entre OutwardNormals e o angulo nominal lido (45). Vide a nota
-        // raw-vs-deflexao no relatorio da slice.
+        // Joelho de DEFLEXAO 45 (o "Joelho 45" do catalogo Tigre) tem os BasisZ
+        // outward a 135 graus entre si: deflexao = 180 - raw. O motor NAO converte;
+        // a 2.B traduz raw 135 -> "Joelho 45". (Errata rulebook secao 9, 2026-05-28.)
         var readings = new[]
         {
             Conn(0, new Vector3(1, 0, 0), new Vector3(50, 0, 0), 50),
-            Conn(1, new Vector3(Cos45, Cos45, 0), new Vector3(35, 35, 0), 50),
+            Conn(1, new Vector3(-Cos45, Cos45, 0), new Vector3(-35, 35, 0), 50),
         };
 
         var result = TopologyInferenceEngine.Infer(readings, "Elbow", Discipline.Plumbing, ProductCategory.PipeFitting);
@@ -133,7 +136,8 @@ public class TopologyInferenceEngineTests
         var t = result.Topology!;
         Assert.Equal(BaseKind.Elbow, t.InferredBaseKind);
         Assert.False(t.IsInlinePairDetected);
-        Assert.InRange(t.AngleMatrix[0][1], 44.0, 46.0);
+        Assert.InRange(t.AngleMatrix[0][1], 134.0, 136.0);       // raw ~ 135
+        Assert.InRange(180.0 - t.AngleMatrix[0][1], 44.0, 46.0); // contrato: deflexao = 180 - raw = 45
     }
 
     [Fact]

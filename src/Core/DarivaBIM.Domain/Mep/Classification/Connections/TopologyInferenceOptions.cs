@@ -30,7 +30,8 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         /// Passo de arredondamento (graus) do angulo nominal. NAO consumido pelo
         /// motor 1.B-1 (ConnectionTopology nao carrega NominalAngleDeg; a matriz
         /// de angulos e raw); reservado para a derivacao de NominalAngleDeg no
-        /// Classify da fase 2.B a partir da matriz raw.
+        /// Classify da fase 2.B a partir da matriz raw. Convencao: para joelhos a
+        /// deflexao (angulo do catalogo) = 180 - raw (joelho 45 -> raw 135).
         /// </summary>
         public double AngleSnapDeg { get; init; } = 5.0;
 
