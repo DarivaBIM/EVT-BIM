@@ -1,6 +1,6 @@
 # Roadmap de execução — Mep.Classification (MVP 1.B → 4)
 
-> **Status:** 🟢 **Fase 1.B COMPLETA E GATEADA** (13 commits locais `06eec06..3608a4b`, R4 **211/211** · 0/0 · 0/0 · 16/16). Codex panorâmico + BLOCKER `ReductionKind` corrigido. **Sem push** (aguardando OK do Matheus: commit docs + push + memória). Próxima: fase **2.A** (`LexicalNormalizer`).
+> **Status:** 🟢 **Fases 1.B + 2.A FECHADAS e pushadas** (origin `2c9264a`, R4 **232/232** · 0/0 · 0/0 · 16/16). Próxima: **2.B-1** (POCOs de regra + loader). Codex panorâmico cadenciado no FIM da fase 2.B (cobre 2.A + 2.B).
 > **Criado:** 2026-05-28 (Janela de Revisão, modo duas janelas). **Revisado:** **v1.3** (fase 1.B fechada) 2026-05-29.
 > **Fonte de DESIGN:** `docs/mep-connection-rulebook.md` v2 (canônico). Este doc é a **EXECUÇÃO** — operacionaliza o §23 do rulebook em slices gateados.
 > **Branch:** `claude/quantifica-followup-2026-05-27` @ `9dc82ff` (MVP 1.A fechado).
@@ -293,7 +293,7 @@ Hosts do Adapter (`DarivaBIM.Revit.Adapters.V2025/V2026`, que compilam o `Shared
 | **1.B-2** | `ConnectionTopologyReader` + filtro + guard (Adapter) | ✅ `b42247f..591ab1f` + `0f76847` |
 | **1.B-3** | `ElementTextsReader` (Adapter) | ✅ `057c4fa`,`4effbee` |
 | **1.B fix** | BLOCKER `ReductionKind` + filtro Domain fail-closed + follow-ups | ✅ `511f0a6..3608a4b` |
-| **2.A-1** | `LexicalNormalizer` + golden tests | ⬜ |
+| **2.A-1** | `LexicalNormalizer` + golden tests (D5: sem Tigre) | ✅ `858fa17`,`2c9264a` |
 | **2.B-1** | POCOs regra + loader (ciclo/IDs/embedded) | ⬜ |
 | **2.B-2** | `pipe_connection_rules.json` | ⬜ |
 | **2.B-3** | Classify: filtro + score + confidence | ⬜ |
