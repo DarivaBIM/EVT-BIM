@@ -73,9 +73,10 @@ namespace DarivaBIM.Revit.Adapters.Common.Mep
                 return false;
             }
 
-            // 2. Dominio hidraulico (Piping). Higiene: se a leitura LANCAR, NAO
-            // descarta — nao vale perder uma boca legitima por erro de leitura
-            // (diferente dos demais criterios, que descartam em falha de leitura).
+            // 2. Dominio hidraulico (Piping). Fail-closed: se a leitura LANCAR,
+            // DESCARTA (como os demais criterios). Codex: fail-open num discriminador
+            // obrigatorio e furo — melhor perder uma boca de leitura instavel do que
+            // aceitar conector de dominio errado no pipeline pago.
             try
             {
                 if (connector.Domain != Autodesk.Revit.DB.Domain.DomainPiping)
@@ -87,7 +88,9 @@ namespace DarivaBIM.Revit.Adapters.Common.Mep
             }
             catch
             {
-                // Leitura de Domain falhou: deixa passar (higiene, nao descarta).
+                Skip(diagnostics, TopologyDiagnosticCode.DomainMismatch, DiagnosticSeverity.Info,
+                    $"Conector {id}: falha lendo Domain.");
+                return false;
             }
 
             // 3. Hidraulica: so secao Round (a inferencia angular assume eixo redondo).
