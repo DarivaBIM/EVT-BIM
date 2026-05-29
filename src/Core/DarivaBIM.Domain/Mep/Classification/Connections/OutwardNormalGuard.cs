@@ -42,6 +42,11 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             {
                 ConnectorReading r = readings[i];
                 Vector3 outward = r.Origin - centroid;
+                // FOLLOW-UP (smoke Fase 4): dot < 0 e sinal claro. Quando dot ~= 0
+                // (normal ortogonal ao radial, ou conector praticamente no centroide)
+                // o sinal e ambiguo e hoje NAO invertemos; revisitar com epsilon +
+                // diagnostic (ou validar pela tangente do tubo conectado) se o smoke
+                // mostrar caso real.
                 if (Vector3.Dot(r.OutwardNormal, outward) < 0f)
                 {
                     result[i] = r with { OutwardNormal = -r.OutwardNormal };
