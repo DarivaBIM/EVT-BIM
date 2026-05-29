@@ -1,0 +1,440 @@
+{
+  "version": "2.0",
+  "discipline": "Plumbing",
+  "description": "Pipe connection rulebook MVP 1 (subtypes da secao 18; tokens normalizados sem acento)",
+
+  "baseKindTokens": {
+    "elbow": ["joelho", "curva"],
+    "tee": ["te"],
+    "wye": ["juncao", "wye"],
+    "union": ["luva", "uniao"],
+    "reducer": ["reducao", "bucha", "redutor", "adaptador"],
+    "cap": ["cap", "tampao", "plug"],
+    "valve": ["registro", "valvula", "esfera", "gaveta", "retencao"],
+    "cross": ["cruzeta", "cross"],
+    "multiport": ["manifold", "barrilete", "distribuidor", "coletor"]
+  },
+
+  "tokenAliases": {
+    "te": ["tee"],
+    "juncao": ["wye", "lateral"],
+    "reducao": ["redutor"],
+    "curva": ["bend", "curve"],
+    "uniao": ["coupling"],
+    "joelho": ["elbow", "cotovelo"]
+  },
+
+  "negativeTokens": {
+    "te": ["terminal", "tempo", "teflon"],
+    "sn": ["snake"],
+    "sr": ["sra"]
+  },
+
+  "tolerances": {
+    "angleDeg": 5,
+    "diameterMm": 2
+  },
+
+  "rules": [
+    {
+      "id": "cap",
+      "baseKind": "Cap",
+      "geometryKind": "Unspecified",
+      "topology": {
+        "partTypeAccepts": ["Cap", "Other", "Undefined"],
+        "connectorCount": 1
+      },
+      "lexicalHints": ["cap", "tampao", "plug"]
+    },
+
+    {
+      "id": "union-simple",
+      "baseKind": "Union",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": {
+        "partTypeAccepts": ["Union", "PipeFlange", "Transition", "Other", "Undefined"],
+        "connectorCount": 2,
+        "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunA", "RunB"], "relation": "equal" } ] },
+        "primaryAngleRule": { "minDeg": 175, "maxDeg": 185 }
+      },
+      "lexicalDisambiguators": [
+        { "trigger": "rosca", "promoteTo": "union-threaded", "mandatoryLexical": ["rosca"], "topologyMustMatch": true }
+      ],
+      "lexicalHints": ["luva", "uniao"]
+    },
+    {
+      "id": "union-threaded",
+      "baseKind": "Union",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "union-simple" },
+      "lexicalHints": ["rosca"],
+      "requiresLexicalConfirmation": true
+    },
+
+    {
+      "id": "reducer-concentric",
+      "baseKind": "Reducer",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": {
+        "partTypeAccepts": ["Transition", "Other", "Undefined"],
+        "connectorCount": 2,
+        "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunLarge", "RunSmall"], "relation": "different" } ] },
+        "primaryAngleRule": { "minDeg": 175, "maxDeg": 185 }
+      },
+      "lexicalDisambiguators": [
+        { "trigger": "excentrica", "promoteTo": "reducer-eccentric", "mandatoryLexical": ["excentrica"], "topologyMustMatch": true },
+        { "trigger": "bucha", "promoteTo": "bushing", "mandatoryLexical": ["bucha"], "topologyMustMatch": true },
+        { "trigger": "adaptador", "promoteTo": "adapter", "mandatoryLexical": ["adaptador"], "topologyMustMatch": true },
+        { "trigger": "nipel", "promoteTo": "male-female-connector", "mandatoryLexical": ["nipel"], "topologyMustMatch": true }
+      ],
+      "lexicalHints": ["reducao", "redutor"]
+    },
+    {
+      "id": "reducer-eccentric",
+      "baseKind": "Reducer",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "reducer-concentric" },
+      "lexicalHints": ["excentrica"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "bushing",
+      "baseKind": "Reducer",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "reducer-concentric" },
+      "lexicalHints": ["bucha"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "adapter",
+      "baseKind": "Reducer",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "reducer-concentric" },
+      "lexicalHints": ["adaptador"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "male-female-connector",
+      "baseKind": "Reducer",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "reducer-concentric" },
+      "lexicalHints": ["nipel", "macho", "femea"],
+      "requiresLexicalConfirmation": true
+    },
+
+    {
+      "id": "elbow-45",
+      "baseKind": "Elbow",
+      "geometryKind": "ShortRadius",
+      "nominalAngleDeg": 45,
+      "topology": {
+        "partTypeAccepts": ["Elbow", "Offset", "Other", "Undefined"],
+        "connectorCount": 2,
+        "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunA", "RunB"], "relation": "equal" } ] },
+        "primaryAngleRule": { "minDeg": 40, "maxDeg": 50 }
+      },
+      "lexicalDisambiguators": [
+        { "trigger": "curva", "promoteTo": "long-radius-bend-45", "mandatoryLexical": ["curva"], "topologyMustMatch": true }
+      ],
+      "lexicalHints": ["joelho"]
+    },
+    {
+      "id": "elbow-90",
+      "baseKind": "Elbow",
+      "geometryKind": "ShortRadius",
+      "nominalAngleDeg": 90,
+      "topology": {
+        "partTypeAccepts": ["Elbow", "Offset", "Other", "Undefined"],
+        "connectorCount": 2,
+        "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunA", "RunB"], "relation": "equal" } ] },
+        "primaryAngleRule": { "minDeg": 85, "maxDeg": 95 }
+      },
+      "lexicalDisambiguators": [
+        { "trigger": "curva", "promoteTo": "long-radius-bend-90", "mandatoryLexical": ["curva"], "topologyMustMatch": true },
+        { "trigger": "rosca", "promoteTo": "elbow-threaded", "mandatoryLexical": ["rosca"], "topologyMustMatch": true },
+        { "trigger": "bucha", "promoteTo": "elbow-brass-bushing", "mandatoryLexical": ["bucha", "latao"], "topologyMustMatch": true },
+        { "trigger": "transposicao", "promoteTo": "transposition-curve", "mandatoryLexical": ["transposicao"], "topologyMustMatch": true },
+        { "trigger": "visita", "promoteTo": "elbow-visit", "mandatoryLexical": ["visita"], "topologyMustMatch": true }
+      ],
+      "lexicalHints": ["joelho"]
+    },
+    {
+      "id": "elbow-reducer",
+      "baseKind": "Elbow",
+      "geometryKind": "ShortRadius",
+      "topology": {
+        "inherits": "elbow-90",
+        "overrides": {
+          "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunLarge", "RunSmall"], "relation": "different" } ] },
+          "primaryAngleRule": { "minDeg": 40, "maxDeg": 95 }
+        }
+      },
+      "lexicalHints": ["reducao"]
+    },
+    {
+      "id": "elbow-threaded",
+      "baseKind": "Elbow",
+      "geometryKind": "ShortRadius",
+      "nominalAngleDeg": 90,
+      "topology": { "inherits": "elbow-90" },
+      "lexicalHints": ["rosca"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "elbow-brass-bushing",
+      "baseKind": "Elbow",
+      "geometryKind": "ShortRadius",
+      "nominalAngleDeg": 90,
+      "topology": { "inherits": "elbow-90" },
+      "lexicalHints": ["bucha", "latao"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "elbow-visit",
+      "baseKind": "Elbow",
+      "geometryKind": "ShortRadius",
+      "nominalAngleDeg": 90,
+      "topology": { "inherits": "elbow-90" },
+      "lexicalHints": ["visita"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "long-radius-bend-45",
+      "baseKind": "Elbow",
+      "geometryKind": "LongRadius",
+      "nominalAngleDeg": 45,
+      "topology": { "inherits": "elbow-45" },
+      "lexicalHints": ["curva"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "long-radius-bend-90",
+      "baseKind": "Elbow",
+      "geometryKind": "LongRadius",
+      "nominalAngleDeg": 90,
+      "topology": { "inherits": "elbow-90" },
+      "lexicalHints": ["curva"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "transposition-curve",
+      "baseKind": "Elbow",
+      "geometryKind": "SShape",
+      "topology": { "inherits": "elbow-90" },
+      "lexicalHints": ["transposicao"],
+      "requiresLexicalConfirmation": true
+    },
+
+    {
+      "id": "tee",
+      "baseKind": "Tee",
+      "geometryKind": "Branch",
+      "nominalAngleDeg": 90,
+      "topology": {
+        "partTypeAccepts": ["Tee", "LateralTee", "TapPerpendicular", "TapAdjustable", "SpudPerpendicular", "SpudAdjustable", "Other", "Undefined"],
+        "connectorCount": 3,
+        "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunA", "RunB"], "relation": "equal" } ] },
+        "primaryAngleRule": { "minDeg": 175, "maxDeg": 185 },
+        "lateralAngleRule": { "minDeg": 85, "maxDeg": 95 }
+      },
+      "lexicalDisambiguators": [
+        { "trigger": "inspecao", "promoteTo": "tee-inspection", "mandatoryLexical": ["inspecao"], "topologyMustMatch": true },
+        { "trigger": "misturador", "promoteTo": "tee-misturador", "mandatoryLexical": ["misturador"], "topologyMustMatch": true },
+        { "trigger": "reducao", "promoteTo": "tee-reducer", "mandatoryLexical": ["reducao"], "topologyMustMatch": true },
+        { "trigger": "rosca", "promoteTo": "tee-threaded", "mandatoryLexical": ["rosca"], "topologyMustMatch": true }
+      ],
+      "lexicalHints": ["te"]
+    },
+    {
+      "id": "tee-reducer",
+      "baseKind": "Tee",
+      "geometryKind": "Branch",
+      "nominalAngleDeg": 90,
+      "topology": {
+        "inherits": "tee",
+        "overrides": {
+          "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["Branch"], "relation": "lessThan", "target": "RunA" } ] }
+        }
+      },
+      "lexicalHints": ["reducao"]
+    },
+    {
+      "id": "tee-inspection",
+      "baseKind": "Tee",
+      "geometryKind": "Branch",
+      "nominalAngleDeg": 90,
+      "topology": { "inherits": "tee" },
+      "lexicalHints": ["inspecao"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "tee-misturador",
+      "baseKind": "Tee",
+      "geometryKind": "Branch",
+      "nominalAngleDeg": 90,
+      "topology": { "inherits": "tee" },
+      "lexicalHints": ["misturador"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "tee-threaded",
+      "baseKind": "Tee",
+      "geometryKind": "Branch",
+      "nominalAngleDeg": 90,
+      "topology": { "inherits": "tee" },
+      "lexicalHints": ["rosca"],
+      "requiresLexicalConfirmation": true
+    },
+
+    {
+      "id": "wye-simple",
+      "baseKind": "Wye",
+      "geometryKind": "Branch",
+      "nominalAngleDeg": 45,
+      "topology": {
+        "partTypeAccepts": ["Wye", "LateralTee", "Tee", "Other", "Undefined"],
+        "connectorCount": 3,
+        "primaryAngleRule": { "minDeg": 175, "maxDeg": 185 },
+        "lateralAngleRule": { "minDeg": 40, "maxDeg": 50 }
+      },
+      "lexicalDisambiguators": [
+        { "trigger": "invertida", "promoteTo": "wye-inverted", "mandatoryLexical": ["invertida"], "topologyMustMatch": true },
+        { "trigger": "reducao", "promoteTo": "wye-reducer", "mandatoryLexical": ["reducao"], "topologyMustMatch": true }
+      ],
+      "lexicalHints": ["juncao"]
+    },
+    {
+      "id": "wye-reducer",
+      "baseKind": "Wye",
+      "geometryKind": "Branch",
+      "nominalAngleDeg": 45,
+      "topology": {
+        "inherits": "wye-simple",
+        "overrides": {
+          "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["Branch"], "relation": "lessThan", "target": "RunA" } ] }
+        }
+      },
+      "lexicalHints": ["reducao"]
+    },
+    {
+      "id": "wye-inverted",
+      "baseKind": "Wye",
+      "geometryKind": "Branch",
+      "nominalAngleDeg": 45,
+      "topology": { "inherits": "wye-simple" },
+      "lexicalHints": ["invertida"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "wye-double",
+      "baseKind": "Cross",
+      "geometryKind": "Multi",
+      "nominalAngleDeg": 45,
+      "topology": {
+        "inherits": "cross",
+        "overrides": {
+          "lateralAngleRule": { "minDeg": 40, "maxDeg": 50 }
+        }
+      },
+      "lexicalHints": ["dupla"]
+    },
+    {
+      "id": "cross",
+      "baseKind": "Cross",
+      "geometryKind": "Multi",
+      "nominalAngleDeg": 90,
+      "topology": {
+        "partTypeAccepts": ["Cross", "LateralCross", "Other", "Undefined"],
+        "connectorCount": 4,
+        "primaryAngleRule": { "minDeg": 175, "maxDeg": 185 },
+        "lateralAngleRule": { "minDeg": 85, "maxDeg": 95 }
+      },
+      "lexicalDisambiguators": [
+        { "trigger": "dupla", "promoteTo": "wye-double", "mandatoryLexical": ["dupla"], "topologyMustMatch": true }
+      ],
+      "lexicalHints": ["cruzeta", "cross"]
+    },
+
+    {
+      "id": "valve-shutoff",
+      "baseKind": "Valve",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": {
+        "partTypeAccepts": ["ValveNormal", "ValveBreaksInto", "Other", "Undefined"],
+        "connectorCount": 2,
+        "primaryAngleRule": { "minDeg": 175, "maxDeg": 185 }
+      },
+      "lexicalDisambiguators": [
+        { "trigger": "retencao", "promoteTo": "valve-check", "mandatoryLexical": ["retencao"], "topologyMustMatch": true },
+        { "trigger": "redutora", "promoteTo": "valve-prv", "mandatoryLexical": ["redutora"], "topologyMustMatch": true },
+        { "trigger": "descarga", "promoteTo": "valve-flush", "mandatoryLexical": ["descarga"], "topologyMustMatch": true },
+        { "trigger": "hidrometro", "promoteTo": "meter", "mandatoryLexical": ["hidrometro"], "topologyMustMatch": true },
+        { "trigger": "manometro", "promoteTo": "instrument-pressure", "mandatoryLexical": ["manometro"], "topologyMustMatch": true }
+      ],
+      "lexicalHints": ["registro", "valvula", "esfera", "gaveta"]
+    },
+    {
+      "id": "valve-check",
+      "baseKind": "Valve",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "valve-shutoff" },
+      "lexicalHints": ["retencao"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "valve-prv",
+      "baseKind": "Valve",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "valve-shutoff" },
+      "lexicalHints": ["redutora", "vrp"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "valve-flush",
+      "baseKind": "Valve",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "valve-shutoff" },
+      "lexicalHints": ["descarga"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "meter",
+      "baseKind": "Valve",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "valve-shutoff" },
+      "lexicalHints": ["hidrometro", "medidor"],
+      "requiresLexicalConfirmation": true
+    },
+    {
+      "id": "instrument-pressure",
+      "baseKind": "Valve",
+      "geometryKind": "Straight",
+      "nominalAngleDeg": 180,
+      "topology": { "inherits": "valve-shutoff" },
+      "lexicalHints": ["manometro"],
+      "requiresLexicalConfirmation": true
+    },
+
+    {
+      "id": "manifold",
+      "baseKind": "MultiPort",
+      "geometryKind": "Multi",
+      "topology": {
+        "partTypeAccepts": ["MultiPort", "Other", "Undefined"]
+      },
+      "lexicalHints": ["manifold", "barrilete", "distribuidor", "coletor"]
+    }
+  ]
+}
