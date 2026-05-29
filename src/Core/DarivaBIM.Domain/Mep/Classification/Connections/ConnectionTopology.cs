@@ -57,6 +57,12 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
 
         public int? BranchDn => Ports.FirstOrDefault(p => p.Role == PortRole.Branch)?.DnMm;
 
-        public bool HasReduction => Ports.Select(p => p.DnMm).Distinct().Count() > 1;
+        /// <summary>
+        /// True quando ha reducao. DERIVA de <see cref="ReductionKind"/> (calculado
+        /// uma unica vez no engine, ja com a tolerancia de DN aplicada), e NAO de um
+        /// Distinct() exato dos DNs — assim fica consistente com ReductionKind e o
+        /// BaseKind: uma luva DN 50/51 e Union/None, nunca "Union reduzida".
+        /// </summary>
+        public bool HasReduction => ReductionKind != ReductionKind.None;
     }
 }

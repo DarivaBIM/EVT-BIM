@@ -128,8 +128,10 @@ public class ConnectionTopologyTests
     }
 
     [Fact]
-    public void HasReduction_false_when_all_dns_equal()
+    public void HasReduction_is_false_when_ReductionKind_is_None()
     {
+        // HasReduction DERIVA de ReductionKind (calculado no engine com tolerancia),
+        // nao de Distinct() exato dos DNs.
         var topology = new ConnectionTopology
         {
             Ports = new[]
@@ -138,21 +140,24 @@ public class ConnectionTopologyTests
                 Port(PortRole.RunB, 50),
                 Port(PortRole.Branch, 50),
             },
+            ReductionKind = ReductionKind.None,
         };
 
         Assert.False(topology.HasReduction);
     }
 
     [Fact]
-    public void HasReduction_true_when_dns_differ()
+    public void HasReduction_is_true_when_ReductionKind_is_not_None()
     {
+        // DNs diferentes nao bastam: e o ReductionKind (do engine) que manda.
         var topology = new ConnectionTopology
         {
             Ports = new[]
             {
-                Port(PortRole.RunA, 75),
-                Port(PortRole.RunB, 50),
+                Port(PortRole.RunLarge, 75),
+                Port(PortRole.RunSmall, 50),
             },
+            ReductionKind = ReductionKind.Concentric,
         };
 
         Assert.True(topology.HasReduction);

@@ -337,4 +337,79 @@ public class TopologyInferenceEngineTests
             r1.Topology!.Ports.Select(p => p.Role),
             r2.Topology!.Ports.Select(p => p.Role));
     }
+
+    [Fact]
+    public void Count2_inline_dn_within_tolerance_is_Union_without_reduction()
+    {
+        // DN 50/51 (diferenca <= DnEqualToleranceMm=2) -> Union, sem reducao. Era o
+        // BUG do gate: Distinct() exato marcava ReductionKind/HasReduction reduzido.
+        var readings = new[]
+        {
+            Conn(0, new Vector3(1, 0, 0), new Vector3(50, 0, 0), 50),
+            Conn(1, new Vector3(-1, 0, 0), new Vector3(-50, 0, 0), 51),
+        };
+
+        var t = TopologyInferenceEngine.Infer(
+            readings, "Union", Discipline.Plumbing, ProductCategory.PipeFitting).Topology!;
+
+        Assert.Equal(BaseKind.Union, t.InferredBaseKind);
+        Assert.Equal(ReductionKind.None, t.ReductionKind);
+        Assert.False(t.HasReduction);
+    }
+
+    [Fact]
+    public void Count2_inline_dn_beyond_tolerance_is_Reducer_with_reduction()
+    {
+        var readings = new[]
+        {
+            Conn(0, new Vector3(1, 0, 0), new Vector3(50, 0, 0), 100),
+            Conn(1, new Vector3(-1, 0, 0), new Vector3(-50, 0, 0), 50),
+        };
+
+        var t = TopologyInferenceEngine.Infer(
+            readings, "Transition", Discipline.Plumbing, ProductCategory.PipeFitting).Topology!;
+
+        Assert.Equal(BaseKind.Reducer, t.InferredBaseKind);
+        Assert.Equal(ReductionKind.Concentric, t.ReductionKind);
+        Assert.True(t.HasReduction);
+    }
+
+    [Fact]
+    public void Count3_tee_equal_runs_reduced_branch_is_BranchOnly()
+    {
+        var readings = new[]
+        {
+            Conn(0, new Vector3(1, 0, 0), new Vector3(100, 0, 0), 100),
+            Conn(1, new Vector3(-1, 0, 0), new Vector3(-100, 0, 0), 100),
+            Conn(2, new Vector3(0, 1, 0), new Vector3(0, 100, 0), 50),
+        };
+
+        var result = TopologyInferenceEngine.Infer(readings, "Tee", Discipline.Plumbing, ProductCategory.PipeFitting);
+        var t = result.Topology!;
+
+        Assert.Equal(ReductionKind.BranchOnly, t.ReductionKind);
+        Assert.True(t.HasReduction);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == TopologyDiagnosticCode.ComplexReductionUnclassified);
+    }
+
+    [Fact]
+    public void Count3_tee_different_runs_is_Concentric_with_complex_diagnostic()
+    {
+        // Runs de DN diferente (100/80) -> NAO mentir BranchOnly; Concentric + diag.
+        var readings = new[]
+        {
+            Conn(0, new Vector3(1, 0, 0), new Vector3(100, 0, 0), 100),
+            Conn(1, new Vector3(-1, 0, 0), new Vector3(-100, 0, 0), 80),
+            Conn(2, new Vector3(0, 1, 0), new Vector3(0, 100, 0), 50),
+        };
+
+        var result = TopologyInferenceEngine.Infer(readings, "Tee", Discipline.Plumbing, ProductCategory.PipeFitting);
+        var t = result.Topology!;
+
+        Assert.NotEqual(ReductionKind.BranchOnly, t.ReductionKind);
+        Assert.Equal(ReductionKind.Concentric, t.ReductionKind);
+        Assert.True(t.HasReduction);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Code == TopologyDiagnosticCode.ComplexReductionUnclassified && d.Severity == DiagnosticSeverity.Info);
+    }
 }

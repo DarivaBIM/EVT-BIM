@@ -164,7 +164,7 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
                 });
             }
 
-            var reduction = InferReduction(ordered, count);
+            var reduction = InferReduction(ordered, roles, opts, diagnostics);
 
             var ports = new MepPort[count];
             for (int t = 0; t < count; t++)
@@ -320,6 +320,10 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         {
             // Os dois conectores fora do par passante viram BranchLeft/BranchRight;
             // menor NativeIndex (lista ja ordenada) = Left => determinista.
+            // FOLLOW-UP (smoke Fase 4): em cruzeta SIMETRICA a escolha de qual par
+            // anti-paralelo vira RunA/RunB (no bloco count==4) e arbitraria — empate
+            // de distancia entre os dois eixos. Revisitar desempate por DN/angulo se
+            // o smoke mostrar troca relevante.
             bool leftAssigned = false;
             for (int t = 0; t < count; t++)
             {
@@ -365,25 +369,109 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             return -1; // inalcancavel em count==3 com i != j
         }
 
-        private static ReductionKind InferReduction(IReadOnlyList<ConnectorReading> ordered, int count)
+        private static ReductionKind InferReduction(
+            IReadOnlyList<ConnectorReading> ordered,
+            PortRole[] roles,
+            TopologyInferenceOptions opts,
+            List<TopologyDiagnostic> diagnostics)
         {
-            int distinctDns = ordered.Select(r => r.DnMm).Distinct().Count();
-            if (distinctDns <= 1)
+            int tol = opts.DnEqualToleranceMm;
+
+            // Sem reducao se todos os DN cabem num unico grupo de tolerancia.
+            // WHY range <= tol em vez de Distinct() exato: uma luva DN 50/51 ja e
+            // equalDn=Union (a classificacao de BaseKind usa a mesma tolerancia); o
+            // Distinct() exato a marcaria reduzida, mentindo "Union com reducao" e
+            // poluindo a 2.B com feature Reduced falsa (toca o catalogo Tigre).
+            if (AllEquivalentDn(ordered, tol))
             {
                 return ReductionKind.None;
             }
 
-            if (count == 2)
+            if (ordered.Count == 2)
             {
-                // Eccentric exigiria detectar offset do eixo (Origins fora da reta
-                // dos normais); nao detectado nesta slice -> Concentric por default.
+                // 2 portas com DN distinto (alem da tolerancia) -> reducao simples.
+                // Eccentric exigiria detectar offset do eixo; nao detectado -> Concentric.
                 return ReductionKind.Concentric;
             }
 
-            // 3+ conectores com DN variado: a reducao num fitting com ramal e
-            // tipicamente no ramal (tee-reducer / wye-reducer).
-            return ReductionKind.BranchOnly;
+            // 3+ portas com algum DN fora da tolerancia: decide pela relacao entre
+            // os runs (via roles ja atribuidos).
+            int? runA = DnOfRole(ordered, roles, PortRole.RunA);
+            int? runB = DnOfRole(ordered, roles, PortRole.RunB);
+
+            // Runs iguais (dentro da tolerancia) + ramal de DN distinto -> reducao
+            // no ramal (tee-reducer / wye-reducer). WHY os HasValue inline no mesmo
+            // &&: o flow analysis garante runA.Value/runB.Value nao-nulos na cadeia;
+            // uma variavel bool intermediaria nao propagaria isso (CS8629).
+            if (runA.HasValue && runB.HasValue
+                && Math.Abs(runA.Value - runB.Value) <= tol
+                && AnyBranchDiffersFrom(ordered, roles, runA.Value, tol))
+            {
+                return ReductionKind.BranchOnly;
+            }
+
+            // Runs diferem entre si (ou nao ha par de runs claro): reducao no eixo /
+            // complexa. NAO mentir BranchOnly; Concentric + diagnostic informativo.
+            diagnostics.Add(new TopologyDiagnostic
+            {
+                Code = TopologyDiagnosticCode.ComplexReductionUnclassified,
+                Severity = DiagnosticSeverity.Info,
+                Detail = "Reducao no eixo / complexa; nao classificada como BranchOnly.",
+            });
+            return ReductionKind.Concentric;
         }
+
+        // True se todos os DN cabem num unico grupo de tolerancia (range <= tol).
+        private static bool AllEquivalentDn(IReadOnlyList<ConnectorReading> ordered, int tol)
+        {
+            int min = int.MaxValue;
+            int max = int.MinValue;
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                int dn = ordered[i].DnMm;
+                if (dn < min)
+                {
+                    min = dn;
+                }
+
+                if (dn > max)
+                {
+                    max = dn;
+                }
+            }
+
+            return max - min <= tol;
+        }
+
+        private static int? DnOfRole(IReadOnlyList<ConnectorReading> ordered, PortRole[] roles, PortRole role)
+        {
+            for (int i = 0; i < roles.Length; i++)
+            {
+                if (roles[i] == role)
+                {
+                    return ordered[i].DnMm;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool AnyBranchDiffersFrom(
+            IReadOnlyList<ConnectorReading> ordered, PortRole[] roles, int runDn, int tol)
+        {
+            for (int i = 0; i < roles.Length; i++)
+            {
+                if (IsBranchRole(roles[i]) && Math.Abs(ordered[i].DnMm - runDn) > tol)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsBranchRole(PortRole role)
+            => role == PortRole.Branch || role == PortRole.BranchLeft || role == PortRole.BranchRight;
 
         private static MepPort MakePort(ConnectorReading r, PortRole role) => new()
         {

@@ -29,5 +29,7 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         PartTypeMismatchInferred,
         // PartType=Tee mas so 2 conectores fisicos
         InsufficientConnectorsAfterFilter,
+        // reducao no eixo / complexa (runs de DN distinto), nao classificada como BranchOnly
+        ComplexReductionUnclassified,
     }
 }
