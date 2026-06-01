@@ -56,9 +56,10 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         public static (ConnectionRule Promoted, double DisambiguatorPenalty, IReadOnlyList<string> Reasons) PromoteWinner(
             ConnectionRule winner,
             ISet<string> allTokens,
-            ConnectionTopology topology,
-            RulebookTolerances tolerances,
-            IReadOnlyDictionary<string, ConnectionRule> byId)
+            ConnectionTopology? topology,
+            RulebookTolerances? tolerances,
+            IReadOnlyDictionary<string, ConnectionRule> byId,
+            bool validateTopology = true)
         {
             ConnectionRule promoted = winner;
             string? promoteReason = null;
@@ -78,8 +79,11 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
                     continue;
                 }
 
-                bool topologyOk = !disambiguator.TopologyMustMatch
-                    || TopologyMatcher.IsCompatible(child, topology, tolerances);
+                // Modo texto-only (validateTopology=false): sem geometria, a topologia do
+                // filho NAO e validada (o cap de confidence reflete isso) — valida so o mandatory.
+                bool topologyOk = !validateTopology
+                    || !disambiguator.TopologyMustMatch
+                    || TopologyMatcher.IsCompatible(child, topology!, tolerances!);
                 bool mandatoryOk = AllPresent(disambiguator.MandatoryLexical, allTokens);
 
                 if (topologyOk && mandatoryOk)
@@ -120,20 +124,30 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         /// </summary>
         public static Feature DetectFeatures(ISet<string> allTokens, ConnectionTopology topology)
         {
-            Feature features = Feature.None;
+            Feature features = DetectFeatures(allTokens);
 
+            // Sinal geometrico, nao lexical: reducao ja inferida pelo motor (com tolerancia).
+            if (topology.HasReduction)
+            {
+                features |= Feature.Reduced;
+            }
+
+            return features;
+        }
+
+        /// <summary>
+        /// Overload texto-only (2.B-5b): SO features lexicais. <see cref="Feature.Reduced"/>
+        /// e geometrico (HasReduction) e nao se aplica sem topologia.
+        /// </summary>
+        public static Feature DetectFeatures(ISet<string> allTokens)
+        {
+            Feature features = Feature.None;
             foreach ((string[] requiredTokens, Feature flag) in FeatureTable)
             {
                 if (AllPresent(requiredTokens, allTokens))
                 {
                     features |= flag;
                 }
-            }
-
-            // Sinal geometrico, nao lexical: reducao ja inferida pelo motor (com tolerancia).
-            if (topology.HasReduction)
-            {
-                features |= Feature.Reduced;
             }
 
             return features;

@@ -147,6 +147,157 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             };
         }
 
+        /// <summary>
+        /// Classificacao TEXTO-ONLY conservadora (2.B-5b, D2/C3): SEM geometria — so
+        /// <see cref="ElementTexts"/>. E o que o migrador de catalogo (3.A) usa nos SKUs
+        /// Tigre. Infere BaseKind por contagem de baseKindTokens, filtra candidatos por
+        /// BaseKind (NAO topologicamente), pontua, elege so entre pais nao-confirmaveis,
+        /// promove validando SO o mandatory (sem topologia) e CAPA o confidence (nunca High
+        /// sem geometria). SEMPRE devolve uma identidade (BaseKind=Unknown -> NeedsReview).
+        /// </summary>
+        public ConnectionIdentity ClassifyTextOnly(ElementTexts texts)
+        {
+            ElementTexts safeTexts = texts ?? new ElementTexts();
+            var opts = new TokenizerOptions
+            {
+                Aliases = _doc.TokenAliases,
+                NegativeTokens = _doc.NegativeTokens,
+            };
+
+            ISet<string> familyTokens = TokenSet(safeTexts.FamilyName, opts);
+            ISet<string> typeTokens = TokenSet(safeTexts.TypeName, opts);
+            ISet<string> descTokens = TokenSet(safeTexts.Description, opts);
+
+            var allTokens = new HashSet<string>(familyTokens, StringComparer.Ordinal);
+            allTokens.UnionWith(typeTokens);
+            allTokens.UnionWith(descTokens);
+
+            BaseKind inferred = InferBaseKindFromText(allTokens);
+            if (inferred == BaseKind.Unknown)
+            {
+                return TextOnlyIdentity(
+                    BaseKind.Unknown,
+                    winner: null,
+                    Feature.None,
+                    ClassificationScoring.ComputeTextOnlyConfidence(
+                        BaseKind.Unknown, 0, subtypePromoted: false, 0.0, Array.Empty<string>()));
+            }
+
+            var scored = new List<ScoredCandidate>();
+            foreach (ConnectionRule rule in _doc.Rules)
+            {
+                if (rule.BaseKind != inferred)
+                {
+                    continue;
+                }
+
+                int lexical = ClassificationScoring.ScoreCandidate(
+                    rule, _doc.BaseKindTokens, familyTokens, typeTokens, descTokens);
+                scored.Add(new ScoredCandidate { Rule = rule, LexicalScore = lexical });
+            }
+
+            if (scored.Count == 0)
+            {
+                return TextOnlyIdentity(
+                    inferred,
+                    winner: null,
+                    Feature.None,
+                    ClassificationScoring.ComputeTextOnlyConfidence(
+                        inferred, 0, subtypePromoted: false, 0.0, Array.Empty<string>()));
+            }
+
+            ScoredCandidate winner = SelectWinner(scored);
+
+            // Promocao SEM validacao topologica (sem geometria) — valida SO o mandatory.
+            (ConnectionRule promoted, double disambiguatorPenalty, IReadOnlyList<string> promotionReasons) =
+                ClassificationEnrichment.PromoteWinner(
+                    winner.Rule, allTokens, topology: null, tolerances: null, _byId, validateTopology: false);
+
+            bool subtypePromoted = !ReferenceEquals(promoted, winner.Rule);
+
+            // Features SO lexicais (Reduced e geometrico, ausente sem topologia).
+            Feature features = ClassificationEnrichment.DetectFeatures(allTokens);
+
+            var reasons = new List<string>(ClassificationScoring.CollectLexicalReasons(
+                winner.Rule, _doc.BaseKindTokens, familyTokens, typeTokens, descTokens));
+            reasons.AddRange(promotionReasons);
+
+            ClassificationConfidence confidence = ClassificationScoring.ComputeTextOnlyConfidence(
+                inferred, winner.LexicalScore, subtypePromoted, disambiguatorPenalty, reasons);
+
+            return TextOnlyIdentity(inferred, promoted, features, confidence);
+        }
+
+        // Infere o BaseKind por CONTAGEM de baseKindTokens presentes (sem geometria). Mais
+        // hits vence; ZERO hits ou EMPATE -> Unknown (NeedsReview). Conservador por design
+        // (2.B-5b): "joelho"+"bucha" (elbow vs reducer) empata em 1 -> Unknown.
+        private BaseKind InferBaseKindFromText(ISet<string> allTokens)
+        {
+            BaseKind best = BaseKind.Unknown;
+            int bestHits = 0;
+            bool tie = false;
+
+            foreach (KeyValuePair<string, IReadOnlyList<string>> entry in _doc.BaseKindTokens)
+            {
+                if (!Enum.TryParse(entry.Key, ignoreCase: true, out BaseKind kind)
+                    || !Enum.IsDefined(typeof(BaseKind), kind))
+                {
+                    continue;
+                }
+
+                int hits = 0;
+                foreach (string token in entry.Value)
+                {
+                    if (allTokens.Contains(token))
+                    {
+                        hits++;
+                    }
+                }
+
+                if (hits > bestHits)
+                {
+                    bestHits = hits;
+                    best = kind;
+                    tie = false;
+                }
+                else if (hits == bestHits && hits > 0)
+                {
+                    tie = true;
+                }
+            }
+
+            return (bestHits == 0 || tie) ? BaseKind.Unknown : best;
+        }
+
+        private static ConnectionIdentity TextOnlyIdentity(
+            BaseKind baseKind, ConnectionRule? winner, Feature features, ClassificationConfidence confidence)
+            => new()
+            {
+                Discipline = Discipline.Plumbing, // texto-only assume hidraulica (unico rulebook do MVP 1)
+                Category = CategoryForTextOnly(baseKind),
+                BaseKind = baseKind,
+                GeometryKind = winner?.GeometryKind ?? GeometryKind.Unspecified,
+                NominalAngleDeg = winner?.NominalAngleDeg, // do JSON do winner, nao da geometria
+                Ports = Array.Empty<MepPort>(), // sem geometria
+                Features = features,
+                Line = ProductLine.Unknown, // cam 5 -> 3.A
+                Confidence = confidence,
+                ValveKind = SubtypeGranulation.ValveKindFor(winner?.Id),
+                InstrumentKind = SubtypeGranulation.InstrumentKindFor(winner?.Id),
+                FilterKind = null,
+            };
+
+        // Heuristica simples de categoria por BaseKind (sem motor): valvula = accessory,
+        // fixture = plumbing fixture, Unknown = Unknown, resto (fittings) = pipe fitting.
+        private static ProductCategory CategoryForTextOnly(BaseKind baseKind)
+            => baseKind switch
+            {
+                BaseKind.Unknown => ProductCategory.Unknown,
+                BaseKind.Valve => ProductCategory.PipeAccessory,
+                BaseKind.Fixture => ProductCategory.PlumbingFixture,
+                _ => ProductCategory.PipeFitting,
+            };
+
         private static IReadOnlyDictionary<string, ConnectionRule> BuildIndex(IReadOnlyList<ConnectionRule> rules)
         {
             var byId = new Dictionary<string, ConnectionRule>(StringComparer.Ordinal);

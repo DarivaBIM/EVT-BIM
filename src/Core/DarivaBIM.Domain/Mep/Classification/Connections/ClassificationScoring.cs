@@ -33,6 +33,15 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         private const double HighThreshold = 0.75;
         private const double MediumThreshold = 0.45;
 
+        // Calibracao do confidence TEXTO-ONLY (2.B-5b) — conservador, SEM topologyBonus.
+        // [AJUSTAR NO SMOKE] O cap garante que sem geometria nunca se atinge High.
+        private const double TextOnlyNoBaseKindScore = 0.20; // BaseKind nao inferido -> NeedsReview
+        private const double TextOnlyAmbiguousScore = 0.30;  // gatilho sem mandatory (Codex #4) -> NeedsReview
+        private const double TextOnlyBaseScore = 0.45;       // BaseKind inferido por texto
+        private const double TextOnlyLexicalWeight = 0.10;   // teto do bonus lexical (< geometrico)
+        private const double TextOnlySubtypeBonus = 0.18;    // subtipo promovido por mandatory inequivoco
+        private const double TextOnlyConfidenceCap = 0.70;   // CAP: nunca High (>=0.75) sem geometria
+
         // Hints normalizados via o MESMO Tokenize do texto, mas SEM expandir alias nem
         // remover negatives: o hint E o token canonico. A expansao de sinonimo acontece
         // so no TEXTO (casar texto-expandido vs hint-canonico ja cobre os sinonimos); os
@@ -202,6 +211,61 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             }
 
             return ConfidenceBucket.Low;
+        }
+
+        /// <summary>
+        /// Confidence do modo TEXTO-ONLY (2.B-5b) — conservador, SEM topologyBonus e CAPADO
+        /// (nunca High sem geometria). Onde aterrissa o concern Codex #4: gatilho de subtipo
+        /// presente mas mandatory NAO validado (<paramref name="disambiguatorPenalty"/> &gt; 0)
+        /// rebaixa p/ NeedsReview (Low), nao so -penalty — SKU errado custa dinheiro e sem
+        /// geometria nao ha como contrabalancar.
+        /// </summary>
+        public static ClassificationConfidence ComputeTextOnlyConfidence(
+            BaseKind inferredBaseKind,
+            int winnerLexicalScore,
+            bool subtypePromoted,
+            double disambiguatorPenalty,
+            IReadOnlyList<string> lexicalReasons)
+        {
+            // Sem BaseKind inferido -> NeedsReview.
+            if (inferredBaseKind == BaseKind.Unknown)
+            {
+                return TextOnly(TextOnlyNoBaseKindScore, "TextOnlyNoBaseKind", lexicalReasons);
+            }
+
+            // Concern Codex #4: gatilho disparou mas nao validou -> NeedsReview.
+            if (disambiguatorPenalty > 0.0)
+            {
+                return TextOnly(TextOnlyAmbiguousScore, "TextOnlyAmbiguous", lexicalReasons);
+            }
+
+            double score = TextOnlyBaseScore
+                + (Math.Min(winnerLexicalScore / LexicalSaturation, 1.0) * TextOnlyLexicalWeight);
+
+            if (subtypePromoted)
+            {
+                score += TextOnlySubtypeBonus;
+            }
+
+            score = Clamp01(Math.Min(score, TextOnlyConfidenceCap));
+            return new ClassificationConfidence
+            {
+                Score = score,
+                Bucket = ToBucket(score),
+                Reasons = new List<string>(lexicalReasons),
+            };
+        }
+
+        private static ClassificationConfidence TextOnly(double score, string code, IReadOnlyList<string> extra)
+        {
+            var reasons = new List<string> { code };
+            reasons.AddRange(extra);
+            return new ClassificationConfidence
+            {
+                Score = score,
+                Bucket = ToBucket(score),
+                Reasons = reasons,
+            };
         }
 
         // Hints efetivos = baseKindTokens[BaseKind] UNIAO LexicalHints, normalizados e
