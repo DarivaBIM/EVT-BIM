@@ -147,4 +147,30 @@ public class PipeConnectionRulesValidationTests
                 $"Regra Elbow '{rule.Id}' tem primaryAngleRule.MinDeg < 80 — parece deflexao, nao raw.");
         }
     }
+
+    [Fact]
+    public void Every_confirmable_subtype_is_reachable_from_a_non_confirmable_rule()
+    {
+        // GUARDRAIL 2.B-4b: na cam 3 so os pais (requiresLexicalConfirmation=false) sao
+        // eleitos; um subtipo confirmavel SO chega via disambiguator de uma regra NAO
+        // confirmavel. Se o JSON deixasse um confirmavel orfao (promovido apenas por outro
+        // confirmavel, ou por ninguem), ele ficaria inalcancavel. Este teste barra a regressao.
+        ConnectionRulebookDocument doc = Load();
+
+        HashSet<string> confirmables = doc.Rules
+            .Where(r => r.RequiresLexicalConfirmation)
+            .Select(r => r.Id)
+            .ToHashSet();
+
+        HashSet<string> reachableFromParents = doc.Rules
+            .Where(r => !r.RequiresLexicalConfirmation)
+            .SelectMany(r => r.LexicalDisambiguators)
+            .Select(d => d.PromoteTo)
+            .ToHashSet();
+
+        foreach (string id in confirmables)
+        {
+            Assert.Contains(id, reachableFromParents);
+        }
+    }
 }

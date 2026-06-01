@@ -91,10 +91,10 @@ public class ConnectionRulebookTests
     }
 
     [Fact]
-    public void ClassifyCore_tie_break_prefers_non_confirmation_subtype()
+    public void ClassifyCore_elects_only_non_confirmation_parent()
     {
-        // "Joelho": elbow-90 (sem confirmacao) e seus filhos (RequiresLexicalConfirmation)
-        // empatam no hint "joelho"; vence o que NAO exige confirmacao = elbow-90.
+        // "Joelho" sem gatilho de subtipo: na cam 3 SO os pais nao-confirmaveis sao elegiveis
+        // (2.B-4b), entao elbow-90 e eleito e nenhum filho confirmavel e promovido.
         RuleMatchResult result = Rulebook.ClassifyCore(ElbowRead(90.0), Texts(family: "Joelho"));
 
         Assert.Equal("elbow-90", result.Winner!.Id);

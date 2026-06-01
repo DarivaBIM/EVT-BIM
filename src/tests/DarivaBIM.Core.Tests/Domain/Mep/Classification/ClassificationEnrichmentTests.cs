@@ -146,24 +146,48 @@ public class ClassificationEnrichmentTests
         Assert.Equal(Feature.ThreadedEnd | Feature.BrassBushing, features);
     }
 
-    // ---- integracao: ClassifyCore ----
+    // ---- integracao: ClassifyCore (2.B-4b: cam 3 elege so pais; confirmaveis so via promocao) ----
 
     [Fact]
-    public void ClassifyCore_detects_threadedEnd_feature_from_rosca()
+    public void ClassifyCore_bucha_without_latao_does_not_elect_brassBushing()
     {
-        // "rosca" e hint EXCLUSIVO de elbow-threaded -> ele vence por SCORE (cam 3), nao
-        // por promocao; o que validamos aqui e a deteccao da FEATURE ThreadedEnd (cam 6).
+        // ⭐ TRAVA o furo cam3xcam4 (2.B-4b): "bucha" sem "latao" pontua elbow-brass-bushing
+        // (joelho+bucha=6 > elbow-90=3), MAS ele e requiresLexicalConfirmation -> NAO elegivel
+        // na cam 3. Winner segue elbow-90; o disambiguator bucha falha o mandatory [bucha,latao].
+        RuleMatchResult result = Rulebook.ClassifyCore(Read(Elbow90Topo()), Texts(family: "Joelho Bucha"));
+
+        Assert.Equal("elbow-90", result.Winner!.Id);
+        Assert.Contains(result.Confidence.Reasons, r => r.StartsWith("DisambiguatorUnvalidated:bucha", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ClassifyCore_bucha_and_latao_promotes_to_brassBushing()
+    {
+        // Com "bucha" E "latao", o mandatory [bucha,latao] valida -> promove via cam 4.
+        RuleMatchResult result = Rulebook.ClassifyCore(Read(Elbow90Topo()), Texts(family: "Joelho Bucha Latao"));
+
+        Assert.Equal("elbow-brass-bushing", result.Winner!.Id);
+        Assert.Contains(result.Confidence.Reasons, r => r.StartsWith("DisambiguatorPromoted", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ClassifyCore_rosca_promotes_to_threaded_and_flags_feature()
+    {
+        // "rosca" e hint exclusivo de elbow-threaded (confirmavel). Pos-2.B-4b ele NAO vence
+        // por score (nao elegivel); chega via PROMOCAO validada (mandatory [rosca] ok). A
+        // feature ThreadedEnd (cam 6) tambem e detectada.
         RuleMatchResult result = Rulebook.ClassifyCore(Read(Elbow90Topo()), Texts(family: "Joelho Rosca"));
 
+        Assert.Equal("elbow-threaded", result.Winner!.Id);
+        Assert.Contains(result.Confidence.Reasons, r => r.StartsWith("DisambiguatorPromoted:rosca", StringComparison.Ordinal));
         Assert.True(result.Features.HasFlag(Feature.ThreadedEnd));
     }
 
     [Fact]
-    public void ClassifyCore_promotes_to_long_radius_bend_on_shared_token_tie()
+    public void ClassifyCore_promotes_to_long_radius_bend_when_only_shared_token_present()
     {
-        // "curva" esta em baseKindTokens[elbow] (COMPARTILHADO por todos os Elbow), entao
-        // elbow-90 e long-radius-bend-90 EMPATAM no score; o pai (non-confirmation) vence o
-        // empate e a cam 4 promove para o filho via disambiguator validado.
+        // "curva" esta em baseKindTokens[elbow] (COMPARTILHADO). elbow-90 (pai) e o unico
+        // elegivel; long-radius-bend-90 e confirmavel -> chega SO via promocao validada (cam 4).
         RuleMatchResult result = Rulebook.ClassifyCore(Read(Elbow90Topo()), Texts(family: "Curva 90"));
 
         Assert.Equal("long-radius-bend-90", result.Winner!.Id);

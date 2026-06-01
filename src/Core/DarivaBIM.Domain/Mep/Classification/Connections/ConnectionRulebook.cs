@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using DarivaBIM.Domain.Mep.Classification.Connections.Rules;
 using DarivaBIM.Domain.Mep.Classification.Lexical;
 
@@ -135,12 +136,22 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         // o primeiro (FilterCandidates ja retorna em ordem do JSON).
         private static ScoredCandidate SelectWinner(IReadOnlyList<ScoredCandidate> scored)
         {
-            ScoredCandidate best = scored[0];
-            for (int i = 1; i < scored.Count; i++)
+            // Furo cam 3 x cam 4 (2.B-4b, Codex Opcao 1): subtipos requiresLexicalConfirmation
+            // tem hints exclusivos que pontuam na cam 3 e os fariam vencer por SCORE,
+            // BYPASSANDO o mandatoryLexical validado na cam 4 (ex.: "Joelho Bucha" sem "latao"
+            // elegia elbow-brass-bushing). Elege SO entre os pais canonicos (nao-confirmaveis);
+            // os confirmaveis chegam exclusivamente via promocao validada (PromoteWinner). O
+            // fallback p/ scored e defensivo — o guardrail anti-orfao garante eligible nao-vazio
+            // sempre que ha candidatos.
+            List<ScoredCandidate> eligible = scored.Where(c => !c.Rule.RequiresLexicalConfirmation).ToList();
+            IReadOnlyList<ScoredCandidate> pool = eligible.Count > 0 ? eligible : scored;
+
+            ScoredCandidate best = pool[0];
+            for (int i = 1; i < pool.Count; i++)
             {
-                if (IsBetter(scored[i], best))
+                if (IsBetter(pool[i], best))
                 {
-                    best = scored[i];
+                    best = pool[i];
                 }
             }
 
