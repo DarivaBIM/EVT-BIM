@@ -7,6 +7,17 @@
 
 ---
 
+## Changelog v1.6 — FASE 2.B COMPLETA + Codex panorâmico fechado (2026-06-01)
+
+- **Fase 2.B completa** (2.B-1 → 2.B-5b): rulebook + Classify — filtro topológico (`TopologyMatcher`), score lexical + winner + confidence (`ClassificationScoring`), disambiguators + features (`ClassificationEnrichment`), granulações §14 (`SubtypeGranulation`), API pública (`MepClassifier` §13), `ConnectionIdentity` (cam 8) e modo texto-only conservador (`ClassifyTextOnly`).
+- **Codex panorâmico (2.A + 2.B): 6 findings (1 Critical + 3 High + 2 Medium), TODOS corrigidos** em 2 lotes:
+  - **2.B-6** — F3 `tee-reducer`/`wye-reducer` restauram `Equal[RunA,RunB]` no override; F4 cam 8 deriva `NominalAngleDeg = snap(180−raw)` p/ elbow sem ângulo fixo; F5 `PartTypeNativeBonus` só quando o PartType confirma o winner (mismatch sem léxico não chega a High).
+  - **2.B-7** — F1 ângulo do texto (45/90/180) desempata elbows + fixa `NominalAngleDeg` (null se ausente, não chuta); F2 inferência texto-only por **evidência = baseKindTokens ∪ triggers de disambiguator**, sobre tokens **sem alias** (resolve "Tê Redução"→Tee, "Hidrômetro"→Valve); F6 read-failed → texto-only do Plumbing.
+- **R4 final:** Core **321/321**, V2025/V2026 0/0, Architecture 16/16. **Convenção raw/lateral confirmada honrada pelo Codex.**
+- **Próximo:** push dos commits acumulados (`e44df97..` + fixes) → **fase 3.A** (migração do catálogo Tigre, que consome o `ClassifyTextOnly` robusto).
+
+---
+
 ## Changelog v1.5 — slice 2.B-4 escopo Opção A; 2.B-3 fechada (2026-06-01)
 
 - **Decisão (Matheus) — Opção A:** a slice **2.B-4** entrega **só** cam 4 (disambiguators validados) + cam 6 (features). A **cam 5 (detecção de linha / `ProductLine`) sai da 2.B-4 e vai para a fase 3.A** — os `lexicalLines` derivam do catálogo Tigre (§10.2), que só existe a partir da 3.A. A 2.B-5 monta `ProductLine=Unknown`; a linha é preenchida quando o catálogo entra.
@@ -296,7 +307,7 @@ Hosts do Adapter (`DarivaBIM.Revit.Adapters.V2025/V2026`, que compilam o `Shared
 |---|---|---|---|
 | **Checkpoint inicial** (D1–D7 + sequência) | antes de 1.B-1 | ⟶ Codex panorâmico | ✅ **0 BLOCKER (2026-05-28)** |
 | Fim fase 1.B | após 1.B-3 | ⟶ Codex | ⬜ |
-| Fim fase 2.B | após 2.B-5 (cobre 2.A+2.B) | ⟶ Codex | ⬜ |
+| Fim fase 2.B | após 2.B-5 (cobre 2.A+2.B) | ⟶ Codex | ✅ **2026-06-01: 6 findings, todos corrigidos (lotes 2.B-6/7)** |
 | Fim fase 3.A | após 3.A-1 | ⟶ Codex (Tigre) | ⬜ |
 | Review do CSV de migração | 3.A-2 | ⟶ GATE Matheus | ⬜ |
 | Fim fase 3.B | após 3.B-2 | ⟶ Codex (Tigre) | ⬜ |
@@ -320,7 +331,9 @@ Hosts do Adapter (`DarivaBIM.Revit.Adapters.V2025/V2026`, que compilam o `Shared
 | **2.B-2** | `pipe_connection_rules.json` — `primaryAngleRule` sempre RAW (Codex Opção B) | ✅ (local; push no fim da fase 2.B) |
 | **2.B-3** | Classify: filtro (3a) + score/winner/confidence (3b) | ✅ (local; push no fim da fase 2.B) |
 | **2.B-4** | Classify: disambiguators + features (**linha → 3.A**, Opção A) | ✅ (local; push no fim da fase 2.B) |
-| **2.B-5** | `MepClassifier` API + modo texto-only conservador | ⬜ |
+| **2.B-5** | `MepClassifier` API (5a) + modo texto-only conservador (5b) | ✅ `9fb9017`,`c9befad` (local) |
+| **2.B-6** | Codex panorâmico F3-F5 (tee-reducer diameter, NominalAngleDeg elbow, native bonus) | ✅ `a1bb863` (local) |
+| **2.B-7** | Codex panorâmico F1-F2-F6 (inferência texto-only robusta + ângulo + read-failed) | ✅ `0a66cd2` (local) |
 | **3.A-1** | Migrador → CSV (3-status + topN) | ⬜ |
 | **3.A-2** | Review CSV + reimport → v2 json | ⬜ GATE |
 | **3.B-1** | `TigreCatalogV2` | ⬜ |
