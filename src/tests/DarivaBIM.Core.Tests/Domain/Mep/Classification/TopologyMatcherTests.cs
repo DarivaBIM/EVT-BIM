@@ -219,4 +219,42 @@ public class TopologyMatcherTests
         Assert.Empty(TopologyMatcher.FilterCandidates(null!, t));
         Assert.Empty(TopologyMatcher.FilterCandidates(Rulebook, null!));
     }
+
+    // ---- F3 (Codex panoramico): tee-reducer/wye-reducer exigem Equal[RunA,RunB] ----
+
+    private static ConnectionTopology BranchTopo(string partType, BaseKind inferred, int runB, double lateralRaw)
+        => Topo(partType, inferred,
+            new[] { Port(PortRole.RunA, 50), Port(PortRole.RunB, runB), Port(PortRole.Branch, 25) },
+            new[]
+            {
+                new[] { 0.0, 180.0, lateralRaw },
+                new[] { 180.0, 0.0, 180.0 - lateralRaw },
+                new[] { lateralRaw, 180.0 - lateralRaw, 0.0 },
+            });
+
+    [Fact]
+    public void TeeReducer_excluded_when_runs_unequal()
+    {
+        // Runs DESIGUAIS (50/40) + branch menor NAO e tee-reducer (Equal[RunA,RunB] falha) —
+        // antes do fix casava indevidamente como reducao de ramal.
+        Assert.DoesNotContain("tee-reducer", Ids(BranchTopo("Tee", BaseKind.Tee, runB: 40, lateralRaw: 90.0)));
+    }
+
+    [Fact]
+    public void TeeReducer_matches_when_runs_equal_and_branch_smaller()
+    {
+        Assert.Contains("tee-reducer", Ids(BranchTopo("Tee", BaseKind.Tee, runB: 50, lateralRaw: 90.0)));
+    }
+
+    [Fact]
+    public void WyeReducer_excluded_when_runs_unequal()
+    {
+        Assert.DoesNotContain("wye-reducer", Ids(BranchTopo("Wye", BaseKind.Wye, runB: 40, lateralRaw: 135.0)));
+    }
+
+    [Fact]
+    public void WyeReducer_matches_when_runs_equal_and_branch_smaller()
+    {
+        Assert.Contains("wye-reducer", Ids(BranchTopo("Wye", BaseKind.Wye, runB: 50, lateralRaw: 135.0)));
+    }
 }

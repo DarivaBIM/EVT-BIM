@@ -260,7 +260,7 @@
       "topology": {
         "inherits": "tee",
         "overrides": {
-          "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["Branch"], "relation": "lessThan", "target": "RunA" } ] }
+          "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunA", "RunB"], "relation": "equal" }, { "ports": ["Branch"], "relation": "lessThan", "target": "RunA" } ] }
         }
       },
       "lexicalHints": ["reducao"]
@@ -318,7 +318,7 @@
       "topology": {
         "inherits": "wye-simple",
         "overrides": {
-          "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["Branch"], "relation": "lessThan", "target": "RunA" } ] }
+          "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunA", "RunB"], "relation": "equal" }, { "ports": ["Branch"], "relation": "lessThan", "target": "RunA" } ] }
         }
       },
       "lexicalHints": ["reducao"]

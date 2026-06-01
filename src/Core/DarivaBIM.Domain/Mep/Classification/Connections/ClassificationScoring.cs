@@ -149,6 +149,14 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             {
                 score += TopologyMatchBonus;
                 reasons.Add($"PartTypeMatched:{winner.BaseKind}");
+
+                // PartType nativo reforca SO quando CONFIRMA o winner (finding 5 do Codex):
+                // no mismatch/undefined o +0.05 inflava um match SEM lexico ate High (0.75).
+                if (HasNativePartType(topology.PartType))
+                {
+                    score += PartTypeNativeBonus;
+                    reasons.Add("PartTypeNative");
+                }
             }
             else if (hint is null)
             {
@@ -165,13 +173,6 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             double lexicalNormalized = Math.Min(winnerLexicalScore / LexicalSaturation, 1.0) * LexicalWeight;
             score += lexicalNormalized;
             reasons.AddRange(lexicalReasons);
-
-            // partTypeNativeBonus.
-            if (HasNativePartType(topology.PartType))
-            {
-                score += PartTypeNativeBonus;
-                reasons.Add("PartTypeNative");
-            }
 
             // diagnosticsPenalty (Warning/Info; Error nao chega aqui — vira !Success).
             foreach (TopologyDiagnostic diagnostic in topo.Diagnostics)

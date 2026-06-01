@@ -136,7 +136,7 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
                 Category = topology?.InferredCategory ?? ProductCategory.Unknown,
                 BaseKind = core.Winner?.BaseKind ?? core.FallbackBaseKind,
                 GeometryKind = core.Winner?.GeometryKind ?? GeometryKind.Unspecified,
-                NominalAngleDeg = core.Winner?.NominalAngleDeg,
+                NominalAngleDeg = ResolveNominalAngle(core.Winner, topology),
                 Ports = topology?.Ports ?? Array.Empty<MepPort>(),
                 Features = core.Features,
                 Line = ProductLine.Unknown,
@@ -146,6 +146,35 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
                 FilterKind = null,
             };
         }
+
+        // Deflexao de catalogo (NominalAngleDeg) do winner. Elbows SEM nominalAngleDeg fixo no
+        // JSON (elbow-reducer, transposition-curve) derivam da geometria: deflexao = 180 - raw,
+        // arredondada p/ 45/90 (finding 4 do Codex). Outros BaseKinds usam o nominalAngleDeg do
+        // JSON; sem raw -> null.
+        private static double? ResolveNominalAngle(ConnectionRule? winner, ConnectionTopology? topology)
+        {
+            if (winner is null)
+            {
+                return null;
+            }
+
+            if (winner.NominalAngleDeg is not null)
+            {
+                return winner.NominalAngleDeg;
+            }
+
+            if (winner.BaseKind != BaseKind.Elbow || topology is null)
+            {
+                return null;
+            }
+
+            double? raw = TopologyMatcher.PrimaryAngleRaw(topology);
+            return raw is null ? null : SnapToNominal(180.0 - raw.Value);
+        }
+
+        // Arredonda a deflexao para o nominal de catalogo mais proximo (45 ou 90).
+        private static double SnapToNominal(double deflectionDeg)
+            => Math.Abs(deflectionDeg - 45.0) <= Math.Abs(deflectionDeg - 90.0) ? 45.0 : 90.0;
 
         /// <summary>
         /// Classificacao TEXTO-ONLY conservadora (2.B-5b, D2/C3): SEM geometria — so

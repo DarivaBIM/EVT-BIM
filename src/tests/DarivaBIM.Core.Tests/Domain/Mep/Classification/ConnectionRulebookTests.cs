@@ -235,4 +235,41 @@ public class ConnectionRulebookTests
             Assert.True(covered, $"Rule Valve '{rule.Id}' sem granulacao (ValveKind/InstrumentKind).");
         }
     }
+
+    // ---- F4 (Codex panoramico): NominalAngleDeg derivado p/ elbow sem angulo fixo ----
+
+    private static TopologyReadResult ElbowReducerRead(double rawAngle)
+        => new()
+        {
+            Success = true,
+            Topology = new ConnectionTopology
+            {
+                PartType = "Elbow",
+                InferredBaseKind = BaseKind.Elbow,
+                ReductionKind = ReductionKind.Concentric,
+                Ports = new[] { Port(PortRole.RunLarge, 50), Port(PortRole.RunSmall, 32) },
+                AngleMatrix = new IReadOnlyList<double>[] { new[] { 0.0, rawAngle }, new[] { rawAngle, 0.0 } },
+            },
+        };
+
+    [Fact]
+    public void Classify_elbowReducer_raw135_derives_nominalAngle_45()
+    {
+        // elbow-reducer NAO tem nominalAngleDeg no JSON -> a cam 8 deriva da geometria:
+        // deflexao = 180 - raw 135 = 45.
+        ConnectionIdentity id = Rulebook.Classify(ElbowReducerRead(135.0), Texts(family: "Joelho Reducao"));
+
+        Assert.Equal(BaseKind.Elbow, id.BaseKind);
+        Assert.NotNull(id.NominalAngleDeg);
+        Assert.Equal(45.0, id.NominalAngleDeg!.Value, 3);
+    }
+
+    [Fact]
+    public void Classify_elbowReducer_raw90_derives_nominalAngle_90()
+    {
+        ConnectionIdentity id = Rulebook.Classify(ElbowReducerRead(90.0), Texts(family: "Joelho Reducao"));
+
+        Assert.NotNull(id.NominalAngleDeg);
+        Assert.Equal(90.0, id.NominalAngleDeg!.Value, 3);
+    }
 }

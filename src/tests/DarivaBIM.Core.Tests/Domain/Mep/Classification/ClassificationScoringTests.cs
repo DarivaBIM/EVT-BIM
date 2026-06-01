@@ -136,4 +136,20 @@ public class ClassificationScoringTests
 
         Assert.Contains("PartTypeMismatchInferred:Elbow->Tee", c.Reasons);
     }
+
+    [Fact]
+    public void ComputeConfidence_mismatch_without_lexical_stays_below_high()
+    {
+        // F5 (Codex): PartType nativo (Elbow) mas winner != inferido (Tee), SEM lexico -> o
+        // native bonus NAO aplica no mismatch (so quando confirma o winner) -> nao infla ate High.
+        ConnectionRule winner = Rule(BaseKind.Tee, "te");
+        TopologyReadResult topo = ReadOk("Elbow"); // hint Elbow != Tee
+
+        ClassificationConfidence c = ClassificationScoring.ComputeConfidence(winner, 0, topo, Array.Empty<string>());
+
+        // 0.5 + 0.20 (mismatch) + 0 (lex) + 0 (native NAO aplica) = 0.70 -> Medium (< High 0.75).
+        Assert.True(c.Score < 0.75);
+        Assert.Equal(ConfidenceBucket.Medium, c.Bucket);
+        Assert.DoesNotContain("PartTypeNative", c.Reasons);
+    }
 }

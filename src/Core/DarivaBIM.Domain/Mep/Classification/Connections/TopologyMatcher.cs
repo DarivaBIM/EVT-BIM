@@ -115,6 +115,14 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
 
         // ----- Extracao de angulos (usam os roles que o motor 1.B-1 ja atribuiu) -----
 
+        /// <summary>
+        /// Angulo primario RAW (par do eixo) da topologia, PUBLICO p/ a cam 8 derivar a
+        /// deflexao de catalogo (180 - raw) de elbows sem nominalAngleDeg fixo. Reusa a
+        /// extracao interna — NAO duplicar a logica.
+        /// </summary>
+        public static double? PrimaryAngleRaw(ConnectionTopology topology)
+            => ExtractPrimaryAngleRaw(topology);
+
         // Angulo primario RAW. n==2: o angulo entre as 2 bocas. n>=3: entre os runs
         // (RunA/RunB do eixo passante). Sem run claro -> null.
         private static double? ExtractPrimaryAngleRaw(ConnectionTopology topology)
