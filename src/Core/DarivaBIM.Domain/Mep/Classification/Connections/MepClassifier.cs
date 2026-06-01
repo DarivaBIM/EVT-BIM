@@ -31,17 +31,30 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         /// </summary>
         public ConnectionIdentity? Classify(TopologyReadResult result, ElementTexts texts)
         {
-            // Sem leitura nao ha disciplina inferida -> nao-suportada (null). O guard
-            // tambem estreita 'result' p/ non-null no fluxo (evita CS8604 ao delegar).
+            // result null -> nada a classificar. O guard tambem estreita 'result' p/ non-null
+            // no fluxo (evita CS8604 ao delegar).
             if (result is null)
             {
                 return null;
             }
 
             Discipline discipline = result.Topology?.InferredDiscipline ?? Discipline.Unknown;
-            return _rulebooks.TryGetValue(discipline, out IConnectionRulebook? rulebook)
-                ? rulebook.Classify(result, texts)
-                : null;
+            if (_rulebooks.TryGetValue(discipline, out IConnectionRulebook? rulebook))
+            {
+                return rulebook.Classify(result, texts);
+            }
+
+            // Read-failed (sem topologia/disciplina): cai p/ o texto-only do rulebook default
+            // (Plumbing no MVP 1), se registrado — texto sem geometria vira identidade
+            // conservadora em vez de null silencioso (2.B-7/F6). Disciplina COM geometria mas
+            // sem rulebook (ex.: Hvac) segue retornando null.
+            if ((!result.Success || result.Topology is null)
+                && _rulebooks.TryGetValue(Discipline.Plumbing, out IConnectionRulebook? plumbing))
+            {
+                return plumbing.ClassifyTextOnly(texts ?? new ElementTexts());
+            }
+
+            return null;
         }
     }
 }

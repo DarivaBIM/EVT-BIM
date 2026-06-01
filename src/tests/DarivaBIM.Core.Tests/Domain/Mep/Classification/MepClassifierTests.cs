@@ -57,14 +57,17 @@ public class MepClassifierTests
     }
 
     [Fact]
-    public void Classify_topology_read_failed_returns_null_unknown_discipline()
+    public void Classify_read_failed_falls_back_to_text_only()
     {
         MepClassifier classifier = MepClassifier.CreateDefault();
 
-        // Success=false -> Topology null -> Discipline.Unknown -> sem rulebook -> null.
+        // 2.B-7/F6: read-failed (Topology null) cai p/ o texto-only do Plumbing — texto sem
+        // geometria vira identidade conservadora (BaseKind Elbow, Ports vazio), nao null.
         var failed = new TopologyReadResult { Success = false, Topology = null };
-        ConnectionIdentity? id = classifier.Classify(failed, Texts());
+        ConnectionIdentity? id = classifier.Classify(failed, Texts(family: "Joelho 90"));
 
-        Assert.Null(id);
+        Assert.NotNull(id);
+        Assert.Equal(BaseKind.Elbow, id!.BaseKind);
+        Assert.Empty(id.Ports);
     }
 }

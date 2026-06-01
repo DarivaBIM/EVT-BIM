@@ -26,10 +26,16 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         // loader ja garantiu IDs unicos, entao a indexacao nao colide.
         private readonly IReadOnlyDictionary<string, ConnectionRule> _byId;
 
+        // Evidencia lexical por BaseKind (2.B-7/F2): baseKindTokens UNIAO os triggers dos
+        // disambiguators das rules daquele BaseKind (o trigger evidencia o BaseKind da regra-PAI
+        // que o contem). Usada pela inferencia texto-only sobre tokens SEM alias. Construida UMA vez.
+        private readonly IReadOnlyDictionary<BaseKind, ISet<string>> _evidenceByBaseKind;
+
         public ConnectionRulebook(ConnectionRulebookDocument doc)
         {
             _doc = doc ?? throw new ArgumentNullException(nameof(doc));
             _byId = BuildIndex(doc.Rules);
+            _evidenceByBaseKind = BuildEvidenceIndex(doc);
         }
 
         public ConnectionRulebookDocument Document => _doc;
@@ -187,35 +193,57 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         public ConnectionIdentity ClassifyTextOnly(ElementTexts texts)
         {
             ElementTexts safeTexts = texts ?? new ElementTexts();
-            var opts = new TokenizerOptions
+
+            // Tokens COM alias -> score lexical do winner (inalterado).
+            var aliasOpts = new TokenizerOptions
             {
                 Aliases = _doc.TokenAliases,
                 NegativeTokens = _doc.NegativeTokens,
             };
-
-            ISet<string> familyTokens = TokenSet(safeTexts.FamilyName, opts);
-            ISet<string> typeTokens = TokenSet(safeTexts.TypeName, opts);
-            ISet<string> descTokens = TokenSet(safeTexts.Description, opts);
+            ISet<string> familyTokens = TokenSet(safeTexts.FamilyName, aliasOpts);
+            ISet<string> typeTokens = TokenSet(safeTexts.TypeName, aliasOpts);
+            ISet<string> descTokens = TokenSet(safeTexts.Description, aliasOpts);
 
             var allTokens = new HashSet<string>(familyTokens, StringComparer.Ordinal);
             allTokens.UnionWith(typeTokens);
             allTokens.UnionWith(descTokens);
 
-            BaseKind inferred = InferBaseKindFromText(allTokens);
+            // Tokens SEM alias (mas COM negatives) -> inferencia de BaseKind (2.B-7/F2): o alias
+            // inflava a contagem (ex.: "reducao" expandia p/ "redutor" e empurrava "Te Reducao"
+            // p/ Reducer); os negatives seguem suprimindo ("Te Terminal" nao infere Tee).
+            var noAliasOpts = new TokenizerOptions
+            {
+                ExpandAliases = false,
+                NegativeTokens = _doc.NegativeTokens,
+            };
+            var noAliasTokens = new HashSet<string>(StringComparer.Ordinal);
+            noAliasTokens.UnionWith(LexicalNormalizer.Tokenize(safeTexts.FamilyName, noAliasOpts));
+            noAliasTokens.UnionWith(LexicalNormalizer.Tokenize(safeTexts.TypeName, noAliasOpts));
+            noAliasTokens.UnionWith(LexicalNormalizer.Tokenize(safeTexts.Description, noAliasOpts));
+
+            BaseKind inferred = InferBaseKindFromText(noAliasTokens);
             if (inferred == BaseKind.Unknown)
             {
                 return TextOnlyIdentity(
-                    BaseKind.Unknown,
-                    winner: null,
-                    Feature.None,
+                    BaseKind.Unknown, winner: null, nominalAngleDeg: null, Feature.None,
                     ClassificationScoring.ComputeTextOnlyConfidence(
                         BaseKind.Unknown, 0, subtypePromoted: false, 0.0, Array.Empty<string>()));
             }
+
+            // 2.B-7/F1: angulo do texto (45/90/180) desempata os elbows e fixa o NominalAngleDeg.
+            double? textAngle = ExtractNominalAngleFromText(allTokens);
 
             var scored = new List<ScoredCandidate>();
             foreach (ConnectionRule rule in _doc.Rules)
             {
                 if (rule.BaseKind != inferred)
+                {
+                    continue;
+                }
+
+                // Elbow com angulo no texto: so candidatos do angulo certo (da acesso aos
+                // subtipos do angulo e evita o chute por ordem JSON).
+                if (inferred == BaseKind.Elbow && textAngle is not null && rule.NominalAngleDeg != textAngle)
                 {
                     continue;
                 }
@@ -228,9 +256,7 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             if (scored.Count == 0)
             {
                 return TextOnlyIdentity(
-                    inferred,
-                    winner: null,
-                    Feature.None,
+                    inferred, winner: null, nominalAngleDeg: null, Feature.None,
                     ClassificationScoring.ComputeTextOnlyConfidence(
                         inferred, 0, subtypePromoted: false, 0.0, Array.Empty<string>()));
             }
@@ -254,30 +280,46 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             ClassificationConfidence confidence = ClassificationScoring.ComputeTextOnlyConfidence(
                 inferred, winner.LexicalScore, subtypePromoted, disambiguatorPenalty, reasons);
 
-            return TextOnlyIdentity(inferred, promoted, features, confidence);
+            // NominalAngleDeg final: Elbow usa o angulo do TEXTO (null se ausente — NAO chuta);
+            // os demais BaseKinds usam o nominalAngleDeg do JSON do winner.
+            double? nominalAngle = inferred == BaseKind.Elbow ? textAngle : promoted.NominalAngleDeg;
+
+            return TextOnlyIdentity(inferred, promoted, nominalAngle, features, confidence);
         }
 
-        // Infere o BaseKind por CONTAGEM de baseKindTokens presentes (sem geometria). Mais
-        // hits vence; ZERO hits ou EMPATE -> Unknown (NeedsReview). Conservador por design
-        // (2.B-5b): "joelho"+"bucha" (elbow vs reducer) empata em 1 -> Unknown.
-        private BaseKind InferBaseKindFromText(ISet<string> allTokens)
+        // Tokenize SEM alias (so p/ a inferencia/evidencia): o alias inflaria a contagem.
+        private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> NoNegatives
+            = new Dictionary<string, IReadOnlyList<string>>();
+
+        private static readonly TokenizerOptions NoAliasOptions = new()
+        {
+            ExpandAliases = false,
+            NegativeTokens = NoNegatives,
+        };
+
+        // Tokens de angulo de catalogo reconhecidos no texto (2.B-7/F1).
+        private static readonly (string Token, double Angle)[] NominalAngleTokens =
+        {
+            ("45", 45.0),
+            ("90", 90.0),
+            ("180", 180.0),
+        };
+
+        // Infere o BaseKind pela EVIDENCIA lexical (2.B-7/F2): conta os tokens-do-texto (SEM
+        // alias) que estao na evidencia de cada BaseKind. Mais hits vence; ZERO ou EMPATE
+        // (>=2 BaseKinds no maximo) -> Unknown (NeedsReview). Conservador por design.
+        private BaseKind InferBaseKindFromText(ISet<string> noAliasTokens)
         {
             BaseKind best = BaseKind.Unknown;
             int bestHits = 0;
             bool tie = false;
 
-            foreach (KeyValuePair<string, IReadOnlyList<string>> entry in _doc.BaseKindTokens)
+            foreach (KeyValuePair<BaseKind, ISet<string>> entry in _evidenceByBaseKind)
             {
-                if (!Enum.TryParse(entry.Key, ignoreCase: true, out BaseKind kind)
-                    || !Enum.IsDefined(typeof(BaseKind), kind))
-                {
-                    continue;
-                }
-
                 int hits = 0;
-                foreach (string token in entry.Value)
+                foreach (string token in noAliasTokens)
                 {
-                    if (allTokens.Contains(token))
+                    if (entry.Value.Contains(token))
                     {
                         hits++;
                     }
@@ -286,7 +328,7 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
                 if (hits > bestHits)
                 {
                     bestHits = hits;
-                    best = kind;
+                    best = entry.Key;
                     tie = false;
                 }
                 else if (hits == bestHits && hits > 0)
@@ -298,15 +340,82 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
             return (bestHits == 0 || tie) ? BaseKind.Unknown : best;
         }
 
+        private static IReadOnlyDictionary<BaseKind, ISet<string>> BuildEvidenceIndex(ConnectionRulebookDocument doc)
+        {
+            var evidence = new Dictionary<BaseKind, ISet<string>>();
+
+            // baseKindTokens -> evidencia do BaseKind correspondente.
+            foreach (KeyValuePair<string, IReadOnlyList<string>> entry in doc.BaseKindTokens)
+            {
+                if (!Enum.TryParse(entry.Key, ignoreCase: true, out BaseKind kind)
+                    || !Enum.IsDefined(typeof(BaseKind), kind))
+                {
+                    continue;
+                }
+
+                foreach (string token in entry.Value)
+                {
+                    AddNormalizedTerm(evidence, kind, token);
+                }
+            }
+
+            // Triggers dos disambiguators -> evidencia do BaseKind da regra-PAI que os contem.
+            foreach (ConnectionRule rule in doc.Rules)
+            {
+                foreach (LexicalDisambiguator disambiguator in rule.LexicalDisambiguators)
+                {
+                    AddNormalizedTerm(evidence, rule.BaseKind, disambiguator.Trigger);
+                }
+            }
+
+            return evidence;
+        }
+
+        private static void AddNormalizedTerm(IDictionary<BaseKind, ISet<string>> evidence, BaseKind kind, string term)
+        {
+            if (!evidence.TryGetValue(kind, out ISet<string>? set))
+            {
+                set = new HashSet<string>(StringComparer.Ordinal);
+                evidence[kind] = set;
+            }
+
+            foreach (string token in LexicalNormalizer.Tokenize(term, NoAliasOptions))
+            {
+                set.Add(token);
+            }
+        }
+
+        // Angulo de catalogo (45/90/180) presente no texto, ou null se ausente/ambiguo (>1).
+        private static double? ExtractNominalAngleFromText(ISet<string> tokens)
+        {
+            double? found = null;
+            foreach ((string token, double angle) in NominalAngleTokens)
+            {
+                if (!tokens.Contains(token))
+                {
+                    continue;
+                }
+
+                if (found is not null)
+                {
+                    return null; // mais de um angulo no texto -> ambiguo
+                }
+
+                found = angle;
+            }
+
+            return found;
+        }
+
         private static ConnectionIdentity TextOnlyIdentity(
-            BaseKind baseKind, ConnectionRule? winner, Feature features, ClassificationConfidence confidence)
+            BaseKind baseKind, ConnectionRule? winner, double? nominalAngleDeg, Feature features, ClassificationConfidence confidence)
             => new()
             {
                 Discipline = Discipline.Plumbing, // texto-only assume hidraulica (unico rulebook do MVP 1)
                 Category = CategoryForTextOnly(baseKind),
                 BaseKind = baseKind,
                 GeometryKind = winner?.GeometryKind ?? GeometryKind.Unspecified,
-                NominalAngleDeg = winner?.NominalAngleDeg, // do JSON do winner, nao da geometria
+                NominalAngleDeg = nominalAngleDeg, // angulo do TEXTO (Elbow) ou do JSON (demais)
                 Ports = Array.Empty<MepPort>(), // sem geometria
                 Features = features,
                 Line = ProductLine.Unknown, // cam 5 -> 3.A

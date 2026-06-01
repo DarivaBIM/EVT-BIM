@@ -69,13 +69,67 @@ public class TextOnlyClassifierTests
     [Fact]
     public void TextOnly_joelho_bucha_does_not_become_brassBushing_high()
     {
-        // ⭐ Concern Codex #4 (texto-only): "joelho" (elbow) e "bucha" (reducer) EMPATAM na
-        // inferencia por contagem -> Unknown/NeedsReview. NUNCA elbow-brass-bushing High.
+        // ⭐ Concern Codex #4 (texto-only) pos-2.B-7: "joelho"+"bucha" agora infere Elbow ("bucha"
+        // tambem evidencia Elbow via o trigger de elbow-brass-bushing), MAS o winner fica no
+        // elbow-45 (pai, sem o disambiguator "bucha") -> NAO promove a brass-bushing nem vira High.
         ConnectionIdentity id = Rulebook.ClassifyTextOnly(Texts(family: "Joelho Bucha"));
 
+        Assert.Equal(BaseKind.Elbow, id.BaseKind);
         Assert.NotEqual(ConfidenceBucket.High, id.Confidence.Bucket);
-        Assert.Equal(BaseKind.Unknown, id.BaseKind);
         Assert.False(id.Features.HasFlag(Feature.BrassBushing)); // "bucha" sem "latao" nao ativa
+    }
+
+    [Fact]
+    public void TextOnly_te_reducao_infers_tee_not_reducer()
+    {
+        // F2: sem alias, "te"+"reducao" evidenciam Tee (te + o trigger reducao->tee-reducer) = 2
+        // > Reducer (reducao) = 1. Antes (com alias) "redutor" inflava Reducer e dava Reducer.
+        Assert.Equal(BaseKind.Tee, Rulebook.ClassifyTextOnly(Texts(family: "Te Reducao")).BaseKind);
+    }
+
+    [Fact]
+    public void TextOnly_hidrometro_infers_valve_via_disambiguator_trigger()
+    {
+        // F2: "hidrometro" e trigger de valve-shutoff->meter -> evidencia Valve (antes nao
+        // inferia, pois nao esta em baseKindTokens).
+        Assert.Equal(BaseKind.Valve, Rulebook.ClassifyTextOnly(Texts(family: "Hidrometro")).BaseKind);
+    }
+
+    [Fact]
+    public void TextOnly_bucha_alone_is_unknown_ambiguous()
+    {
+        // "bucha" evidencia Elbow (trigger brass-bushing) E Reducer (baseKindToken) -> empate -> Unknown.
+        Assert.Equal(BaseKind.Unknown, Rulebook.ClassifyTextOnly(Texts(family: "Bucha")).BaseKind);
+    }
+
+    [Fact]
+    public void TextOnly_joelho_90_sets_nominalAngle_90()
+    {
+        // F1: o angulo do texto desempata os elbows e fixa NominalAngleDeg=90 (antes chutava 45).
+        ConnectionIdentity id = Rulebook.ClassifyTextOnly(Texts(family: "Joelho 90 Soldavel"));
+
+        Assert.Equal(BaseKind.Elbow, id.BaseKind);
+        Assert.NotNull(id.NominalAngleDeg);
+        Assert.Equal(90.0, id.NominalAngleDeg!.Value, 3);
+    }
+
+    [Fact]
+    public void TextOnly_joelho_45_sets_nominalAngle_45()
+    {
+        ConnectionIdentity id = Rulebook.ClassifyTextOnly(Texts(family: "Joelho 45"));
+
+        Assert.NotNull(id.NominalAngleDeg);
+        Assert.Equal(45.0, id.NominalAngleDeg!.Value, 3);
+    }
+
+    [Fact]
+    public void TextOnly_joelho_without_angle_does_not_guess_nominalAngle()
+    {
+        // F1: sem angulo no texto, NominalAngleDeg fica null (NAO chuta 45).
+        ConnectionIdentity id = Rulebook.ClassifyTextOnly(Texts(family: "Joelho Soldavel"));
+
+        Assert.Equal(BaseKind.Elbow, id.BaseKind);
+        Assert.Null(id.NominalAngleDeg);
     }
 
     [Fact]

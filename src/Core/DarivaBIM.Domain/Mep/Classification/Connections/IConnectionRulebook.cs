@@ -9,5 +9,11 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
     public interface IConnectionRulebook
     {
         ConnectionIdentity Classify(TopologyReadResult topo, ElementTexts texts);
+
+        /// <summary>
+        /// Classifica SO por texto (sem geometria) — usado pelo migrador de catalogo (3.A) e
+        /// como fallback do <see cref="MepClassifier"/> quando a leitura topologica falha.
+        /// </summary>
+        ConnectionIdentity ClassifyTextOnly(ElementTexts texts);
     }
 }
