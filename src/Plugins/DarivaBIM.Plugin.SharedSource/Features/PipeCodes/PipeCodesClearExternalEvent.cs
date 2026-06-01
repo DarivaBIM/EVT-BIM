@@ -12,7 +12,7 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
 {
     /// <summary>
     /// <c>ExternalEvent</c> que apaga (zera) o parâmetro Tigre: Código nos
-    /// tubos marcados pelo usuário no WPF.
+    /// elementos Tigre marcados pelo usuário no WPF.
     /// </summary>
     public sealed class PipeCodesClearExternalEvent
     {

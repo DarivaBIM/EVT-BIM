@@ -1,0 +1,503 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using DarivaBIM.Domain.Mep.Classification.Connections.Rules;
+using DarivaBIM.Domain.Mep.Classification.Lexical;
+using DarivaBIM.Domain.Mep.Classification.Ports;
+
+namespace DarivaBIM.Domain.Mep.Classification.Connections
+{
+    /// <summary>
+    /// Fachada do rulebook de conexoes (fase 2.B). Envolve um
+    /// <see cref="ConnectionRulebookDocument"/> ja carregado/validado e orquestra o
+    /// nucleo de classificacao: filtro topologico (2.B-3a, <see cref="TopologyMatcher"/>)
+    /// -> score lexical + winner + confidence (2.B-3b, <see cref="ClassificationScoring"/>).
+    /// PARCIAL — disambiguators/linha/features (2.B-4) e a API publica por disciplina +
+    /// ConnectionIdentity (2.B-5) entram depois.
+    /// </summary>
+    public sealed class ConnectionRulebook : IConnectionRulebook
+    {
+        private const string EmbeddedResourceName =
+            "DarivaBIM.Domain.Mep.Classification.Resources.pipe_connection_rules.json";
+
+        private readonly ConnectionRulebookDocument _doc;
+
+        // Indice id -> regra, construido UMA vez (reusado pela promocao da 2.B-4). O
+        // loader ja garantiu IDs unicos, entao a indexacao nao colide.
+        private readonly IReadOnlyDictionary<string, ConnectionRule> _byId;
+
+        // Evidencia lexical por BaseKind (2.B-7/F2): baseKindTokens UNIAO os triggers dos
+        // disambiguators das rules daquele BaseKind (o trigger evidencia o BaseKind da regra-PAI
+        // que o contem). Usada pela inferencia texto-only sobre tokens SEM alias. Construida UMA vez.
+        private readonly IReadOnlyDictionary<BaseKind, ISet<string>> _evidenceByBaseKind;
+
+        public ConnectionRulebook(ConnectionRulebookDocument doc)
+        {
+            _doc = doc ?? throw new ArgumentNullException(nameof(doc));
+            _byId = BuildIndex(doc.Rules);
+            _evidenceByBaseKind = BuildEvidenceIndex(doc);
+        }
+
+        public ConnectionRulebookDocument Document => _doc;
+
+        /// <summary>Carrega o rulebook embarcado de producao (pipe_connection_rules.json).</summary>
+        public static ConnectionRulebook FromEmbedded()
+            => new(ConnectionRulebookLoader.LoadEmbedded(
+                typeof(ConnectionRulebook).Assembly, EmbeddedResourceName));
+
+        /// <summary>
+        /// Nucleo da classificacao (cam. 1-3, 7): filtra candidatos por topologia,
+        /// pontua por texto, elege o vencedor e calcula o confidence. Resultado
+        /// INTERMEDIARIO (sem disambiguators/identity). NUNCA lanca: leitura invalida
+        /// ou ausencia de candidato degradam para fallback.
+        /// </summary>
+        public RuleMatchResult ClassifyCore(TopologyReadResult topo, ElementTexts texts)
+        {
+            // Leitura topologica invalida (sem sucesso ou sem topology) -> nada a classificar.
+            if (topo is null || !topo.Success || topo.Topology is null)
+            {
+                return Fallback(BaseKind.Unknown, 0.0, "TopologyReadFailed");
+            }
+
+            IReadOnlyList<ConnectionRule> candidates = TopologyMatcher.FilterCandidates(_doc, topo.Topology);
+            if (candidates.Count == 0)
+            {
+                // Geometria leu, mas nenhuma regra casou: degrada para o BaseKind inferido
+                // pelo motor (o caller decide o que fazer — provavel NeedsReview na 2.B-5).
+                return Fallback(topo.Topology.InferredBaseKind, 0.3, "NoMatchingRule");
+            }
+
+            ElementTexts safeTexts = texts ?? new ElementTexts();
+
+            // ⚠️ Passa os dicionarios do JSON (aliases/negatives do rulebook), NAO os
+            // defaults da 2.A. Tokeniza UMA vez cada campo; o Tokenize ja expande aliases
+            // e remove negatives nos tokens do TEXTO.
+            var opts = new TokenizerOptions
+            {
+                Aliases = _doc.TokenAliases,
+                NegativeTokens = _doc.NegativeTokens,
+            };
+
+            ISet<string> familyTokens = TokenSet(safeTexts.FamilyName, opts);
+            ISet<string> typeTokens = TokenSet(safeTexts.TypeName, opts);
+            ISet<string> descTokens = TokenSet(safeTexts.Description, opts);
+
+            var scored = new List<ScoredCandidate>(candidates.Count);
+            foreach (ConnectionRule candidate in candidates)
+            {
+                int lexical = ClassificationScoring.ScoreCandidate(
+                    candidate, _doc.BaseKindTokens, familyTokens, typeTokens, descTokens);
+                scored.Add(new ScoredCandidate { Rule = candidate, LexicalScore = lexical });
+            }
+
+            ScoredCandidate winner = SelectWinner(scored);
+
+            // 2.B-4 (cam. 4 + 6): promove o winner a um subtipo via disambiguator e
+            // detecta features. allTokens = presenca basta (nao ponderado).
+            var allTokens = new HashSet<string>(familyTokens, StringComparer.Ordinal);
+            allTokens.UnionWith(typeTokens);
+            allTokens.UnionWith(descTokens);
+
+            (ConnectionRule promoted, double disambiguatorPenalty, IReadOnlyList<string> promotionReasons) =
+                ClassificationEnrichment.PromoteWinner(
+                    winner.Rule, allTokens, topo.Topology, _doc.Tolerances, _byId);
+
+            Feature features = ClassificationEnrichment.DetectFeatures(allTokens, topo.Topology);
+
+            // Reasons lexicais do PAI (o match que elegeu o winner) + o registro da promocao.
+            var reasons = new List<string>(ClassificationScoring.CollectLexicalReasons(
+                winner.Rule, _doc.BaseKindTokens, familyTokens, typeTokens, descTokens));
+            reasons.AddRange(promotionReasons);
+
+            // Score lexical do PAI: a promocao muda a IDENTIDADE, nao o match do texto.
+            ClassificationConfidence confidence = ClassificationScoring.ComputeConfidence(
+                promoted, winner.LexicalScore, topo, reasons,
+                lineBonus: 0.0, disambiguatorPenalty: disambiguatorPenalty);
+
+            return new RuleMatchResult
+            {
+                Winner = promoted,
+                ScoredCandidates = scored,
+                Confidence = confidence,
+                FallbackBaseKind = promoted.BaseKind,
+                Features = features,
+            };
+        }
+
+        /// <summary>
+        /// API publica (cam. 8 do secao 21): classifica num <see cref="ConnectionIdentity"/>
+        /// canonico. Resolve disciplina/categoria do motor, monta a identidade facetada a
+        /// partir do <see cref="ClassifyCore"/> e popula as granulacoes (secao 14). SEMPRE
+        /// devolve uma identidade (os 3 caminhos do core cobrem full / NoMatchingRule /
+        /// TopologyReadFailed). Linha (cam. 5) fica Unknown — vem do catalogo na fase 3.A.
+        /// </summary>
+        public ConnectionIdentity Classify(TopologyReadResult topo, ElementTexts texts)
+        {
+            RuleMatchResult core = ClassifyCore(topo, texts);
+            ConnectionTopology? topology = topo?.Topology;
+
+            return new ConnectionIdentity
+            {
+                Discipline = topology?.InferredDiscipline ?? Discipline.Unknown,
+                Category = topology?.InferredCategory ?? ProductCategory.Unknown,
+                BaseKind = core.Winner?.BaseKind ?? core.FallbackBaseKind,
+                GeometryKind = core.Winner?.GeometryKind ?? GeometryKind.Unspecified,
+                NominalAngleDeg = ResolveNominalAngle(core.Winner, topology),
+                Ports = topology?.Ports ?? Array.Empty<MepPort>(),
+                Features = core.Features,
+                Line = ProductLine.Unknown,
+                Confidence = core.Confidence,
+                ValveKind = SubtypeGranulation.ValveKindFor(core.Winner?.Id),
+                InstrumentKind = SubtypeGranulation.InstrumentKindFor(core.Winner?.Id),
+                FilterKind = null,
+            };
+        }
+
+        // Deflexao de catalogo (NominalAngleDeg) do winner. Elbows SEM nominalAngleDeg fixo no
+        // JSON (elbow-reducer, transposition-curve) derivam da geometria: deflexao = 180 - raw,
+        // arredondada p/ 45/90 (finding 4 do Codex). Outros BaseKinds usam o nominalAngleDeg do
+        // JSON; sem raw -> null.
+        private static double? ResolveNominalAngle(ConnectionRule? winner, ConnectionTopology? topology)
+        {
+            if (winner is null)
+            {
+                return null;
+            }
+
+            if (winner.NominalAngleDeg is not null)
+            {
+                return winner.NominalAngleDeg;
+            }
+
+            if (winner.BaseKind != BaseKind.Elbow || topology is null)
+            {
+                return null;
+            }
+
+            double? raw = TopologyMatcher.PrimaryAngleRaw(topology);
+            return raw is null ? null : SnapToNominal(180.0 - raw.Value);
+        }
+
+        // Arredonda a deflexao para o nominal de catalogo mais proximo (45 ou 90).
+        private static double SnapToNominal(double deflectionDeg)
+            => Math.Abs(deflectionDeg - 45.0) <= Math.Abs(deflectionDeg - 90.0) ? 45.0 : 90.0;
+
+        /// <summary>
+        /// Classificacao TEXTO-ONLY conservadora (2.B-5b, D2/C3): SEM geometria — so
+        /// <see cref="ElementTexts"/>. E o que o migrador de catalogo (3.A) usa nos SKUs
+        /// Tigre. Infere BaseKind por contagem de baseKindTokens, filtra candidatos por
+        /// BaseKind (NAO topologicamente), pontua, elege so entre pais nao-confirmaveis,
+        /// promove validando SO o mandatory (sem topologia) e CAPA o confidence (nunca High
+        /// sem geometria). SEMPRE devolve uma identidade (BaseKind=Unknown -> NeedsReview).
+        /// </summary>
+        public ConnectionIdentity ClassifyTextOnly(ElementTexts texts)
+        {
+            ElementTexts safeTexts = texts ?? new ElementTexts();
+
+            // Tokens COM alias -> score lexical do winner (inalterado).
+            var aliasOpts = new TokenizerOptions
+            {
+                Aliases = _doc.TokenAliases,
+                NegativeTokens = _doc.NegativeTokens,
+            };
+            ISet<string> familyTokens = TokenSet(safeTexts.FamilyName, aliasOpts);
+            ISet<string> typeTokens = TokenSet(safeTexts.TypeName, aliasOpts);
+            ISet<string> descTokens = TokenSet(safeTexts.Description, aliasOpts);
+
+            var allTokens = new HashSet<string>(familyTokens, StringComparer.Ordinal);
+            allTokens.UnionWith(typeTokens);
+            allTokens.UnionWith(descTokens);
+
+            // Tokens SEM alias (mas COM negatives) -> inferencia de BaseKind (2.B-7/F2): o alias
+            // inflava a contagem (ex.: "reducao" expandia p/ "redutor" e empurrava "Te Reducao"
+            // p/ Reducer); os negatives seguem suprimindo ("Te Terminal" nao infere Tee).
+            var noAliasOpts = new TokenizerOptions
+            {
+                ExpandAliases = false,
+                NegativeTokens = _doc.NegativeTokens,
+            };
+            var noAliasTokens = new HashSet<string>(StringComparer.Ordinal);
+            noAliasTokens.UnionWith(LexicalNormalizer.Tokenize(safeTexts.FamilyName, noAliasOpts));
+            noAliasTokens.UnionWith(LexicalNormalizer.Tokenize(safeTexts.TypeName, noAliasOpts));
+            noAliasTokens.UnionWith(LexicalNormalizer.Tokenize(safeTexts.Description, noAliasOpts));
+
+            BaseKind inferred = InferBaseKindFromText(noAliasTokens);
+            if (inferred == BaseKind.Unknown)
+            {
+                return TextOnlyIdentity(
+                    BaseKind.Unknown, winner: null, nominalAngleDeg: null, Feature.None,
+                    ClassificationScoring.ComputeTextOnlyConfidence(
+                        BaseKind.Unknown, 0, subtypePromoted: false, 0.0, Array.Empty<string>()));
+            }
+
+            // 2.B-7/F1: angulo do texto (45/90/180) desempata os elbows e fixa o NominalAngleDeg.
+            double? textAngle = ExtractNominalAngleFromText(allTokens);
+
+            var scored = new List<ScoredCandidate>();
+            foreach (ConnectionRule rule in _doc.Rules)
+            {
+                if (rule.BaseKind != inferred)
+                {
+                    continue;
+                }
+
+                // Elbow com angulo no texto: so candidatos do angulo certo (da acesso aos
+                // subtipos do angulo e evita o chute por ordem JSON).
+                if (inferred == BaseKind.Elbow && textAngle is not null && rule.NominalAngleDeg != textAngle)
+                {
+                    continue;
+                }
+
+                int lexical = ClassificationScoring.ScoreCandidate(
+                    rule, _doc.BaseKindTokens, familyTokens, typeTokens, descTokens);
+                scored.Add(new ScoredCandidate { Rule = rule, LexicalScore = lexical });
+            }
+
+            if (scored.Count == 0)
+            {
+                return TextOnlyIdentity(
+                    inferred, winner: null, nominalAngleDeg: null, Feature.None,
+                    ClassificationScoring.ComputeTextOnlyConfidence(
+                        inferred, 0, subtypePromoted: false, 0.0, Array.Empty<string>()));
+            }
+
+            ScoredCandidate winner = SelectWinner(scored);
+
+            // Promocao SEM validacao topologica (sem geometria) — valida SO o mandatory.
+            (ConnectionRule promoted, double disambiguatorPenalty, IReadOnlyList<string> promotionReasons) =
+                ClassificationEnrichment.PromoteWinner(
+                    winner.Rule, allTokens, topology: null, tolerances: null, _byId, validateTopology: false);
+
+            bool subtypePromoted = !ReferenceEquals(promoted, winner.Rule);
+
+            // Features SO lexicais (Reduced e geometrico, ausente sem topologia).
+            Feature features = ClassificationEnrichment.DetectFeatures(allTokens);
+
+            var reasons = new List<string>(ClassificationScoring.CollectLexicalReasons(
+                winner.Rule, _doc.BaseKindTokens, familyTokens, typeTokens, descTokens));
+            reasons.AddRange(promotionReasons);
+
+            ClassificationConfidence confidence = ClassificationScoring.ComputeTextOnlyConfidence(
+                inferred, winner.LexicalScore, subtypePromoted, disambiguatorPenalty, reasons);
+
+            // NominalAngleDeg final: Elbow usa o angulo do TEXTO (null se ausente — NAO chuta);
+            // os demais BaseKinds usam o nominalAngleDeg do JSON do winner.
+            double? nominalAngle = inferred == BaseKind.Elbow ? textAngle : promoted.NominalAngleDeg;
+
+            return TextOnlyIdentity(inferred, promoted, nominalAngle, features, confidence);
+        }
+
+        // Tokenize SEM alias (so p/ a inferencia/evidencia): o alias inflaria a contagem.
+        private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> NoNegatives
+            = new Dictionary<string, IReadOnlyList<string>>();
+
+        private static readonly TokenizerOptions NoAliasOptions = new()
+        {
+            ExpandAliases = false,
+            NegativeTokens = NoNegatives,
+        };
+
+        // Tokens de angulo de catalogo reconhecidos no texto (2.B-7/F1).
+        private static readonly (string Token, double Angle)[] NominalAngleTokens =
+        {
+            ("45", 45.0),
+            ("90", 90.0),
+            ("180", 180.0),
+        };
+
+        // Infere o BaseKind pela EVIDENCIA lexical (2.B-7/F2): conta os tokens-do-texto (SEM
+        // alias) que estao na evidencia de cada BaseKind. Mais hits vence; ZERO ou EMPATE
+        // (>=2 BaseKinds no maximo) -> Unknown (NeedsReview). Conservador por design.
+        private BaseKind InferBaseKindFromText(ISet<string> noAliasTokens)
+        {
+            BaseKind best = BaseKind.Unknown;
+            int bestHits = 0;
+            bool tie = false;
+
+            foreach (KeyValuePair<BaseKind, ISet<string>> entry in _evidenceByBaseKind)
+            {
+                int hits = 0;
+                foreach (string token in noAliasTokens)
+                {
+                    if (entry.Value.Contains(token))
+                    {
+                        hits++;
+                    }
+                }
+
+                if (hits > bestHits)
+                {
+                    bestHits = hits;
+                    best = entry.Key;
+                    tie = false;
+                }
+                else if (hits == bestHits && hits > 0)
+                {
+                    tie = true;
+                }
+            }
+
+            return (bestHits == 0 || tie) ? BaseKind.Unknown : best;
+        }
+
+        private static IReadOnlyDictionary<BaseKind, ISet<string>> BuildEvidenceIndex(ConnectionRulebookDocument doc)
+        {
+            var evidence = new Dictionary<BaseKind, ISet<string>>();
+
+            // baseKindTokens -> evidencia do BaseKind correspondente.
+            foreach (KeyValuePair<string, IReadOnlyList<string>> entry in doc.BaseKindTokens)
+            {
+                if (!Enum.TryParse(entry.Key, ignoreCase: true, out BaseKind kind)
+                    || !Enum.IsDefined(typeof(BaseKind), kind))
+                {
+                    continue;
+                }
+
+                foreach (string token in entry.Value)
+                {
+                    AddNormalizedTerm(evidence, kind, token);
+                }
+            }
+
+            // Triggers dos disambiguators -> evidencia do BaseKind da regra-PAI que os contem.
+            foreach (ConnectionRule rule in doc.Rules)
+            {
+                foreach (LexicalDisambiguator disambiguator in rule.LexicalDisambiguators)
+                {
+                    AddNormalizedTerm(evidence, rule.BaseKind, disambiguator.Trigger);
+                }
+            }
+
+            return evidence;
+        }
+
+        private static void AddNormalizedTerm(IDictionary<BaseKind, ISet<string>> evidence, BaseKind kind, string term)
+        {
+            if (!evidence.TryGetValue(kind, out ISet<string>? set))
+            {
+                set = new HashSet<string>(StringComparer.Ordinal);
+                evidence[kind] = set;
+            }
+
+            foreach (string token in LexicalNormalizer.Tokenize(term, NoAliasOptions))
+            {
+                set.Add(token);
+            }
+        }
+
+        // Angulo de catalogo (45/90/180) presente no texto, ou null se ausente/ambiguo (>1).
+        private static double? ExtractNominalAngleFromText(ISet<string> tokens)
+        {
+            double? found = null;
+            foreach ((string token, double angle) in NominalAngleTokens)
+            {
+                if (!tokens.Contains(token))
+                {
+                    continue;
+                }
+
+                if (found is not null)
+                {
+                    return null; // mais de um angulo no texto -> ambiguo
+                }
+
+                found = angle;
+            }
+
+            return found;
+        }
+
+        private static ConnectionIdentity TextOnlyIdentity(
+            BaseKind baseKind, ConnectionRule? winner, double? nominalAngleDeg, Feature features, ClassificationConfidence confidence)
+            => new()
+            {
+                Discipline = Discipline.Plumbing, // texto-only assume hidraulica (unico rulebook do MVP 1)
+                Category = CategoryForTextOnly(baseKind),
+                BaseKind = baseKind,
+                GeometryKind = winner?.GeometryKind ?? GeometryKind.Unspecified,
+                NominalAngleDeg = nominalAngleDeg, // angulo do TEXTO (Elbow) ou do JSON (demais)
+                Ports = Array.Empty<MepPort>(), // sem geometria
+                Features = features,
+                Line = ProductLine.Unknown, // cam 5 -> 3.A
+                Confidence = confidence,
+                ValveKind = SubtypeGranulation.ValveKindFor(winner?.Id),
+                InstrumentKind = SubtypeGranulation.InstrumentKindFor(winner?.Id),
+                FilterKind = null,
+            };
+
+        // Heuristica simples de categoria por BaseKind (sem motor): valvula = accessory,
+        // fixture = plumbing fixture, Unknown = Unknown, resto (fittings) = pipe fitting.
+        private static ProductCategory CategoryForTextOnly(BaseKind baseKind)
+            => baseKind switch
+            {
+                BaseKind.Unknown => ProductCategory.Unknown,
+                BaseKind.Valve => ProductCategory.PipeAccessory,
+                BaseKind.Fixture => ProductCategory.PlumbingFixture,
+                _ => ProductCategory.PipeFitting,
+            };
+
+        private static IReadOnlyDictionary<string, ConnectionRule> BuildIndex(IReadOnlyList<ConnectionRule> rules)
+        {
+            var byId = new Dictionary<string, ConnectionRule>(StringComparer.Ordinal);
+            foreach (ConnectionRule rule in rules)
+            {
+                byId[rule.Id] = rule;
+            }
+
+            return byId;
+        }
+
+        private static ISet<string> TokenSet(string text, TokenizerOptions opts)
+            => new HashSet<string>(LexicalNormalizer.Tokenize(text, opts), StringComparer.Ordinal);
+
+        // Maior score vence. Empate -> prefere quem NAO exige confirmacao lexical (subtipo
+        // canonico sobre a variante que precisa de gatilho); persistindo o empate, mantem
+        // o primeiro (FilterCandidates ja retorna em ordem do JSON).
+        private static ScoredCandidate SelectWinner(IReadOnlyList<ScoredCandidate> scored)
+        {
+            // Furo cam 3 x cam 4 (2.B-4b, Codex Opcao 1): subtipos requiresLexicalConfirmation
+            // tem hints exclusivos que pontuam na cam 3 e os fariam vencer por SCORE,
+            // BYPASSANDO o mandatoryLexical validado na cam 4 (ex.: "Joelho Bucha" sem "latao"
+            // elegia elbow-brass-bushing). Elege SO entre os pais canonicos (nao-confirmaveis);
+            // os confirmaveis chegam exclusivamente via promocao validada (PromoteWinner). O
+            // fallback p/ scored e defensivo — o guardrail anti-orfao garante eligible nao-vazio
+            // sempre que ha candidatos.
+            List<ScoredCandidate> eligible = scored.Where(c => !c.Rule.RequiresLexicalConfirmation).ToList();
+            IReadOnlyList<ScoredCandidate> pool = eligible.Count > 0 ? eligible : scored;
+
+            ScoredCandidate best = pool[0];
+            for (int i = 1; i < pool.Count; i++)
+            {
+                if (IsBetter(pool[i], best))
+                {
+                    best = pool[i];
+                }
+            }
+
+            return best;
+        }
+
+        private static bool IsBetter(ScoredCandidate candidate, ScoredCandidate best)
+        {
+            if (candidate.LexicalScore != best.LexicalScore)
+            {
+                return candidate.LexicalScore > best.LexicalScore;
+            }
+
+            return !candidate.Rule.RequiresLexicalConfirmation && best.Rule.RequiresLexicalConfirmation;
+        }
+
+        private static RuleMatchResult Fallback(BaseKind fallbackBaseKind, double score, string reason)
+            => new()
+            {
+                Winner = null,
+                FallbackBaseKind = fallbackBaseKind,
+                Confidence = new ClassificationConfidence
+                {
+                    Score = score,
+                    Bucket = ClassificationScoring.ToBucket(score),
+                    Reasons = new[] { reason },
+                },
+            };
+    }
+}

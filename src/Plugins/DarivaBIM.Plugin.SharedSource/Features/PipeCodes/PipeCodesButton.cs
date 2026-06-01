@@ -6,13 +6,14 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
     {
         public static RibbonButtonDefinition Definition => new RibbonButtonDefinition(
             internalName: "PipeCodes",
-            text: "Codificar\nTubos",
+            text: "Códigos\nTigre",
             commandId: RibbonCommandId.WritePipeCodes,
-            toolTip: "Atribui o parâmetro 'Tigre: Código' a cada tubo conforme descrição/segmento e diâmetro.",
+            toolTip: "Identifica e aplica códigos Tigre em tubos, conexões, acessórios e peças hidrossanitárias (catálogo de 872 SKUs).",
             longDescription:
-                "Garante o shared parameter 'Tigre: Código' como instância na categoria " +
-                "Tubulações e percorre todos os tubos do projeto preenchendo o código " +
-                "Tigre correspondente, com base no catálogo embutido (descrição + diâmetro).",
+                "Códigos Tigre — varre o projeto procurando elementos das famílias Tigre " +
+                "(Pipes, Conexões, Acessórios, Aparelhos hidrossanitários) e aplica o código " +
+                "de catálogo no parâmetro 'Tigre: Código'. Famílias não-Tigre são ignoradas " +
+                "pelo detector de marca. Trabalha sobre seleção do usuário ou projeto inteiro.",
             helpUrl: null,
             largeIconResource: "Ribbon/Resources/Icons/pipe_codes_32.png",
             smallIconResource: "Ribbon/Resources/Icons/pipe_codes_16.png",

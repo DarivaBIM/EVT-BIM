@@ -1,0 +1,475 @@
+using System.Linq;
+using DarivaBIM.Domain.Tigre;
+using Xunit;
+
+namespace DarivaBIM.Core.Tests.Domain.Tigre
+{
+    /// <summary>
+    /// Fixtures de matching reais — uma por linha de produto Tigre +
+    /// 3 edge cases. Garante que o JSON expandido + LeanDescription
+    /// continuam casando descrições típicas que aparecem em famílias
+    /// Revit (sem DN/mm/comprimento no segment).
+    /// </summary>
+    public class TigreCatalogMatchingTests
+    {
+        private static readonly TigreCatalog Catalog =
+            new TigreCatalog(TigreFallbackCatalogRows.All());
+
+        private static TigreCatalogEntry? Find(string description, int diameterMm)
+        {
+            string combined = description + " " + diameterMm;
+            return Catalog.FindMatch(
+                descriptionText: description,
+                segmentText: string.Empty,
+                typeNameText: string.Empty,
+                combinedText: combined,
+                diameterMmRound: diameterMm);
+        }
+
+        [Theory]
+        [InlineData("Tubo Série Reforçada", 50, 11054420)]      // SR
+        [InlineData("Tubo Série Normal", 50, 11030602)]         // SN
+        [InlineData("Tubo REDUX", 100, 100002789)]              // REDUX
+        [InlineData("Joelho 90 Soldável", 25, 22150251)]        // Soldável
+        [InlineData("Registro Esfera VS Roscável", 25, 27958320)] // Registros
+        [InlineData("Tubo ClicPEX Monocamada", 16, 300000774)]  // ClicPEX
+        [InlineData("Tubo AQUATHERM", 22, 17000225)]            // AQUATHERM
+        [InlineData("Tubo CPVC TIGREFire", 76, 17020250)]       // TIGREFire (3")
+        [InlineData("Tê PPR", 50, 22322559)]                    // PPR
+        public void Catalog_finds_match_per_product_line(
+            string description, int diameterMm, int expectedCode)
+        {
+            TigreCatalogEntry? entry = Find(description, diameterMm);
+
+            Assert.NotNull(entry);
+            Assert.Equal(expectedCode, entry!.Code);
+            Assert.Equal(diameterMm, entry.DiameterMm);
+        }
+
+        [Fact]
+        public void Edge_entries_without_diameter_are_filtered_out()
+        {
+            // "Ralo Linear Invisível 50cm" entrou no JSON com diameterMm=0
+            // (cm não é um sinal de DN). O ctor do TigreCatalog filtra
+            // r.DiameterMm > 0, então a entry não vira candidata pra match.
+            Assert.DoesNotContain(Catalog.Entries, e => e.Code == 100018896);
+        }
+
+        [Fact]
+        public void Edge_duplicate_code_across_product_lines_is_preserved()
+        {
+            // Code 37051209 (Anel de Borracha) aparece em SR e REDUX no
+            // payload. O catálogo NÃO deduplica por code — mantém ambas
+            // entries pra que cada linha tenha cobertura completa.
+            int occurrences = Catalog.Entries.Count(e => e.Code == 37051209);
+            Assert.True(occurrences >= 2,
+                $"Esperado >= 2 entries com code 37051209, achei {occurrences}");
+
+            TigreCatalogEntry? entry = Find("Anel de Borracha", 40);
+            Assert.NotNull(entry);
+            Assert.Equal(37051209, entry!.Code);
+        }
+
+        [Fact]
+        public void Edge_accents_are_normalized_for_matching()
+        {
+            // Descrição com ç/ã ("Conexão Transição ClicPEX AQxPEX") deve
+            // casar mesmo que o Normalize remova acentos antes do compare —
+            // input e entry passam pela mesma normalização. Uso descrição
+            // única (DN 16 só tem uma Conexão Transição) pra evitar empate
+            // do AmbiguityGuard.
+            // diameterMm da entry "Conexão Transição ClicPEX AQxPEX 15x16mm"
+            // é 15 (dn1), não 16 — primeiro número da redução.
+            TigreCatalogEntry? entry = Find("Conexão Transição ClicPEX AQxPEX", 15);
+
+            Assert.NotNull(entry);
+            Assert.Contains("Conex", entry!.DescriptionRaw);
+            Assert.Contains("ClicPEX", entry.DescriptionRaw);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // 2A.4 — Strip de polegada robusto + AmbiguityGuard
+        // ─────────────────────────────────────────────────────────────
+
+        [Theory]
+        // mm × polegada fracionária com aspa reta
+        [InlineData("Bucha Soldável 25x3/4\"", "Bucha Soldável")]
+        [InlineData("Conector 75x2.1/2\"", "Conector")]
+        [InlineData("Adaptador 22x1/2\"", "Adaptador")]
+        // polegada fracionária solo
+        [InlineData("Tubo CPVC TIGREFire 3/4'", "Tubo CPVC TIGREFire")]
+        [InlineData("Conector AQUATHERM 1.1/4\"", "Conector AQUATHERM")]
+        [InlineData("Registro 1.1/2'", "Registro")]
+        // polegada × polegada (aspa no meio)
+        [InlineData("Tê Redução TIGREFire 2.1/2'x2'", "Tê Redução TIGREFire")]
+        [InlineData("Bucha Redução 1.1/4\"x3/4\"", "Bucha Redução")]
+        // aspas Unicode curvas (copy/paste de Word)
+        [InlineData("Tubo CPVC TIGREFire 3/4’", "Tubo CPVC TIGREFire")]
+        [InlineData("Adaptador 22x1/2”", "Adaptador")]
+        // prime e double prime
+        [InlineData("Tubo 1′", "Tubo")]
+        [InlineData("Conector 2.1/2″", "Conector")]
+        public void StripDimensions_handles_inch_variants(
+            string input, string expectedLean)
+        {
+            string actual = TigreTextUtils.StripDimensions(input);
+            Assert.Equal(expectedLean, actual);
+        }
+
+        [Fact]
+        public void AmbiguousMatch_returns_null_when_lean_tokens_tied()
+        {
+            // PPR PN12.5/PN20/PN25 50mm tinham lean idêntica "Tubo PPR"
+            // e diameter 50 — pre-fix, FindMatch retornava o primeiro
+            // ordering, gravando SKU arbitrário. AmbiguityGuard agora
+            // detecta empate e devolve null.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 12.5 50mm - 3m",
+                    DiameterMm = 50, Code = 17010603,
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 20 50mm - 3m",
+                    DiameterMm = 50, Code = 17010107,
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 25 50mm - 3m",
+                    DiameterMm = 50, Code = 17010409,
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? entry = cat.FindMatch(
+                descriptionText: "Tubo PPR",
+                segmentText: string.Empty,
+                typeNameText: string.Empty,
+                combinedText: "Tubo PPR 50",
+                diameterMmRound: 50);
+
+            Assert.Null(entry);
+        }
+
+        [Fact]
+        public void FindMatch_with_kindFilter_restricts_candidates_to_kind()
+        {
+            // 2B.3: dado catalog com Tubo Soldável (pipe) + Joelho 90
+            // Soldável (elbow) ambos dm=25, e query que contém ambos os
+            // tokens (Joelho + Soldável + 90):
+            //  - SEM kindFilter: AmbiguityGuard prefere o mais específico
+            //    (Joelho, 3 tokens) sobre Tubo (1 token).
+            //  - kindFilter="pipe": Joelho eliminado do candidate set,
+            //    sobra Tubo → Tubo casa (defensivo pra PipeCodes onde
+            //    o coletor já restringe a Pipes).
+            //  - kindFilter="elbow": Tubo eliminado, sobra Joelho → casa.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo Soldável 25mm - 6m",
+                    DiameterMm = 25, Code = 10120250, Kind = "pipe",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Joelho 90 Soldável 25mm",
+                    DiameterMm = 25, Code = 22150251, Kind = "elbow",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+            const string query = "Soldável Joelho 90";
+
+            TigreCatalogEntry? noFilter = cat.FindMatch(
+                query, "", "", query + " 25", 25);
+            Assert.NotNull(noFilter);
+            Assert.Equal(22150251, noFilter!.Code);
+
+            TigreCatalogEntry? onlyPipes = cat.FindMatch(
+                query, "", "", query + " 25", 25, kindFilter: "pipe");
+            Assert.NotNull(onlyPipes);
+            Assert.Equal(10120250, onlyPipes!.Code);
+            Assert.Equal("pipe", onlyPipes.Kind);
+
+            TigreCatalogEntry? onlyElbows = cat.FindMatch(
+                query, "", "", query + " 25", 25, kindFilter: "elbow");
+            Assert.NotNull(onlyElbows);
+            Assert.Equal(22150251, onlyElbows!.Code);
+        }
+
+        [Fact]
+        public void FindMatch_with_pn_in_query_disambiguates_ppr_pn20()
+        {
+            // 2B.4: catalog com PPR PN12.5/PN20/PN25 mesmo dm. Query
+            // que menciona "PN 20" filtra pra entry PN20 antes do
+            // AmbiguityGuard, evitando o null que o 2A.4 retornava.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 12.5 50mm - 3m",
+                    DiameterMm = 50, Code = 17010603, Pn = "12.5",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 20 50mm - 3m",
+                    DiameterMm = 50, Code = 17010107, Pn = "20",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 25 50mm - 3m",
+                    DiameterMm = 50, Code = 17010409, Pn = "25",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? pn20 = cat.FindMatch(
+                "Tubo PPR PN 20", "", "", "Tubo PPR PN 20 50",
+                50, kindFilter: null);
+            Assert.NotNull(pn20);
+            Assert.Equal(17010107, pn20!.Code);
+            Assert.Equal("20", pn20.Pn);
+
+            TigreCatalogEntry? pn125 = cat.FindMatch(
+                "Tubo PPR PN 12.5", "", "", "Tubo PPR PN 12.5 50",
+                50, kindFilter: null);
+            Assert.NotNull(pn125);
+            Assert.Equal("12.5", pn125!.Pn);
+
+            // Query sem PN: AmbiguityGuard mantém o comportamento atual
+            // (3 entries lean=Tubo PPR, mesmo count → null).
+            TigreCatalogEntry? noPn = cat.FindMatch(
+                "Tubo PPR", "", "", "Tubo PPR 50", 50, kindFilter: null);
+            Assert.Null(noPn);
+        }
+
+        [Fact]
+        public void FindMatch_with_pn_query_but_no_matching_pn_returns_null()
+        {
+            // 2B.4: catalog só tem PN20, query pede PN25 → null direto.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 20 50mm - 3m",
+                    DiameterMm = 50, Code = 17010107, Pn = "20",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? entry = cat.FindMatch(
+                "Tubo PPR PN 25", "", "", "Tubo PPR PN 25 50",
+                50, kindFilter: null);
+            Assert.Null(entry);
+        }
+
+        [Fact]
+        public void FindMatch_with_kindFilters_set_accepts_any_kind_in_set()
+        {
+            // 3.6 (Codex blocker fix) — uma BIC Revit (PipeFitting) cobre
+            // N kinds do catálogo (fitting/tee/elbow/reducer/cap). O filtro
+            // por CONJUNTO permite que a query case qualquer um deles, em
+            // vez do mismatch antigo onde só "fitting" passava (479 entries
+            // ficavam invisíveis).
+            // Catalog só com tê + joelho (sem tubo) — isola o filtro
+            // de kind. Se incluísse o tubo, a query "Tê Soldável" casaria
+            // o tubo pelo token "soldavel", mascarando o filtro.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tê Soldável 25mm",
+                    DiameterMm = 25, Code = 22200259, Kind = "tee",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Joelho 90 Soldável 25mm",
+                    DiameterMm = 25, Code = 22150251, Kind = "elbow",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            // kindFilters PipeFitting (5 kinds) casa o Tê (kind=tee)
+            string[] fittingKinds = { "fitting", "tee", "elbow", "reducer", "cap" };
+            TigreCatalogEntry? tee = cat.FindMatch(
+                "Tê Soldável", "", "", "Tê Soldável 25",
+                25, kindFilters: fittingKinds);
+            Assert.NotNull(tee);
+            Assert.Equal(22200259, tee!.Code);
+
+            // Mesmo conjunto casa o Joelho (kind=elbow)
+            TigreCatalogEntry? joelho = cat.FindMatch(
+                "Joelho 90 Soldável", "", "", "Joelho 90 Soldável 25",
+                25, kindFilters: fittingKinds);
+            Assert.NotNull(joelho);
+            Assert.Equal(22150251, joelho!.Code);
+
+            // kindFilters de PipeCurves (só "pipe") elimina tê+joelho →
+            // null sem matcher.
+            TigreCatalogEntry? teeFiltered = cat.FindMatch(
+                "Tê Soldável", "", "", "Tê Soldável 25",
+                25, kindFilters: new[] { "pipe" });
+            Assert.Null(teeFiltered);
+        }
+
+        [Fact]
+        public void FindMatch_with_empty_kindFilters_set_is_treated_as_no_filter()
+        {
+            // Edge case: collection vazia comporta-se como null (sem filtro).
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo Soldável 25mm - 6m",
+                    DiameterMm = 25, Code = 10120250, Kind = "pipe",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? entry = cat.FindMatch(
+                "Tubo Soldável", "", "", "Tubo Soldável 25",
+                25, kindFilters: System.Array.Empty<string>());
+
+            Assert.NotNull(entry);
+            Assert.Equal(10120250, entry!.Code);
+        }
+
+        [Fact]
+        public void FindMatch_with_unknown_kindFilter_returns_null()
+        {
+            // 2B.3: kindFilter inexistente retorna null sem chamar matcher.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo Soldável 25mm - 6m",
+                    DiameterMm = 25, Code = 10120250, Kind = "pipe",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? entry = cat.FindMatch(
+                "Tubo Soldável", "", "", "Tubo Soldável 25",
+                25, kindFilter: "unicorn");
+
+            Assert.Null(entry);
+        }
+
+        [Fact]
+        public void Integration_kindFilter_and_pn_extraction_compose()
+        {
+            // 2B.6: cenário integração — catalog misto com Soldável (Tubo +
+            // Joelho 90) e PPR (PN20 + PN25), todos dm=50. Combina:
+            //   1) kindFilter="pipe" restringe a tubos
+            //   2) AmbiguityGuard escolhe a mais específica em empate
+            //   3) PN extraction desambigua PPR multi-PN
+            //   4) Query sem PN em PPR multi-PN → null seguro
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo Soldável 50mm - 6m",
+                    DiameterMm = 50, Code = 10120500,
+                    Kind = "pipe", ProductLine = "Soldável",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Joelho 90 Soldável 50mm",
+                    DiameterMm = 50, Code = 22150502,
+                    Kind = "elbow", ProductLine = "Soldável",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 20 50mm - 3m",
+                    DiameterMm = 50, Code = 17010107, Pn = "20",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tubo PPR PN 25 50mm - 3m",
+                    DiameterMm = 50, Code = 17010409, Pn = "25",
+                    Kind = "pipe", ProductLine = "PPR",
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            // 1) PipeCodes passa kindFilter="pipe": query Soldável casa o
+            // tubo, NÃO o joelho. Mas Tubo PPR também é pipe — query sem
+            // PN cai no AmbiguityGuard (2 entries pipe sem PN match).
+            TigreCatalogEntry? soldavel = cat.FindMatch(
+                "Tubo Soldável", "", "", "Tubo Soldável 50",
+                50, kindFilter: "pipe");
+            Assert.NotNull(soldavel);
+            Assert.Equal(10120500, soldavel!.Code);
+
+            // 2) Sem kindFilter, query joelho casa Joelho (3 tokens
+            // específicos vencem o Tubo Soldável 1-token).
+            TigreCatalogEntry? joelho = cat.FindMatch(
+                "Joelho 90 Soldável", "", "", "Joelho 90 Soldável 50", 50);
+            Assert.NotNull(joelho);
+            Assert.Equal(22150502, joelho!.Code);
+
+            // 3) Query menciona PN → filtra PPR pra PN20 específico antes
+            // do AmbiguityGuard.
+            TigreCatalogEntry? pprPn20 = cat.FindMatch(
+                "Tubo PPR PN 20", "", "", "Tubo PPR PN 20 50", 50);
+            Assert.NotNull(pprPn20);
+            Assert.Equal(17010107, pprPn20!.Code);
+            Assert.Equal("20", pprPn20.Pn);
+
+            // 4) Query "Tubo PPR" sem PN: 2 entries PPR colapsam → null
+            // (falha segura, audit reclama no Quantifica).
+            TigreCatalogEntry? pprAmbiguo = cat.FindMatch(
+                "Tubo PPR", "", "", "Tubo PPR 50", 50);
+            Assert.Null(pprAmbiguo);
+        }
+
+        [Fact]
+        public void DisambiguationCase_prefers_more_specific_entry()
+        {
+            // "Tê" vs "Tê Redução" com query "Tê Redução": ambos passam
+            // ContainsAllTokens (Tê é subset de "Tê Redução"), mas o
+            // tie-break por LeanCoreTokens.Count escolhe a mais específica.
+            List<TigreRawCatalogRow> rows = new()
+            {
+                new TigreRawCatalogRow
+                {
+                    Description = "Tê TIGREFire 2.1/2'",
+                    DiameterMm = 64, Code = 22891332,
+                },
+                new TigreRawCatalogRow
+                {
+                    Description = "Tê Redução TIGREFire 2.1/2'x2'",
+                    DiameterMm = 64, Code = 22891642,
+                },
+            };
+            TigreCatalog cat = new TigreCatalog(rows);
+
+            TigreCatalogEntry? specific = cat.FindMatch(
+                descriptionText: "Tê Redução TIGREFire",
+                segmentText: string.Empty,
+                typeNameText: string.Empty,
+                combinedText: "Tê Redução TIGREFire 64",
+                diameterMmRound: 64);
+            Assert.NotNull(specific);
+            Assert.Equal(22891642, specific!.Code);
+
+            // Query "Tê TIGREFire" SEM "Redução": "Tê Redução" entry tem
+            // token "redução" que não está na query, então ela NÃO casa.
+            // Só "Tê TIGREFire" casa → match único.
+            TigreCatalogEntry? plain = cat.FindMatch(
+                descriptionText: "Tê TIGREFire",
+                segmentText: string.Empty,
+                typeNameText: string.Empty,
+                combinedText: "Tê TIGREFire 64",
+                diameterMmRound: 64);
+            Assert.NotNull(plain);
+            Assert.Equal(22891332, plain!.Code);
+        }
+    }
+}

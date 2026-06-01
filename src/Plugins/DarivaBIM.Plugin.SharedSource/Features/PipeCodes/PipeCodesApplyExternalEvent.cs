@@ -13,7 +13,7 @@ namespace DarivaBIM.Plugin.Features.PipeCodes
 {
     /// <summary>
     /// <c>ExternalEvent</c> que executa a operação "Inserir/Atualizar Códigos"
-    /// nos tubos marcados pelo usuário no WPF.
+    /// nos elementos Tigre marcados pelo usuário no WPF.
     /// </summary>
     public sealed class PipeCodesApplyExternalEvent
     {

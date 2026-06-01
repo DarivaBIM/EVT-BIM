@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Windows.Data;
 using DarivaBIM.Application.DTOs.Tigre;
 using DarivaBIM.Presentation.Wpf.Common;
 
@@ -17,6 +18,15 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
             Status = status;
             Title = title;
             Description = description;
+
+            // Slice 3.5 — view agrupada por CategoryName pra o XAML
+            // renderizar Expander por subgrupo dentro de cada section.
+            // GetDefaultView atualiza automaticamente quando Groups muda
+            // (ObservableCollection.CollectionChanged é observado).
+            GroupedGroups = CollectionViewSource.GetDefaultView(Groups);
+            GroupedGroups.GroupDescriptions.Add(
+                new PropertyGroupDescription(nameof(PipeCodesGroupViewModel.CategoryName)));
+
             Groups.CollectionChanged += (_, e) =>
             {
                 if (e.OldItems != null)
@@ -55,6 +65,14 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
 
         public ObservableCollection<PipeCodesGroupViewModel> Groups { get; } = new();
 
+        /// <summary>
+        /// View agrupada de <see cref="Groups"/> por
+        /// <see cref="PipeCodesGroupViewModel.CategoryName"/>. Slice 3.5 —
+        /// XAML faz o binding desta view (em vez de Groups direto) pra
+        /// renderizar subgrupos colapsáveis por categoria.
+        /// </summary>
+        public ICollectionView GroupedGroups { get; }
+
         private int _totalPipes;
         public int TotalPipes
         {
@@ -69,8 +87,8 @@ namespace DarivaBIM.Presentation.Wpf.PipeCodes
         public string HeaderCountText => Groups.Count switch
         {
             0 => "—",
-            1 => $"1 tipo · {TotalPipes} tubo(s)",
-            _ => $"{Groups.Count} tipos · {TotalPipes} tubo(s)",
+            1 => $"1 tipo · {TotalPipes} elemento(s)",
+            _ => $"{Groups.Count} tipos · {TotalPipes} elemento(s)",
         };
 
         private bool _suppressBulkUpdate;

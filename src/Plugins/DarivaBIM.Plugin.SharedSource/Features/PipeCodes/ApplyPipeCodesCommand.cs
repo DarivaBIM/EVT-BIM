@@ -7,9 +7,10 @@ using DarivaBIM.Revit.Hosting.Commands;
 namespace DarivaBIM.Plugin.Features.PipeCodes
 {
     /// <summary>
-    /// Entry-point do botão "Codificar Tubos". Abre a janela WPF como
-    /// singleton — toda a interação com o documento (varredura, criação do
-    /// shared parameter, inserção e limpeza dos códigos) acontece via
+    /// Entry-point do botão "Codificar Tigre" (rótulo atual; nome interno
+    /// PipeCodes preservado). Abre a janela WPF como singleton — toda a
+    /// interação com o documento (varredura dos elementos Tigre, criação
+    /// do shared parameter, inserção e limpeza dos códigos) acontece via
     /// ExternalEvents disparados pela própria janela. Não roda nada no
     /// modelo até o usuário decidir.
     /// </summary>

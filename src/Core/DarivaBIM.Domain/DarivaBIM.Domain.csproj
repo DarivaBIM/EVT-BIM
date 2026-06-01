@@ -15,6 +15,12 @@
       mesmo conteudo lido pelo TigreCatalogJsonLoader em runtime.
     -->
     <EmbeddedResource Include="Tigre\tigre_codes.json" LogicalName="DarivaBIM.Domain.Tigre.tigre_codes.json" />
+    <!--
+      Rulebook de conexoes MEP (MVP 1, hidraulico). Embarcado para o
+      ConnectionRulebookLoader.LoadEmbedded ler em runtime, espelhando o padrao
+      do tigre_codes.json acima.
+    -->
+    <EmbeddedResource Include="Mep\Classification\Resources\pipe_connection_rules.json" LogicalName="DarivaBIM.Domain.Mep.Classification.Resources.pipe_connection_rules.json" />
   </ItemGroup>
 
   <ItemGroup>
