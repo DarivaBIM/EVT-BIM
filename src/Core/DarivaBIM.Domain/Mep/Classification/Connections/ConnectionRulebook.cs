@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DarivaBIM.Domain.Mep.Classification.Connections.Rules;
 using DarivaBIM.Domain.Mep.Classification.Lexical;
+using DarivaBIM.Domain.Mep.Classification.Ports;
 
 namespace DarivaBIM.Domain.Mep.Classification.Connections
 {
@@ -14,7 +15,7 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
     /// PARCIAL — disambiguators/linha/features (2.B-4) e a API publica por disciplina +
     /// ConnectionIdentity (2.B-5) entram depois.
     /// </summary>
-    public sealed class ConnectionRulebook
+    public sealed class ConnectionRulebook : IConnectionRulebook
     {
         private const string EmbeddedResourceName =
             "DarivaBIM.Domain.Mep.Classification.Resources.pipe_connection_rules.json";
@@ -114,6 +115,35 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
                 Confidence = confidence,
                 FallbackBaseKind = promoted.BaseKind,
                 Features = features,
+            };
+        }
+
+        /// <summary>
+        /// API publica (cam. 8 do secao 21): classifica num <see cref="ConnectionIdentity"/>
+        /// canonico. Resolve disciplina/categoria do motor, monta a identidade facetada a
+        /// partir do <see cref="ClassifyCore"/> e popula as granulacoes (secao 14). SEMPRE
+        /// devolve uma identidade (os 3 caminhos do core cobrem full / NoMatchingRule /
+        /// TopologyReadFailed). Linha (cam. 5) fica Unknown — vem do catalogo na fase 3.A.
+        /// </summary>
+        public ConnectionIdentity Classify(TopologyReadResult topo, ElementTexts texts)
+        {
+            RuleMatchResult core = ClassifyCore(topo, texts);
+            ConnectionTopology? topology = topo?.Topology;
+
+            return new ConnectionIdentity
+            {
+                Discipline = topology?.InferredDiscipline ?? Discipline.Unknown,
+                Category = topology?.InferredCategory ?? ProductCategory.Unknown,
+                BaseKind = core.Winner?.BaseKind ?? core.FallbackBaseKind,
+                GeometryKind = core.Winner?.GeometryKind ?? GeometryKind.Unspecified,
+                NominalAngleDeg = core.Winner?.NominalAngleDeg,
+                Ports = topology?.Ports ?? Array.Empty<MepPort>(),
+                Features = core.Features,
+                Line = ProductLine.Unknown,
+                Confidence = core.Confidence,
+                ValveKind = SubtypeGranulation.ValveKindFor(core.Winner?.Id),
+                InstrumentKind = SubtypeGranulation.InstrumentKindFor(core.Winner?.Id),
+                FilterKind = null,
             };
         }
 

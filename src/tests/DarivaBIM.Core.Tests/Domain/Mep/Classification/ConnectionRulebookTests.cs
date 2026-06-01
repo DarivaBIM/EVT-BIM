@@ -136,4 +136,103 @@ public class ConnectionRulebookTests
         Assert.True(result.ScoredCandidates.Count > 1);
         Assert.Contains(result.ScoredCandidates, sc => sc.Rule.Id == "elbow-90");
     }
+
+    // ---- cam 8: Classify -> ConnectionIdentity + granulacoes secao 14 (2.B-5a) ----
+
+    private static TopologyReadResult ValveRead()
+        => new()
+        {
+            Success = true,
+            Topology = new ConnectionTopology
+            {
+                PartType = "ValveNormal",
+                InferredBaseKind = BaseKind.Union, // motor infere Union p/ 2-conn inline; o lexico leva a Valve
+                InferredDiscipline = Discipline.Plumbing,
+                InferredCategory = ProductCategory.PipeAccessory,
+                Ports = new[] { Port(PortRole.RunA, 50), Port(PortRole.RunB, 50) },
+                AngleMatrix = new IReadOnlyList<double>[] { new[] { 0.0, 180.0 }, new[] { 180.0, 0.0 } },
+            },
+        };
+
+    [Fact]
+    public void Classify_elbow90_builds_full_identity()
+    {
+        ConnectionIdentity id = Rulebook.Classify(ElbowRead(90.0), Texts(family: "Joelho 90"));
+
+        Assert.Equal(BaseKind.Elbow, id.BaseKind);
+        Assert.NotNull(id.NominalAngleDeg);
+        Assert.Equal(90.0, id.NominalAngleDeg!.Value, 3);
+        Assert.Equal(2, id.Ports.Count);
+        Assert.Equal(ConfidenceBucket.High, id.Confidence.Bucket);
+        Assert.Null(id.ValveKind);
+        Assert.Equal(ProductLine.Unknown, id.Line); // cam 5 (linha) -> 3.A
+    }
+
+    [Fact]
+    public void Classify_valve_check_sets_valveKind_check()
+    {
+        ConnectionIdentity id = Rulebook.Classify(ValveRead(), Texts(family: "Registro Retencao"));
+
+        Assert.Equal(BaseKind.Valve, id.BaseKind);
+        Assert.Equal(ValveKind.Check, id.ValveKind);
+        Assert.Null(id.InstrumentKind);
+    }
+
+    [Fact]
+    public void Classify_meter_sets_instrumentKind_flowMeter_and_no_valveKind()
+    {
+        ConnectionIdentity id = Rulebook.Classify(ValveRead(), Texts(family: "Hidrometro"));
+
+        Assert.Equal(InstrumentKind.FlowMeter, id.InstrumentKind);
+        Assert.Null(id.ValveKind);
+    }
+
+    [Fact]
+    public void Classify_elbow_has_no_valve_or_instrument_granulation()
+    {
+        ConnectionIdentity id = Rulebook.Classify(ElbowRead(90.0), Texts(family: "Joelho 90"));
+
+        Assert.Null(id.ValveKind);
+        Assert.Null(id.InstrumentKind);
+    }
+
+    [Fact]
+    public void Classify_no_matching_rule_uses_inferred_baseKind_and_low_confidence()
+    {
+        ConnectionIdentity id = Rulebook.Classify(ElbowRead(120.0, partType: "Undefined"), Texts());
+
+        Assert.Equal(BaseKind.Elbow, id.BaseKind); // = InferredBaseKind (sem winner)
+        Assert.Equal(ConfidenceBucket.Low, id.Confidence.Bucket);
+        Assert.Null(id.ValveKind);
+    }
+
+    [Fact]
+    public void Classify_topology_read_failed_is_unknown_with_empty_ports()
+    {
+        var failed = new TopologyReadResult { Success = false, Topology = null };
+
+        ConnectionIdentity id = Rulebook.Classify(failed, Texts());
+
+        Assert.Equal(BaseKind.Unknown, id.BaseKind);
+        Assert.Empty(id.Ports);
+    }
+
+    [Fact]
+    public void Granulation_covers_every_valve_rule()
+    {
+        // GUARDRAIL secao 14: toda rule BaseKind=Valve tem ValveKind OU InstrumentKind no
+        // mapa, senao a distincao (registro/retencao/hidrometro/manometro) se perderia no
+        // ConnectionIdentity.
+        foreach (ConnectionRule rule in Rulebook.Document.Rules)
+        {
+            if (rule.BaseKind != BaseKind.Valve)
+            {
+                continue;
+            }
+
+            bool covered = SubtypeGranulation.ValveKindFor(rule.Id) is not null
+                || SubtypeGranulation.InstrumentKindFor(rule.Id) is not null;
+            Assert.True(covered, $"Rule Valve '{rule.Id}' sem granulacao (ValveKind/InstrumentKind).");
+        }
+    }
 }
