@@ -34,5 +34,11 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
         public required ClassificationConfidence Confidence { get; init; }
 
         public BaseKind FallbackBaseKind { get; init; } = BaseKind.Unknown;
+
+        /// <summary>
+        /// Features ortogonais ao BaseKind (rosca, bucha de latao, reduzido, ...),
+        /// detectadas na 2.B-4 (cam. 6). <see cref="Feature.None"/> nos fallbacks.
+        /// </summary>
+        public Feature Features { get; init; } = Feature.None;
     }
 }

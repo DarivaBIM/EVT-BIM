@@ -20,9 +20,14 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
 
         private readonly ConnectionRulebookDocument _doc;
 
+        // Indice id -> regra, construido UMA vez (reusado pela promocao da 2.B-4). O
+        // loader ja garantiu IDs unicos, entao a indexacao nao colide.
+        private readonly IReadOnlyDictionary<string, ConnectionRule> _byId;
+
         public ConnectionRulebook(ConnectionRulebookDocument doc)
         {
             _doc = doc ?? throw new ArgumentNullException(nameof(doc));
+            _byId = BuildIndex(doc.Rules);
         }
 
         public ConnectionRulebookDocument Document => _doc;
@@ -79,19 +84,47 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections
 
             ScoredCandidate winner = SelectWinner(scored);
 
-            IReadOnlyList<string> lexicalReasons = ClassificationScoring.CollectLexicalReasons(
-                winner.Rule, _doc.BaseKindTokens, familyTokens, typeTokens, descTokens);
+            // 2.B-4 (cam. 4 + 6): promove o winner a um subtipo via disambiguator e
+            // detecta features. allTokens = presenca basta (nao ponderado).
+            var allTokens = new HashSet<string>(familyTokens, StringComparer.Ordinal);
+            allTokens.UnionWith(typeTokens);
+            allTokens.UnionWith(descTokens);
 
+            (ConnectionRule promoted, double disambiguatorPenalty, IReadOnlyList<string> promotionReasons) =
+                ClassificationEnrichment.PromoteWinner(
+                    winner.Rule, allTokens, topo.Topology, _doc.Tolerances, _byId);
+
+            Feature features = ClassificationEnrichment.DetectFeatures(allTokens, topo.Topology);
+
+            // Reasons lexicais do PAI (o match que elegeu o winner) + o registro da promocao.
+            var reasons = new List<string>(ClassificationScoring.CollectLexicalReasons(
+                winner.Rule, _doc.BaseKindTokens, familyTokens, typeTokens, descTokens));
+            reasons.AddRange(promotionReasons);
+
+            // Score lexical do PAI: a promocao muda a IDENTIDADE, nao o match do texto.
             ClassificationConfidence confidence = ClassificationScoring.ComputeConfidence(
-                winner.Rule, winner.LexicalScore, topo, lexicalReasons);
+                promoted, winner.LexicalScore, topo, reasons,
+                lineBonus: 0.0, disambiguatorPenalty: disambiguatorPenalty);
 
             return new RuleMatchResult
             {
-                Winner = winner.Rule,
+                Winner = promoted,
                 ScoredCandidates = scored,
                 Confidence = confidence,
-                FallbackBaseKind = winner.Rule.BaseKind,
+                FallbackBaseKind = promoted.BaseKind,
+                Features = features,
             };
+        }
+
+        private static IReadOnlyDictionary<string, ConnectionRule> BuildIndex(IReadOnlyList<ConnectionRule> rules)
+        {
+            var byId = new Dictionary<string, ConnectionRule>(StringComparer.Ordinal);
+            foreach (ConnectionRule rule in rules)
+            {
+                byId[rule.Id] = rule;
+            }
+
+            return byId;
         }
 
         private static ISet<string> TokenSet(string text, TokenizerOptions opts)

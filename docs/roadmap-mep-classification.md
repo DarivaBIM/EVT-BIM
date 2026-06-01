@@ -7,6 +7,15 @@
 
 ---
 
+## Changelog v1.5 — slice 2.B-4 escopo Opção A; 2.B-3 fechada (2026-06-01)
+
+- **Decisão (Matheus) — Opção A:** a slice **2.B-4** entrega **só** cam 4 (disambiguators validados) + cam 6 (features). A **cam 5 (detecção de linha / `ProductLine`) sai da 2.B-4 e vai para a fase 3.A** — os `lexicalLines` derivam do catálogo Tigre (§10.2), que só existe a partir da 3.A. A 2.B-5 monta `ProductLine=Unknown`; a linha é preenchida quando o catálogo entra.
+- **2.B-3 fechada** (3a filtro topológico + 3b score/winner/confidence): `TopologyMatcher` + `ClassificationScoring` + `ConnectionRulebook.ClassifyCore`.
+- **2.B-4 implementada:** `ClassificationEnrichment` (PromoteWinner cam 4 + DetectFeatures cam 6); `RuleMatchResult.Features`; `ConnectionRulebook` orquestra promoção + features entre winner e confidence (passa `disambiguatorPenalty`; `lineBonus` segue 0). Features sem token lexical claro (`SlidingSleeve`/`BellAndSpigot`/`SocketEnd`) ficam de fora — extensão futura.
+- **⚠️ Interação cam 3 × cam 4 observada (p/ Codex panorâmico):** um subtipo com **hint exclusivo** (ex.: `rosca`→`elbow-threaded`) vence por **score** (cam 3) e a promoção nem dispara — inclusive **sem** a validação `mandatoryLexical` da cam 4 (ex.: "Joelho Bucha" **sem** "latão" elege `elbow-brass-bushing` por score, embora a promoção exija bucha **AND** latão). A promoção (cam 4) só é decisiva quando o gatilho é token **compartilhado** em `baseKindTokens` (ex.: `curva`), gerando empate pai/filho. **Avaliar no Codex** se a cam 3 deveria respeitar o `mandatoryLexical` de subtipos `requiresLexicalConfirmation`.
+
+---
+
 ## Changelog v1.4 — decisão 2.B-2: `primaryAngleRule` sempre RAW (2026-06-01)
 
 Gate da slice **2.B-2** (Janela de Revisão + **Codex Opção B**, 0 BLOCKER) cristalizou a semântica do `primaryAngleRule` no `pipe_connection_rules.json`:
@@ -192,15 +201,15 @@ Hosts do Adapter (`DarivaBIM.Revit.Adapters.V2025/V2026`, que compilam o `Shared
 - **Codex:** fim da fase 2.B.
 - **Done:** filtra+scoreia candidatos canônicos; R4 verde.
 
-#### 2.B-4 · `Classify`: disambiguators validados + linha + features (§21 cam. 4–6)
-- **Entra:** disambiguators com validação topológica + `mandatoryLexical` (cam. 4); detecção de linha via `lexicalLines` (cam. 5); features flagged (cam. 6).
-- **NÃO entra:** API pública/texto-only (2.B-5).
-- **Arquivos (Domain):** `Connections/ConnectionRulebook.cs` (disambiguation/line/features); tests.
+#### 2.B-4 · `Classify`: disambiguators validados + features (§21 cam. 4 + 6) — **Opção A**
+- **Entra:** disambiguators com validação topológica + `mandatoryLexical` (cam. 4); features flagged (cam. 6).
+- **NÃO entra (Opção A):** **cam. 5 / detecção de linha / `ProductLine` → movida para a fase 3.A** (os `lexicalLines` derivam do catálogo Tigre, §10.2); API pública/texto-only (2.B-5).
+- **Arquivos (Domain):** `Connections/ClassificationEnrichment.cs` (PromoteWinner + DetectFeatures); `RuleMatchResult.Features`; `ConnectionRulebook.cs` orquestra; tests.
 - **Depende de:** 2.B-3.
 - **R4:** Core +tests.
-- **Riscos:** promover só com topologia compatível + mandatory presente; ordem de precedência das features.
+- **Riscos:** promover só com topologia compatível + mandatory presente; ordem de precedência das features; **interação cam 3 × cam 4** (changelog v1.5).
 - **Codex:** fim da fase 2.B.
-- **Done:** promove subtipo-filho corretamente; detecta linha/features; R4 verde.
+- **Done:** promove subtipo-filho corretamente; detecta features; linha adiada p/ 3.A; R4 verde.
 
 #### 2.B-5 · `MepClassifier` API pública + **modo texto-only conservador (D2/C3)**
 - **Entra:** `MepClassifier` (resolver por disciplina §13; cam. 8 monta `ConnectionIdentity`); **modo texto-only**: infere BaseKind por `baseKindTokens`, **auto-aceita só match lexical exclusivo com `mandatoryLexical`**; **cap de confidence sem topologia** (`High` só p/ subtipo inequívoco; pai-conhecido/filho-ambíguo → `Medium`/`NeedsReview`); casos geométricos sem token → `NeedsReview`/v1.
@@ -309,8 +318,8 @@ Hosts do Adapter (`DarivaBIM.Revit.Adapters.V2025/V2026`, que compilam o `Shared
 | **2.A-1** | `LexicalNormalizer` + golden tests (D5: sem Tigre) | ✅ `858fa17`,`2c9264a` |
 | **2.B-1** | POCOs regra + loader (ciclo/IDs/embedded) | ✅ `e44df97`,`97f7286` (local; push no fim da fase 2.B) |
 | **2.B-2** | `pipe_connection_rules.json` — `primaryAngleRule` sempre RAW (Codex Opção B) | ✅ (local; push no fim da fase 2.B) |
-| **2.B-3** | Classify: filtro + score + confidence | ⬜ |
-| **2.B-4** | Classify: disambiguators + linha + features | ⬜ |
+| **2.B-3** | Classify: filtro (3a) + score/winner/confidence (3b) | ✅ (local; push no fim da fase 2.B) |
+| **2.B-4** | Classify: disambiguators + features (**linha → 3.A**, Opção A) | ✅ (local; push no fim da fase 2.B) |
 | **2.B-5** | `MepClassifier` API + modo texto-only conservador | ⬜ |
 | **3.A-1** | Migrador → CSV (3-status + topN) | ⬜ |
 | **3.A-2** | Review CSV + reimport → v2 json | ⬜ GATE |
