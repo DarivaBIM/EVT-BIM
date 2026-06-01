@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "discipline": "Plumbing",
-  "description": "Pipe connection rulebook MVP 1 (subtypes da secao 18; tokens normalizados sem acento)",
+  "description": "Pipe connection rulebook MVP 1 (subtypes da secao 18; tokens normalizados sem acento); primaryAngleRule sempre em angulo RAW entre BasisZ dos conectores (0..180), deflexao de catalogo vive em nominalAngleDeg (decisao 2.B-2 Codex Opcao B)",
 
   "baseKindTokens": {
     "elbow": ["joelho", "curva"],
@@ -138,7 +138,7 @@
         "partTypeAccepts": ["Elbow", "Offset", "Other", "Undefined"],
         "connectorCount": 2,
         "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunA", "RunB"], "relation": "equal" } ] },
-        "primaryAngleRule": { "minDeg": 40, "maxDeg": 50 }
+        "primaryAngleRule": { "minDeg": 130, "maxDeg": 140 }
       },
       "lexicalDisambiguators": [
         { "trigger": "curva", "promoteTo": "long-radius-bend-45", "mandatoryLexical": ["curva"], "topologyMustMatch": true }
@@ -173,7 +173,7 @@
         "inherits": "elbow-90",
         "overrides": {
           "diameterRule": { "mode": "roles", "constraints": [ { "ports": ["RunLarge", "RunSmall"], "relation": "different" } ] },
-          "primaryAngleRule": { "minDeg": 40, "maxDeg": 95 }
+          "primaryAngleRule": { "minDeg": 85, "maxDeg": 140 }
         }
       },
       "lexicalHints": ["reducao"]

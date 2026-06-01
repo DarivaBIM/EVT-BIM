@@ -18,6 +18,12 @@ namespace DarivaBIM.Domain.Mep.Classification.Connections.Rules
 
         public DiameterRule? DiameterRule { get; init; }
 
+        /// <summary>
+        /// Faixa angular SEMPRE em angulo RAW entre BasisZ outward (0..180) — NAO deflexao.
+        /// A deflexao de catalogo (Joelho 45/90) vive em ConnectionRule.NominalAngleDeg
+        /// (deflexao = 180 - raw). A 2.B-3 compara raw DIRETO p/ todos os BaseKinds, sem "if Elbow".
+        /// Decisao 2.B-2 (Codex Opcao B).
+        /// </summary>
         public AngleRange? PrimaryAngleRule { get; init; }
 
         public AngleRange? LateralAngleRule { get; init; }

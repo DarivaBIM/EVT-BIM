@@ -945,6 +945,12 @@ Total: **~32 subtypes mapeados** no rulebook MVP 1.
 
 ## 19. JSON exemplo realista do rulebook (extrato)
 
+> ⚠️ **ERRATA 2026-06-01** (decisão 2.B-2, Codex Opção B): `primaryAngleRule` é **sempre RAW**
+> entre BasisZ outward (0..180), **não** deflexão. Joelho 45 físico → raw 135 → `{130,140}`;
+> `elbow-reducer` (deflexão 45–90) → raw 90–135 → `{85,140}`. A deflexão de catálogo (Joelho
+> 45/90) vive em `nominalAngleDeg` (deflexão = 180 − raw). A 2.B-3 compara raw direto p/ todos
+> os BaseKinds, **sem** `if Elbow`. O extrato abaixo já reflete a errata (`elbow-reducer` {85,140}).
+
 ```json
 {
   "version": "2.0",
@@ -1050,7 +1056,7 @@ Total: **~32 subtypes mapeados** no rulebook MVP 1.
               { "ports": ["RunLarge", "RunSmall"], "relation": "different" }
             ]
           },
-          "primaryAngleRule": { "minDeg": 40, "maxDeg": 95 }
+          "primaryAngleRule": { "minDeg": 85, "maxDeg": 140 }
         }
       },
       "lexicalHints": ["reducao"]

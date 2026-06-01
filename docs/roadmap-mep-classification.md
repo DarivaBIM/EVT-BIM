@@ -7,6 +7,19 @@
 
 ---
 
+## Changelog v1.4 — decisão 2.B-2: `primaryAngleRule` sempre RAW (2026-06-01)
+
+Gate da slice **2.B-2** (Janela de Revisão + **Codex Opção B**, 0 BLOCKER) cristalizou a semântica do `primaryAngleRule` no `pipe_connection_rules.json`:
+
+- **Decisão:** `primaryAngleRule` é **sempre RAW** entre BasisZ outward (0..180) — **uma só semântica** p/ todos os BaseKinds. Antes misturava deflexão (elbow) e raw (resto), o que faria um joelho 45 real (raw 135) nunca casar `{40,50}` — armadilha de `if Elbow: 180−raw` esquecido na 2.B-3.
+- **JSON ajustado:** `elbow-45` `{40,50}→{130,140}` (deflexão 45 = raw 135 ±5); `elbow-reducer` `{40,95}→{85,140}` (deflexão 45–90 = raw 90–135 ±5). `elbow-90` `{85,95}` e todos os `{175,185}` (tê/wye/luva/redução/válvula/cruzeta) **inalterados** (já raw; joelho 90 coincide porque raw 90 == deflexão 90).
+- **Catálogo:** a deflexão (identidade "Joelho 45/90") continua em **`nominalAngleDeg`** (deflexão = 180 − raw) — separação limpa entre **filtro topológico** (raw) × **identidade de catálogo** (deflexão).
+- **REQUISITO p/ 2.B-3 (refina a convenção de ângulo v1.2 / Codex #3):** o filtro compara o **raw DIRETO** da `AngleMatrix` contra `primaryAngleRule`, **inclusivo** (`>=`/`<=`), **sem** `if Elbow` e **sem** `180−raw`. A inversão raw→deflexão permanece **só** ao derivar `NominalAngleDeg` pro matching de catálogo — nunca no filtro topológico.
+- **Teste-âncora:** `Elbow_primaryAngleRule_is_raw_not_deflection` trava `elbow-45 == {130,140}` + invariante "todo elbow tem `MinDeg >= 80`" (deflexão começaria em 40) → barra regressão silenciosa (protege o catálogo Tigre = dinheiro).
+- ⚠️ **Follow-up levantado pela Janela de Código (NÃO resolvido aqui):** o `lateralAngleRule` do `wye` (`{40,50}`) tem o **mesmo cheiro de deflexão** do antigo `elbow-45`. Fora do escopo deste gate (a decisão Codex foi só sobre `primaryAngleRule`); a 2.B-3 precisa definir **como o ângulo lateral é extraído da matriz raw** antes de confiar nessa faixa. **Registrar p/ Codex/Revisão.**
+
+---
+
 ## Changelog v1.1 — findings Codex incorporados (2026-05-28)
 
 | # | Finding Codex | Ação no roadmap |
@@ -162,7 +175,7 @@ Hosts do Adapter (`DarivaBIM.Revit.Adapters.V2025/V2026`, que compilam o `Shared
 #### 2.B-2 · `pipe_connection_rules.json` (dados — ~32 subtypes §18)
 - **Entra:** JSON v2 completo (`baseKindTokens`, `tokenAliases`, `negativeTokens`, `tolerances`, ~32 rules §18 com topology/disambiguators/lexicalHints §19; `schemaVersion`). EmbeddedResource.
 - **NÃO entra:** lógica.
-- **Arquivos (Domain):** `Resources/pipe_connection_rules.json`; `.csproj` entry; tests de validação (parse 100%; todo subtype §18 presente; `inherits`/`promoteTo` apontam pra id existente; sem ciclo; todo `baseKind` ∈ enum; 9 BaseKinds cobertos).
+- **Arquivos (Domain):** `Resources/pipe_connection_rules.json`; `.csproj` entry; tests de validação (parse 100%; todo subtype §18 presente; `inherits`/`promoteTo` apontam pra id existente; sem ciclo; todo `baseKind` ∈ enum; 9 BaseKinds cobertos; **NENHUM enum em sentinel — `relation != Unknown`, `ports` válidos, `baseKind != Unknown` — pega typo que o loader silenciaria** [gate 2.B-1]).
 - **Depende de:** 2.B-1.
 - **R4:** Core +validation tests.
 - **Riscos:** **alta densidade de erro humano no JSON** → tests de validação são a rede; fidelidade ao §18/§19.
@@ -175,7 +188,7 @@ Hosts do Adapter (`DarivaBIM.Revit.Adapters.V2025/V2026`, que compilam o `Shared
 - **Arquivos (Domain):** `Connections/ConnectionRulebook.cs` (parcial), `Connections/ElementTexts.cs`, `Connections/ClassificationScoring.cs`; tests.
 - **Depende de:** 1.A, 1.B-1, 2.A, 2.B-1/2.
 - **R4:** Core +tests.
-- **Riscos:** empate→ordem JSON; normalização de score lexical p/ 0..0.2; pesos. **CONVENÇÃO DE ÂNGULO (v1.2):** para elbow, comparar contra a regra do catálogo a **deflexão = `180 − raw`**, NUNCA o raw cru da `AngleMatrix`. Expor `deflectionAngle` derivado explícito (Codex #3) p/ o matching não herdar a inversão.
+- **Riscos:** empate→ordem JSON; normalização de score lexical p/ 0..0.2; pesos. **CONVENÇÃO DE ÂNGULO (v1.4 — decisão 2.B-2, Codex Opção B):** o **filtro topológico** compara o **raw DIRETO** da `AngleMatrix` contra `primaryAngleRule` (sempre raw 0..180), comparação **inclusiva** (`>=`/`<=`), **sem** `if Elbow`. A inversão `deflexão = 180 − raw` permanece **só** na derivação de `NominalAngleDeg` (identidade p/ o **matching de catálogo**, Codex #3) — **nunca** no filtro topológico. ⚠️ `lateralAngleRule` (ex.: `wye {40,50}`) ainda não revisado sob raw — definir a extração do lateral da matriz antes de confiar na faixa.
 - **Codex:** fim da fase 2.B.
 - **Done:** filtra+scoreia candidatos canônicos; R4 verde.
 
@@ -294,8 +307,8 @@ Hosts do Adapter (`DarivaBIM.Revit.Adapters.V2025/V2026`, que compilam o `Shared
 | **1.B-3** | `ElementTextsReader` (Adapter) | ✅ `057c4fa`,`4effbee` |
 | **1.B fix** | BLOCKER `ReductionKind` + filtro Domain fail-closed + follow-ups | ✅ `511f0a6..3608a4b` |
 | **2.A-1** | `LexicalNormalizer` + golden tests (D5: sem Tigre) | ✅ `858fa17`,`2c9264a` |
-| **2.B-1** | POCOs regra + loader (ciclo/IDs/embedded) | ⬜ |
-| **2.B-2** | `pipe_connection_rules.json` | ⬜ |
+| **2.B-1** | POCOs regra + loader (ciclo/IDs/embedded) | ✅ `e44df97`,`97f7286` (local; push no fim da fase 2.B) |
+| **2.B-2** | `pipe_connection_rules.json` — `primaryAngleRule` sempre RAW (Codex Opção B) | ✅ (local; push no fim da fase 2.B) |
 | **2.B-3** | Classify: filtro + score + confidence | ⬜ |
 | **2.B-4** | Classify: disambiguators + linha + features | ⬜ |
 | **2.B-5** | `MepClassifier` API + modo texto-only conservador | ⬜ |

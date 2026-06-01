@@ -119,4 +119,32 @@ public class PipeConnectionRulesValidationTests
             }
         }
     }
+
+    [Fact]
+    public void Elbow_primaryAngleRule_is_raw_not_deflection()
+    {
+        // GATE 2.B-2 (Codex Opcao B): primaryAngleRule e SEMPRE raw entre BasisZ outward
+        // (0..180), NAO deflexao. Joelho 45 fisico -> raw 135 (deflexao = 180 - raw); a faixa
+        // de deflexao {40,50} nunca casaria o raw que o motor 1.B-1 entrega. Este teste trava a
+        // semantica e impede regressao silenciosa de volta pra deflexao (protege o catalogo Tigre).
+        ConnectionRulebookDocument doc = Load();
+
+        ConnectionRule elbow45 = doc.Rules.Single(r => r.Id == "elbow-45");
+        Assert.Equal(new AngleRange { MinDeg = 130, MaxDeg = 140 }, elbow45.Topology.PrimaryAngleRule);
+
+        // Nenhuma regra BaseKind=Elbow pode carregar faixa de DEFLEXAO. Em raw todo elbow tem
+        // MinDeg >= 85 (elbow-90/reducer 85; elbow-45 130); a deflexao comecaria em 40 (180-defl).
+        // MinDeg pega tanto elbow-45 {40,50} quanto elbow-reducer {40,95} (que MaxDeg nao pegaria).
+        foreach (ConnectionRule rule in doc.Rules.Where(r => r.BaseKind == BaseKind.Elbow))
+        {
+            if (rule.Topology.PrimaryAngleRule is null)
+            {
+                continue;
+            }
+
+            Assert.True(
+                rule.Topology.PrimaryAngleRule.MinDeg >= 80,
+                $"Regra Elbow '{rule.Id}' tem primaryAngleRule.MinDeg < 80 — parece deflexao, nao raw.");
+        }
+    }
 }
